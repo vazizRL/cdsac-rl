@@ -1,0 +1,13 @@
+todos for first RL concept:
+
+1. difficult RL robotics example
+2. description of structure: 
+(i) constraints regarding to signals, tasks, e.g. local (pick-up), global (distance)
+(ii) partition of paths into sub-paths and sub-goals
+3. RL-strategy
+(i) use relaxed environment
+(ii) refine environment using local models of violated constraints, i.e. like in cutting plane algorithms
+(iii) parallelization
+(iv) ensemble learning
+4. implementation and technical details
+
