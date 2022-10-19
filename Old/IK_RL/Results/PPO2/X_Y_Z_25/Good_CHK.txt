@@ -1,0 +1,3 @@
+- Good Checkpoints:
+
+	- 200  or 300 -> INCREASE SAVE FREQUENCY!

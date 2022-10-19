@@ -1,0 +1,6 @@
+
+- Good CHK:
+	- 1900
+	- 2000 ---> Good loading point
+	. 2100
+	- 2300 --> Theoretically the best. Verify

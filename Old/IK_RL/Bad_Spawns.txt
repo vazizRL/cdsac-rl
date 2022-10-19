@@ -1,0 +1,35 @@
+
+Bad Spawn Positions:
+
+15: 0/3			-----
+
+14: IV / IV
+
+13: II / V		-----
+
+12: 0 / III		-----
+
+11: I / IV		-----
+
+10: IV / V
+
+9:  IV / IV	
+
+8:  III / V
+
+7:  IV / IV
+
+6:  IV / V
+
+5:  IV / IV
+
+4:  IV / V
+
+3:  IV / IV
+
+2:  III / IV
+
+1:  III / IV
+
+0:  III / V 
+

@@ -1,0 +1,20 @@
+
+- GPU TH Köln:
+	- quadro p 5000 16 GB
+
+
+- Test point
+  [-11.812208   6.607616  10.973839]
+  The reward is_:-1.0627247869542045
+
+
+- Sparse Reward elimination radius
+
+
+- Different Approach: Robot moves max. distance in a direction 
+
+
+- Change grip reward to ray intersection reward.
+
+
+

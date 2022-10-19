@@ -1,0 +1,69 @@
+##### Temporary Changes #####
+
+- Changes in PPO-Algorith:
+	- Hyperparameters (Standard Configuration):
+		 def __init__(self, policy, env, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4, vf_coef=0.5,
+                 max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, cliprange_vf=None,
+                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
+                 full_tensorboard_log=False):
+
+        	super(PPO2, self).__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
+                                   _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs)
+	
+	- Changed:
+		
+		Iteration 1:
+					Old		New	Standard Condifguration
+		i)	n_steps 	128		5		128
+		ii)	nminibatches	 4              5		4
+
+
+		Iteration 2:
+					Old		New	Standard Condifguration
+		i)	n_steps 	 5		10		128
+		ii)	nminibatches	 5              2		4
+
+
+		Iteration 3:
+					Old		New	Standard Condifguration
+		i)	n_steps 	 10		2		128
+		ii)	nminibatches	 2              1		4
+
+		
+		Iteration 4
+					Old		New	Standard Condifguration
+		i)	n_steps 	 10		2		128
+		ii)	nminibatches	 2              1		4
+		iii)	cliprange_vf	 None		-1		None
+		
+	
+
+- IK_RL_MVP_III
+	- Action Bound to [-5, 5] for the action
+	- Only one action (x-axis)
+
+##### Permanent Changes in IK_MVP_III #####
+- Termination conditions within the while- und repetition-for-loop changed to self._contact_with_env
+
+
+##### Permanent Changes in IK_RL_MVP_II #####
+
+- Changes in Reward:
+	- two distances (goal->target and EE->goal) added and divided by 2.05
+	- Punishment for crashing is self.max_IK_points + 1 
+
+
+##### UNDONE #####
+
+- Changes in debug-mode:
+	- renders = False
+	- Terminate after reaching one position
+
+
+
+
+
+		
+
+
+

@@ -1,0 +1,14 @@
+
+- Boundary Selection:
+	- Punishment
+	- Termination
+
+- Crash:
+	- Punishment 
+	- Termination
+
+- Action Space
+
+- Reward Design
+
+- HP's

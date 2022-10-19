@@ -1,0 +1,12 @@
+Mediocre CHKs
+
+ - 1800
+
+
+Good CHKs
+
+- 2000
+
+- 2400
+
+- 2500

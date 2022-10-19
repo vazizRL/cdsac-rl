@@ -1,0 +1,7 @@
+
+Good checkpoints: 
+	- 1300
+	- 1600
+
+Bad Checkpoint:
+	- 1800
