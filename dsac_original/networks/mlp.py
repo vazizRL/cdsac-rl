@@ -23,6 +23,7 @@ def mlp(sizes, activation, output_activation=nn.Identity):
 def count_vars(module):
     return sum([np.prod(p.shape) for p in module.parameters()])
 
+
 # Stochastic Policy
 class StochaPolicy(nn.Module, Action_Distribution):
     """
@@ -98,6 +99,7 @@ class StochaPolicy(nn.Module, Action_Distribution):
 
         return torch.cat((action_mean, action_std), dim=-1)
 
+
 class ActionValueDistri(nn.Module):
     """
     Approximated function of distributed action-value function.
@@ -119,6 +121,12 @@ class ActionValueDistri(nn.Module):
         self.denominator = max(abs(self.min_log_std), self.max_log_std)
 
     def forward(self, obs, act, min=False):
+        """
+        - Feed forward according to PyTorch
+        :param obs: State
+        :param act: Action
+        :return: Mean of \mathcal{Z} with clipped \sigma
+        """
         logits = self.q(torch.cat([obs, act], dim=-1))
         value_mean, log_std = torch.chunk(logits, chunks=2, dim=-1)
 

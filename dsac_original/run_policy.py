@@ -1,4 +1,4 @@
-from utils.sys_run import PolicyRunner
+from dsac_original.utils.sys_run import PolicyRunner
 
 runner = PolicyRunner(
     log_policy_dir_list=["./results/230721-143613"],
@@ -7,7 +7,7 @@ runner = PolicyRunner(
     init_info={"init_state": [-1, 0.05, 0.05, 0, 0.1, 0.1]},
     save_render=True,
     legend_list=["DSAC"],
-    dt=0.01, # time interval between steps
+    dt=0.01,
 )
 
 runner.run()

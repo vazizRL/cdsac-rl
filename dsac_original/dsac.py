@@ -7,11 +7,10 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from torch.optim import Adam
-
 from typing import Dict
-from utils.initialization import create_apprfunc
-from utils.tensorboard_setup import tb_tags
-from utils.common_utils import get_apprfunc_dict
+from dsac_original.utils.initialization import create_apprfunc
+from dsac_original.utils.tensorboard_setup import tb_tags
+from dsac_original.utils.common_utils import get_apprfunc_dict
 
 
 class ApproxContainer(torch.nn.Module):
