@@ -135,7 +135,7 @@ def get_args():
         Function for reading in command line arguments specified by flags.
         Call e.g.
 
-            python3 main.py -r Results/.../checkpoint_7770.zip -p Params/param_setting_1.json
+            python3 main_ffff.py -r Results/.../checkpoint_7770.zip -p Params/param_setting_1.json
 
         for  retraining model saved at 'Results/.../checkpoint_7770.zip' using parameters
         specified in 'Params/param_setting_1.json'.

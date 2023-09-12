@@ -28,7 +28,7 @@ Train the policy by running:
 ```bash
 cd example_train
 #Train a pendulum task
-python main.py
+python main_ffff.py
 #Train a humanoid task. To execute this file, Mujoco and Mujoco-py need to be installed first. 
 python dsac_mlp_humanoidconti_offserial.py
 ```

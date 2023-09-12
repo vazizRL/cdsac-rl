@@ -101,7 +101,6 @@ class DSAC:
         self.__update(iteration)
         return tb_info
 
-
     def __get_alpha(self, requires_grad: bool = False):
         if self.auto_alpha:
             alpha = self.networks.log_alpha.exp()
@@ -286,4 +285,4 @@ class DSAC:
                 ):
                     p_targ.data.mul_(polyak)
                     p_targ.data.add_((1 - polyak) * p.data)
-#
+

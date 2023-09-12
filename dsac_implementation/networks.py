@@ -6,7 +6,7 @@ from action_distribution import TanhGaussDistribution
 
 
 class Critic(nn.Module):
-    def __init__(self, obs_dim: int, action_dim: int, min_log_std=-0.1, max_log_std=4,
+    def __init__(self, obs_dim: int, action_dim: int, min_log_std=-0.1, max_log_std=5,
                  hidden_layers=(256, 256, 256, 256, 256), activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu')):
         """
         - Modelling Q distribution as a Gaussian.
@@ -71,9 +71,8 @@ class Actor(nn.Module):
 
     def get_act_distr(self, logits):
         """
-        - Must be rewritten for more efficiency. Why is a distribution object instantiated each time, although
-          self.act_low_lim and self.act_up_lim do not change?
-        :param logits:
+        - Returns distribution class
+        :param logits: Output of policy
         :type logits:
         """
         act_dist = self.action_distribution_cls(logits, self.act_low_lim, self.act_up_lim)
