@@ -12,7 +12,7 @@ from typing import Dict
 
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
-                 actor_lr_ini, actor_lr_fin, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
+                 log_alpha, actor_lr_ini, actor_lr_fin, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
                  reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1):
         """
         - Implements DSACv0.2, based on https://arxiv.org/abs/2001.02811
@@ -36,8 +36,8 @@ class DSAC:
         # Do not track gradients for target networks
         self.switch_autograd_log(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
-        # Create entropy coefficient
-        self.log_alpha = nn.Parameter(torch.tensor(1, dtype=torch.float32))
+        # Assign log_alpha to attribute
+        self.log_alpha = log_alpha
 
         # Create optimizers
         self.q1_optimizer = Adam(self.q1.parameters(), lr=cr_lr_ini)
@@ -59,7 +59,7 @@ class DSAC:
         self.tau = tau
         self.target_entropy = target_entropy
         self.auto_alpha = auto_alpha
-        self.alpha = alpha
+        self.static_alpha = alpha
         self.update_interval = up_interval
 
     @property
@@ -87,7 +87,7 @@ class DSAC:
                 # item() returns value as standard Python value
                 return alpha.item()
         else:
-            return self.alpha
+            return self.static_alpha
 
     def get_optimizers(self):
         """

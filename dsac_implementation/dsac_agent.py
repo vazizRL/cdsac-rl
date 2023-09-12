@@ -15,7 +15,6 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True,
-                 target_entropy=-1
                  ):
         self.q1: nn.Module = Critic(obs_dim=obs_dim, action_dim=action_dim, min_log_std=cr_min_log_std,
                                     max_log_std=cr_max_log_std, hidden_layers=cr_hl, activ=cr_activ)
@@ -32,10 +31,10 @@ class Agent:
         self.log_alpha = nn.Parameter(torch.tensor(1, dtype=torch.float32))
 
         self.dsac = DSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
-                         policy=self.policy, policy_target=self.policy_target, actor_lr_ini=act_lr_ini,
-                         actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini, alpha_lr_fin=alpha_lr_fin, t_max=t_max,
-                         tau=tau, alpha=alpha, reward_scale=reward_scale, gamma=gamma, up_interval=update_interval,
-                         auto_alpha=auto_alpha, target_entropy=-action_dim)
+                         policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
+                         actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
+                         alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=tau, alpha=alpha, reward_scale=reward_scale,
+                         gamma=gamma, up_interval=update_interval, auto_alpha=auto_alpha, target_entropy=-action_dim)
 
     def remember(self):
         pass
@@ -46,14 +45,16 @@ class Agent:
     def choose_action(self):
         pass
 
-    def save_models(self, epoch):
+    def save_models(self, epoch: int, path_file: str):
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
         torch.save({
             'epoch': epoch,
             'cr1_state_dict': self.q1.state_dict(),
+            'cr1_optim_state_dict': cr1_optim.state_dict(),
             'cr2_state_dict': self.q2.state_dict(),
+            'cr2_optim_state_dict': cr2_optim.state_dict(),
             'policy_state_dict': self.policy.state_dict(),
-            'alpha_state_dict':
+            'log_alpha_state_dict': self.log_alpha.state_dict(),
         })
 
     def load_models(self):

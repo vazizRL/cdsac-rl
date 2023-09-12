@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from variable_mlp import MLP
-from action_distribution import TanhGaussDistribution
+from dsac_implementation.variable_mlp import MLP
+from dsac_implementation.action_distribution import TanhGaussDistribution
 
 
 class Critic(nn.Module):
@@ -23,6 +23,8 @@ class Critic(nn.Module):
         self.min_log_std = torch.tensor(min_log_std).to(self.q.device)
         self.max_log_std = torch.tensor(max_log_std).to(self.q.device)
         self.denominator = max(abs(self.min_log_std), self.max_log_std)
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        self.to(self.device)
 
     def forward(self, obs: torch.tensor, action: torch.tensor, min=False):
         """
@@ -44,7 +46,7 @@ class Critic(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim: tuple, action_dim: tuple, hidden_layers=(256, 256, 256, 256, 256),
+    def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256, 256, 256, 256),
                  activation=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'), min_log_std=-20, max_log_std=0.5,
                  action_low_lim=-1, action_up_lim=1):
         """
@@ -59,15 +61,17 @@ class Actor(nn.Module):
         super().__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
-        self.arch = tuple(list(self.state_dim) + list(hidden_layers) + list(self.action_dim))
+        self.arch = tuple([self.state_dim] + list(hidden_layers) + [self.action_dim])
         self.activation = activation
         self.policy = MLP(arch=self.arch, activ=self.activation)
         self.min_log_std = min_log_std
         self.max_log_std = max_log_std
 
-        self.register_buffer("act_low_lim", torch.from_numpy(action_low_lim))
-        self.register_buffer("act_up_lim", torch.from_numpy(action_up_lim))
+        self.register_buffer("act_low_lim", torch.tensor(action_low_lim))
+        self.register_buffer("act_up_lim", torch.tensor(action_up_lim))
         self.action_distribution_cls = TanhGaussDistribution
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        self.to(self.device)
 
     def get_act_distr(self, logits):
         """
