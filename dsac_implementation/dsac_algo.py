@@ -5,7 +5,7 @@ from dsac_implementation.networks import Critic, Actor
 from torch.distributions import Normal
 from torch.optim import Adam, lr_scheduler
 
-from tensorboard_tools import tb_tags
+from dsac_implementation.tensorboard_tools import tb_tags
 from typing import Tuple
 from typing import Dict
 
@@ -13,7 +13,7 @@ from typing import Dict
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  log_alpha, actor_lr_ini, actor_lr_fin, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1):
+                 reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1, **kwargs):
         """
         - Implements DSACv0.2, based on https://arxiv.org/abs/2001.02811
         :param tau: Soft update parameter
@@ -39,20 +39,25 @@ class DSAC:
         # Assign log_alpha to attribute
         self.log_alpha = log_alpha
 
-        # Create optimizers
+        # Assign optimizer params and create optimizers
+        self.q_lr_ini = cr_lr_ini
+        self.q_lr_fin = cr_lr_fin
+        self.policy_lr_ini = actor_lr_ini
+        self.policy_lr_fin = actor_lr_fin
+        self.alpha_lr_ini = alpha_lr_ini
+        self.alpha_lr_fin = alpha_lr_fin
+        self.t_max = t_max
+
         self.q1_optimizer = Adam(self.q1.parameters(), lr=cr_lr_ini)
         self.q2_optimizer = Adam(self.q2.parameters(), lr=cr_lr_ini)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=actor_lr_ini)
         self.alpha_optimizer = Adam([self.log_alpha], lr=alpha_lr_ini)
 
-        self.q1_lrs = lr_scheduler.CosineAnnealingLR(self.q1_optimizer, T_max=t_max, eta_min=cr_lr_fin,
-                                                     last_epoch=-1, verbose=False)
-        self.q2_lrs = lr_scheduler.CosineAnnealingLR(self.q2_optimizer, T_max=t_max, eta_min=cr_lr_fin,
-                                                     last_epoch=-1, verbose=False)
-        self.pol_lrs = lr_scheduler.CosineAnnealingLR(self.policy_optimizer, T_max=t_max, eta_min=actor_lr_fin,
-                                                      last_epoch=-1, verbose=False)
-        self.alpha_lrs = lr_scheduler.CosineAnnealingLR(self.alpha_optimizer, T_max=t_max, eta_min=alpha_lr_fin,
-                                                        last_epoch=-1, verbose=False)
+        self.q1_lrs = None
+        self.q2_lrs = None
+        self.pol_lrs = None
+        self.alpha_lrs = None
+        self.create_lr_schedules()
 
         # Algorithm parameters
         self.gamma = gamma
@@ -72,6 +77,17 @@ class DSAC:
             'delay_update'
         )
 
+    """ Internally Called """
+    def create_lr_schedules(self):
+        self.q1_lrs = lr_scheduler.CosineAnnealingLR(self.q1_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
+                                                     last_epoch=-1, verbose=False)
+        self.q2_lrs = lr_scheduler.CosineAnnealingLR(self.q2_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
+                                                     last_epoch=-1, verbose=False)
+        self.pol_lrs = lr_scheduler.CosineAnnealingLR(self.policy_optimizer, T_max=self.t_max,
+                                                      eta_min=self.policy_lr_fin, last_epoch=-1, verbose=False)
+        self.alpha_lrs = lr_scheduler.CosineAnnealingLR(self.alpha_optimizer, T_max=self.t_max,
+                                                        eta_min=self.alpha_lr_fin, last_epoch=-1, verbose=False)
+
     def get_alpha(self, requires_grad=False):
         """
         - Calculates alpha from log_alpha and returns scalar or tensor depending on whether temperature regulation
@@ -88,32 +104,6 @@ class DSAC:
                 return alpha.item()
         else:
             return self.static_alpha
-
-    def get_optimizers(self):
-        """
-        - Necessary for saving
-        :return: All optimizers
-        """
-        return self.q1_optimizer, self.q2_optimizer, self.policy_optimizer, self.alpha_optimizer
-
-    def update_networks(self, iteration: int):
-        # Value optimizing step
-        self.q1_optimizer.step()
-        self.q2_optimizer.step()
-
-        # Update every n-th iteration
-        if iteration % self.update_interval == 0:
-            # Policy optimizing step
-            self.policy_optimizer.step()
-
-            # Optional alpha optimizing step
-            if self.auto_alpha:
-                self.alpha_optimizer.step()
-
-            with torch.no_grad():
-                self.soft_avg_update(self.q1, self.q1_target)
-                self.soft_avg_update(self.q2, self.q2_target)
-                self.soft_avg_update(self.policy, self.policy_target)
 
     def switch_autograd_log(self, require_grad, models: list):
         for model in models:
@@ -151,6 +141,25 @@ class DSAC:
 
         return means, stds, z
 
+    def update_networks(self, iteration: int):
+        # Value optimizing step
+        self.q1_optimizer.step()
+        self.q2_optimizer.step()
+
+        # Update every n-th iteration
+        if iteration % self.update_interval == 0:
+            # Policy optimizing step
+            self.policy_optimizer.step()
+
+            # Optional alpha optimizing step
+            if self.auto_alpha:
+                self.alpha_optimizer.step()
+
+            with torch.no_grad():
+                self.soft_avg_update(self.q1, self.q1_target)
+                self.soft_avg_update(self.q2, self.q2_target)
+                self.soft_avg_update(self.policy, self.policy_target)
+
     def compute_target_q(self, rewards, dones, q_means, q_stds, q_means_next, q_next_samples, log_probs_a_next):
         """
         - Calculates the targets with standard mean Q and sampled Z
@@ -183,7 +192,7 @@ class DSAC:
         states, actions, rewards, states_next, _, dones = batch
 
         logits_next = self.policy_target(states_next)
-        action_dist_nxt = self.policy.get_act_dist(logits_next)
+        action_dist_nxt = self.policy_target.get_act_dist(logits_next)
         # In evaluation and control, reparameterization trick is used
         actions_nxt, log_prob_actions_next = action_dist_nxt.sample(reparameterization=True)
 
@@ -289,7 +298,6 @@ class DSAC:
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
         policy_std = logits_std.mean().item()
-        list()
 
         act_dist = self.policy.get_act_dist(logits)
         new_actions, new_log_ps = act_dist.sample(reparameterization=True)
@@ -335,6 +343,23 @@ class DSAC:
         }
 
         return tb_info
+
+    """ /Internally Called """
+
+    def get_optimizers(self):
+        """
+        - Necessary for saving and reconstructing the optimizers
+        :return: All optimizers
+        """
+        return self.q1_optimizer, self.q2_optimizer, self.policy_optimizer, self.alpha_optimizer
+
+    def get_lr_info(self):
+        """
+        - Necessary for saving and reconstructing the learning rate schedule
+        :return: All initial and final learning rates
+        """
+        return self.q_lr_ini, self.q_lr_fin, self.policy_lr_ini, self.policy_lr_fin, self.alpha_lr_ini, \
+            self.alpha_lr_fin
 
     def update(self, batch, iteration):
         """
