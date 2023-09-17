@@ -193,7 +193,7 @@ class DSAC:
         states, actions, rewards, states_next, _, dones = batch
 
         logits_next = self.policy_target(states_next)
-        action_dist_nxt = self.policy_target.get_act_dist(logits_next)
+        action_dist_nxt = self.policy_target.get_act_distr(logits_next)
         # In evaluation and control, reparameterization trick is used
         actions_nxt, log_prob_actions_next = action_dist_nxt.sample(reparameterization=True)
 
@@ -301,7 +301,7 @@ class DSAC:
         policy_mean = torch.tanh(logits_mean).mean().item()
         policy_std = logits_std.mean().item()
 
-        act_dist = self.policy.get_act_dist(logits)
+        act_dist = self.policy.get_act_distr(logits)
         new_actions, new_log_ps = act_dist.sample(reparameterization=True)
         # extended_batch = tuple(list(batch) + [new_action, new_log_p])
 
@@ -363,7 +363,7 @@ class DSAC:
         return self.q_lr_ini, self.q_lr_fin, self.policy_lr_ini, self.policy_lr_fin, self.alpha_lr_ini, \
             self.alpha_lr_fin
 
-    def update(self, batch, iteration):
+    def update(self, batch: tuple, iteration: int):
         """
         - Wrapper; Calculate gradient and perform network optimization step
         :param batch: Mini-batch

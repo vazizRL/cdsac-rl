@@ -6,7 +6,7 @@ class ReplayBuffer:
     def __init__(self, max_size, obs_shape, n_actions):
         # n_actions: Number of components of continuous actions
         # input_shape: Observation space shape
-        self.mem_size = max_size
+        self.mem_size = int(max_size)
         # Keeps track of first available memory
         self.mem_cntr = 0
 
@@ -65,6 +65,14 @@ class ReplayBuffer:
         dones = self.terminal_memory[batch]
 
         return states, actions, rewards, states_, log_ps, dones
+
+    def clear_buffer(self):
+        self.state_memory.fill(0.0)
+        self.new_state_memory.fill(0.0)
+        self.action_memory.fill(0.0)
+        self.reward_memory.fill(0.0)
+        self.log_p.fill(0.0)
+        self.terminal_memory.fill(0.0)
 
 
 if __name__ == '__main__':

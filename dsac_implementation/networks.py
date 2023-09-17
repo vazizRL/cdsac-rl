@@ -101,6 +101,7 @@ class Actor(nn.Module):
         return act_dist
 
     def forward(self, obs):
+        obs = torch.as_tensor(obs).to(self.device)
         logits = self.policy(obs)
         # action_mean, action_log_std = torch.chunk(logits, chunks=2, dim=-1)
         action_mean, action_log_std = logits

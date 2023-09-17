@@ -32,7 +32,7 @@ if __name__ == '__main__':
             observation_, reward, done, info = env.step(action)
             n_steps += 1
             score += reward
-            agent.remember(observation, action, prob, val, reward, done)
+            agent.save_experience_tupel(observation, action, prob, val, reward, done)
             if n_steps % N == 0:
                 agent.learn()
                 learn_iters += 1

@@ -48,18 +48,18 @@ class MLP(nn.Module):
         next_element_list = list(self._arch)[1:-1] + [None]
         for arch_i, next_arch in zip(self._arch, next_element_list):
             if next_arch:
-                layer = nn.Linear(arch_i, next_arch).to(self.device)
+                layer = nn.Linear(arch_i, next_arch, dtype=torch.float64).to(self.device)
                 self._layers.append(layer)
                 self.module_dict.update({'layer_id_' + str(layer_id): layer})
                 layer_id += 1
-        mean = nn.Linear(self._arch[-2], self._arch[-1]).to(self.device)
-        std = nn.Linear(self._arch[-2], self._arch[-1]).to(self.device)
+        mean = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+        std = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
         self.module_dict.update({'head_1': mean, 'head_2': std})
         self._layers.append((mean, std))
         return 0
 
     def forward(self, x):
-        ffd = x
+        ffd = torch.as_tensor(x, dtype=torch.float64)
         for act_idx, layer_i in enumerate(self._layers[:-1]):
             func = self.get_activ_func_from_str(self._activ_str[act_idx])
             ffd = func(layer_i(ffd))
