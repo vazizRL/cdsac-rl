@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-from dsac_implementation.variable_mlp import MLP
+from dsac_implementation.variable_tow_headed_mlp import MLP
 from dsac_implementation.action_distribution import TanhGaussDistribution
 
 
@@ -21,7 +21,7 @@ class Critic(nn.Module):
         self.action_dim = action_dim
         inp_dim = [self.state_dim + self.action_dim]
         self.hidden_layers = hidden_layers
-        self.arch = tuple(inp_dim + list(self.hidden_layers) + [2])
+        self.arch = tuple(inp_dim + list(self.hidden_layers) + [1])
         self.activation = activ
         self.q = MLP(arch=self.arch, activ=self.activation)
         self.min_log_std = torch.tensor(min_log_std).to(self.q.device)
@@ -44,13 +44,15 @@ class Critic(nn.Module):
         :rtype: torch.tensor
         """
         logits = self.q(torch.cat([obs, action], dim=-1))
-        value_mean, log_std = torch.chunk(logits, chunks=2, dim=-1)
+        # value_mean, log_std = torch.chunk(logits, chunks=2, dim=-1)
+        value_mean, log_std = logits
 
         # tanh=-1 with min=-1, max=0.1, then -0.1; if tanh=1, min=-1, max=0.1, then 1
         value_log_std = torch.clamp_min(self.max_log_std * torch.tanh(log_std / self.denominator), 0) + \
             torch.clamp_max(-self.min_log_std * torch.tanh(log_std / self.denominator), 0)
 
-        return torch.cat((value_mean, value_log_std), dim=-1)
+        # return torch.cat((value_mean, value_log_std), dim=-1)
+        return value_mean, value_log_std
 
 
 class Actor(nn.Module):
@@ -100,10 +102,12 @@ class Actor(nn.Module):
 
     def forward(self, obs):
         logits = self.policy(obs)
-        action_mean, action_log_std = torch.chunk(logits, chunks=2, dim=-1)
+        # action_mean, action_log_std = torch.chunk(logits, chunks=2, dim=-1)
+        action_mean, action_log_std = logits
         action_std = torch.clamp(action_log_std, self.min_log_std, self.max_log_std).exp()
 
-        return torch.cat((action_mean, action_std), dim=-1)
+        # return torch.cat((action_mean, action_std), dim=-1)
+        return action_mean, action_std
 
 
 if __name__ == '__main__':

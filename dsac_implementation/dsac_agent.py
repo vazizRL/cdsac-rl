@@ -15,7 +15,7 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True,
-                 memory_size=1e5
+                 memory_size=int(1e5)
                  ):
         self.t_max = t_max
         self.tau = tau
@@ -156,3 +156,5 @@ class Agent:
         self.dsac.policy_optimizer.load_state_dict(policy_optim_state_dict)
         self.dsac.alpha_optimizer.load_state_dict(log_alpha_optim_state_dict)
         self.dsac.create_lr_schedules()
+
+        return self

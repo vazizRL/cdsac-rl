@@ -7,7 +7,7 @@ from dsac_implementation.dsac_agent import Agent
 """Define Global Constans"""
 # Define env. constants
 state_dim = 2
-action_dim = 2
+action_dim = 3
 
 # Define actor constants
 actor_hl = (2, 2)
@@ -42,18 +42,16 @@ auto_alpha = True
 # Define inputs
 device = torch.device('cuda:0')
 rnd_state = T.tensor((2, 2), dtype=torch.float32).to(device)
-rnd_action = T.tensor((1.5, 1.5), dtype=torch.float32).to(device)
+rnd_action = T.tensor((1.5, 1.5, 2), dtype=torch.float32).to(device)
 
 
 def create_actor_test():
-
     actor = Actor(state_dim, action_dim, actor_hl, actor_activ, actor_min_log_std, actor_max_log_std,
                   action_low_lim, action_high_lim)
-
     output = actor(rnd_state)
     print(f'Before saving - Random state: {rnd_state}; Output: {output}')
 
-    return actor
+    return actor, output
 
 
 def save_actor_and_reload(actor, input):
@@ -82,7 +80,7 @@ def create_critic_test():
     output = critic(obs=rnd_state, action=rnd_action)
     print(f'Before saving - State: {rnd_state} ;Action: {rnd_action}; Output: {output}')
 
-    return critic
+    return critic, output
 
 
 def create_agent():
@@ -102,13 +100,14 @@ def test_saving_loading_complete():
 
 
 if __name__ == '__main__':
-    critic = create_critic_test()
-    actor = create_actor_test()
+    critic, cr_output = create_critic_test()
+    actor, ac_output = create_actor_test()
     agent = create_agent()
+    print(f'Policy minimum std before loading: {agent.policy.min_log_std}')
 
-
-    # path = os.getcwd() + '/'
+    path = os.getcwd() + '/'
     # agent.save_checkpoint(epoch=1, path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
-    # new_agent = agent.load_checkpoint(path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
+    new_agent = agent.load_checkpoint(path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
+    print(f'Policy minimum std after loading: {agent.policy.min_log_std}')
 
 

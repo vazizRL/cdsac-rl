@@ -6,15 +6,13 @@ import torch.nn.functional as F
 class MLP(nn.Module):
     def __init__(self, arch: tuple, activ: tuple):
         super().__init__()
+        self.module_dict = nn.ModuleDict()
         self._arch = arch
         self._layers = list()
         self._activ_str = activ
         self._activ = dict()
-        self.build_layers()
-        self.network = nn.Sequential(*self._layers)
-
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.to(self.device)
+        self.build_layers()
 
     @property
     def activ(self):
@@ -45,6 +43,37 @@ class MLP(nn.Module):
         return hook
 
     def build_layers(self):
+        layer_id = 1
+
+        next_element_list = list(self._arch)[1:-1] + [None]
+        for arch_i, next_arch in zip(self._arch, next_element_list):
+            if next_arch:
+                layer = nn.Linear(arch_i, next_arch).to(self.device)
+                self._layers.append(layer)
+                self.module_dict.update({'layer_id_' + str(layer_id): layer})
+                layer_id += 1
+        mean = nn.Linear(self._arch[-2], self._arch[-1]).to(self.device)
+        std = nn.Linear(self._arch[-2], self._arch[-1]).to(self.device)
+        self.module_dict.update({'head_1': mean, 'head_2': std})
+        self._layers.append((mean, std))
+        return 0
+
+    def forward(self, x):
+        ffd = x
+        for act_idx, layer_i in enumerate(self._layers[:-1]):
+            func = self.get_activ_func_from_str(self._activ_str[act_idx])
+            ffd = func(layer_i(ffd))
+        means = self._layers[-1][0](ffd)
+        stds = self._layers[-1][1](ffd)
+        return means, stds
+
+
+
+
+
+""" 
+Older Methods 
+def build_layers(self):
         next_element_list = list(self._arch)[1:] + [None]
         for arch_i, next_arch in zip(self._arch, next_element_list):
             if next_arch:
@@ -57,4 +86,9 @@ class MLP(nn.Module):
         for act_idx, layer_i in enumerate(self._layers):
             func = self.get_activ_func_from_str(self._activ_str[act_idx])
             ffd = func(layer_i(ffd))
+
         return ffd
+"""
+
+
+

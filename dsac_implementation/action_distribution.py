@@ -12,7 +12,8 @@ class TanhGaussDistribution:
         :param act_up_lim: Vector containing higher bounds of a_i
         """
         self.logits = logits
-        self.mean, self.std = torch.chunk(logits, chunks=2, dim=-1)
+        # self.mean, self.std = torch.chunk(logits, chunks=2, dim=-1)
+        self.mean, self.std = logits
         self.gauss_distribution = torch.distributions.Independent(
             base_distribution=torch.distributions.Normal(self.mean, self.std), reinterpreted_batch_ndims=1)
         self.act_low_lim = torch.tensor(act_low_lim)

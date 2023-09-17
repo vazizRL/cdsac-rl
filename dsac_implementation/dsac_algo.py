@@ -130,7 +130,8 @@ class DSAC:
         :rtype:
         """
         stocha_q = qnet(obs, actions)
-        means, log_stds = stocha_q[..., 0], stocha_q[..., -1]
+        # means, log_stds = stocha_q[..., 0], stocha_q[..., -1]
+        means, log_stds = stocha_q
         stds = log_stds.exp()
         # Initiate zeros and ones tensors with shape of means and stds
         normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
@@ -294,7 +295,8 @@ class DSAC:
 
         # Construct action distribution with reparameterization trick
         logits = self.policy(states)
-        logits_mean, logits_std = torch.chunk(logits, chunks=2, dim=-1)
+        # logits_mean, logits_std = torch.chunk(logits, chunks=2, dim=-1)
+        logits_mean, logits_std = logits
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
         policy_std = logits_std.mean().item()
