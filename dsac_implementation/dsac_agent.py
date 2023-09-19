@@ -91,17 +91,18 @@ class Agent:
         """
         self.memory.store_transition(state, action, reward, state_, log_p, done)
 
-    def learn(self, n_learning_iter: int, step_number: int, clear_mem=False):
+    def learn(self, n_learning_iter: int, step_number: int):
         for learning_iter_i in range(n_learning_iter):
             batch_i = self.memory.sample_buffer(self.batch_size)
             self.dsac.update(batch_i, iteration=step_number)
 
-        if clear_mem:
-            self.memory.clear_buffer()
-
         return 0
 
     def clear_replay_buffer(self):
+        """
+        - Sets all entries of replay buffer to zero
+        :return: Error
+        """
         self.memory.clear_buffer()
 
         return 0

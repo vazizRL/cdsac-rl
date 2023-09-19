@@ -5,8 +5,9 @@ from sac_agent import Agent
 
 
 if __name__ == '__main__':
-    load_checkpoint = True
-    if load_checkpoint:
+    load_checkpoint = False
+    render = False
+    if load_checkpoint and render:
         env = gym.make('InvertedPendulum-v4', render_mode='human')
     else:
         env = gym.make('InvertedPendulum-v4')
@@ -31,12 +32,11 @@ if __name__ == '__main__':
             # observation_ = observation_.astype(np.float32)
             score += reward
             agent.remember(observation, action, reward, observation_, done)
-            if load_checkpoint:
+            if render:
                 env.render()
-            else:
+            if not load_checkpoint:
                 agent.learn()
             observation = observation_
-            env.render()
         score_history.append(score)
         avg_score = np.mean(score_history[-1:])
 

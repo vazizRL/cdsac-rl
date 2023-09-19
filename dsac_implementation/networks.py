@@ -43,8 +43,6 @@ class Critic(nn.Module):
         :return: Logits?
         :rtype: torch.tensor
         """
-        obs = torch.tensor(obs).to(self.device)
-        action = torch.tensor(action).to(self.device)
         logits = self.q(torch.cat([obs, action], dim=-1))
         # value_mean, log_std = torch.chunk(logits, chunks=2, dim=-1)
         value_mean, log_std = logits

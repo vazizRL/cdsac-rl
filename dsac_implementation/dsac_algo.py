@@ -63,6 +63,7 @@ class DSAC:
         self.create_lr_schedules()
 
         # Algorithm parameters
+        self.reward_scale = reward_scale
         self.gamma = torch.tensor(gamma).to(self.device)
         self.tau = torch.tensor(tau).to(self.device)
         self.target_entropy = torch.tensor(target_entropy).to(self.device)
@@ -119,7 +120,7 @@ class DSAC:
 
     def soft_avg_update(self, net: torch, net_targ: torch):
         tar_factor = 1 - self.tau
-        for para, para_targ in zip(net.paramters(), net_targ.parameters()):
+        for para, para_targ in zip(net.parameters(), net_targ.parameters()):
             para_targ.data.mul_(tar_factor)
             para_targ.data.add_(self.tau * para.data)
 
@@ -198,7 +199,7 @@ class DSAC:
         # Convert to tensors
         states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
         actions = torch.as_tensor(actions, dtype=torch.float32).to(self.device)
-        rewards = torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
         states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
         dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
 
@@ -279,7 +280,7 @@ class DSAC:
 
         q_loss = q1_loss + q2_loss
 
-        return q_loss, q1_means.detach.mean(), q2_means.detach().mean(), q1_stds.detach().mean(), \
+        return q_loss, q1_means.detach().mean(), q2_means.detach().mean(), q1_stds.detach().mean(), \
             q2_stds.detach().mean()
 
     def compute_policy_loss(self, batch):
