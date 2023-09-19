@@ -25,6 +25,9 @@ class DSAC:
         :param auto_alpha: Whether alpha is updated automatically
         """
 
+        # Initialize device
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
         self.q1: nn.Module = critic1
         self.q2: nn.Module = critic2
         self.q1_target = critic1_target
@@ -60,11 +63,11 @@ class DSAC:
         self.create_lr_schedules()
 
         # Algorithm parameters
-        self.gamma = gamma
-        self.tau = tau
-        self.target_entropy = target_entropy
+        self.gamma = torch.tensor(gamma).to(self.device)
+        self.tau = torch.tensor(tau).to(self.device)
+        self.target_entropy = torch.tensor(target_entropy).to(self.device)
+        self.static_alpha = torch.tensor(alpha).to(self.device)
         self.auto_alpha = auto_alpha
-        self.static_alpha = alpha
         self.update_interval = up_interval
 
     @property
@@ -76,6 +79,15 @@ class DSAC:
             'alpha',
             'delay_update'
         )
+
+    @staticmethod
+    def switch_autograd_log(require_grad, models: list):
+        for model in models:
+            for para in model.parameters():
+                if require_grad:
+                    para.requires_grad = True
+                else:
+                    para.requires_grad = False
 
     """ Internally Called """
     def create_lr_schedules(self):
@@ -104,14 +116,6 @@ class DSAC:
                 return alpha.item()
         else:
             return self.static_alpha
-
-    def switch_autograd_log(self, require_grad, models: list):
-        for model in models:
-            for para in model.parameters():
-                if require_grad:
-                    para.requires_grad = True
-                else:
-                    para.requires_grad = False
 
     def soft_avg_update(self, net: torch, net_targ: torch):
         tar_factor = 1 - self.tau
@@ -175,7 +179,7 @@ class DSAC:
         :param log_probs_a_next: Log. probability of next action vector
         :return: Target calculated by Q and r.v. Z
         """
-        alpha = self.get_alpha()
+        alpha = self.get_alpha(requires_grad=self.auto_alpha)
         # Compute target from mean Q
         target_q = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
         # Compute target from sample Z
@@ -191,6 +195,12 @@ class DSAC:
 
     def compute_q_loss(self, batch, bound=True):
         states, actions, rewards, states_next, _, dones = batch
+        # Convert to tensors
+        states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
+        actions = torch.as_tensor(actions, dtype=torch.float32).to(self.device)
+        rewards = torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
+        states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
+        dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
 
         logits_next = self.policy_target(states_next)
         action_dist_nxt = self.policy_target.get_act_distr(logits_next)
@@ -273,12 +283,17 @@ class DSAC:
             q2_stds.detach().mean()
 
     def compute_policy_loss(self, batch):
-        states, actions_updated, log_ps_updatd = batch
+        states, actions_updated, log_ps_updated = batch
+        # Convert to tensors
+        states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
+        actions_updated = torch.as_tensor(actions_updated, dtype=torch.float32).to(self.device)
+        log_ps_updated = torch.as_tensor(log_ps_updated, dtype=torch.float32).to(self.device)
+
         q1_means, _, _ = self.evaluate_q(obs=states, actions=actions_updated, qnet=self.q1)
         q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_updated, qnet=self.q2)
         # Not calculated according to Z! If Z, reparameterization is needed
-        policy_loss = (self.get_alpha() * log_ps_updatd - torch.min(q1_means, q2_means)).mean()
-        entropy = -log_ps_updatd.detach().mean()
+        policy_loss = (self.get_alpha() * log_ps_updated - torch.min(q1_means, q2_means)).mean()
+        entropy = -log_ps_updated.detach().mean()
 
         return policy_loss, entropy
 
@@ -291,7 +306,10 @@ class DSAC:
         start_time = time.time()
 
         # Unpack batch
-        states, old_actions, rewards, new_states, log_ps, dones = batch
+        states, _, _, _, _, _ = batch
+
+        # Convert state to tensor
+        states = torch.as_tensor(states, dtype=torch.float32)
 
         # Construct action distribution with reparameterization trick
         logits = self.policy(states)

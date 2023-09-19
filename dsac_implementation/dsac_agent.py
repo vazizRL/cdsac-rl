@@ -83,10 +83,11 @@ class Agent:
         - Writes experience tuple to replay buffer
         :type state: np.ndarray
         :type action: np.ndarray
-        :type reward: float
+        :type reward: np.ndarray
         :type state_: np.ndarray
         :type log_p: np.ndarray
-        :type done: bool
+        :type done: np.ndarray
+
         """
         self.memory.store_transition(state, action, reward, state_, log_p, done)
 

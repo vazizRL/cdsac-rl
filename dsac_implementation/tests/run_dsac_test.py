@@ -5,7 +5,7 @@ from dsac_implementation.dsac_agent import Agent
 
 """ Agent constants """
 # Action Space for InvertedPendulum-v4
-ACTION_DIM = 3
+ACTION_DIM = 1
 OBSERVATION_DIM = 4
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 1e-3, 1e-3, 1e-3
@@ -64,7 +64,9 @@ if __name__ == '__main__':
             action, log_prob_action = agent.choose_action(observation)
             observation_, reward, done, info, _ = env.step(action)
             score += reward
-            agent.save_experience_tupel(observation, action, reward, observation,log_prob_action, done)
+            reward = np.asarray(reward)
+            done = np.asarray(done)
+            agent.save_experience_tupel(observation, action, reward, observation_, log_prob_action, done)
 
             if load_checkpoint:
                 env.render()
