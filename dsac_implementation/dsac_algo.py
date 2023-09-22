@@ -128,6 +128,7 @@ class DSAC:
         """
         - Sample in a standard fashion from \mathcal{Z} batch-wise
         - Only modification: Std is clamped
+        - Note that stds can not be negative
         :param obs: observation
         :param actions: actions
         :param qnet: Q-value approximator function to be evaluated
@@ -138,12 +139,16 @@ class DSAC:
         # means, log_stds = stocha_q[..., 0], stocha_q[..., -1]
         means, log_stds = stocha_q
         stds = log_stds.exp()
-        # Initiate zeros and ones tensors with shape of means and stds
-        normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
-        #  Where are these hyperparameters specified?
-        z_norm = torch.clamp(normal.sample(), -3, 3)
-        # Due to being vectors, element-wise mutiplications
-        z = means + torch.mul(z_norm, stds)
+
+        # # Initiate zeros and ones tensors with shape of means and stds
+        # normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
+        # #  Where are these hyperparameters specified?
+        # z_norm = torch.clamp(normal.sample(), -1, 1)        # Old -3 and 3
+        # # Due to being vectors, element-wise mutiplications
+        # z = means + torch.mul(z_norm, stds)
+
+        q_distr = Normal(means, stds)
+        z = q_distr.sample()
 
         return means, stds, z
 

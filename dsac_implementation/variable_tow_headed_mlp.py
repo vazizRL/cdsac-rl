@@ -12,6 +12,7 @@ class MLP(nn.Module):
         self._activ_str = activ
         self._activ = dict()
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.check_arch()
         self.build_layers()
 
     @property
@@ -36,6 +37,10 @@ class MLP(nn.Module):
             return getattr(F, act_name)
         else:
             raise ValueError(f'Activation functionw "{act_name}" not known')
+
+    def check_arch(self):
+        if len(self._arch) - 1 != len(self._activ_str):
+            raise AssertionError(f'Number of layers and specified activations do not match!')
 
     def get_activ(self, name):
         def hook(model, input, output):
@@ -63,32 +68,12 @@ class MLP(nn.Module):
         for act_idx, layer_i in enumerate(self._layers[:-1]):
             func = self.get_activ_func_from_str(self._activ_str[act_idx])
             ffd = func(layer_i(ffd))
-        means = self._layers[-1][0](ffd)
-        stds = self._layers[-1][1](ffd)
+        func = self.get_activ_func_from_str(self._activ_str[-1])
+        means = func(self._layers[-1][0](ffd))
+        stds = func(self._layers[-1][1](ffd))
         return means, stds
 
 
-
-
-
-""" 
-Older Methods 
-def build_layers(self):
-        next_element_list = list(self._arch)[1:] + [None]
-        for arch_i, next_arch in zip(self._arch, next_element_list):
-            if next_arch:
-                layer = nn.Linear(arch_i, next_arch)
-                self._layers.append(layer)
-        return 0
-
-    def forward(self, x):
-        ffd = x
-        for act_idx, layer_i in enumerate(self._layers):
-            func = self.get_activ_func_from_str(self._activ_str[act_idx])
-            ffd = func(layer_i(ffd))
-
-        return ffd
-"""
 
 
 

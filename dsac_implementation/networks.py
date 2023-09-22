@@ -63,10 +63,10 @@ class Actor(nn.Module):
         - Stochastic Policy Function Approximator
         - Std. and Mean share first layers
         - Default parameters taken from original implementation
-        :param state_dim:
-        :param action_dim:
-        :param hidden_layers:
-        :param activation:
+        :param state_dim: Number of dimensions in observation space
+        :param action_dim: Number of dimensions in action space
+        :param hidden_layers: Hidden layers, format (l1_n_Nodes, l2_m_Nodes,)
+        :param activation: Actication per layer
         """
         super().__init__()
         self.state_dim = state_dim

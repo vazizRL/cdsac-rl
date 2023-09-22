@@ -15,7 +15,7 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2,
-                 auto_alpha=True, memory_size=int(1e5)
+                 auto_alpha=True, memory_size=int(5e5)
                  ):
         """
         :param obs_dim: Observation dimension
@@ -92,6 +92,9 @@ class Agent:
         self.memory.store_transition(state, action, reward, state_, log_p, done)
 
     def learn(self, n_learning_iter: int, step_number: int):
+        if self.memory.mem_cntr < self.batch_size:
+            print(f'Stored tupels is {self.memory.mem_cntr}, but batch size is {self.batch_size}')
+            return 0
         for learning_iter_i in range(n_learning_iter):
             batch_i = self.memory.sample_buffer(self.batch_size)
             self.dsac.update(batch_i, iteration=step_number)
@@ -115,7 +118,7 @@ class Agent:
 
         return actions.cpu().detach().numpy(), log_prob_actions.cpu().detach().numpy()
 
-    def save_checkpoint(self, epoch: int, path: str, tar_name: str, txt_name: str):
+    def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str):
         """
         - Saves: Networks, optimizers and agent meta-parameters
         :param epoch: Epoch in which saving was performed
@@ -123,23 +126,29 @@ class Agent:
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
         """
+        print('Save checkpoint...')
         complete_tar_file = path + tar_name
         complete_txt_file = path + txt_name
         # Save network and optimizer parameters
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
         torch.save({
-            'epoch': epoch,
+            'iter_n': iter_n,
             'cr1_state_dict': self.q1.state_dict(),
             'cr1_target_state_dict': self.q1_target.state_dict(),
             'cr1_optim_state_dict': cr1_optim.state_dict(),
+            'cr1_lr_schedule_state_dit': self.dsac.q1_lrs.state_dict(),
             'cr2_state_dict': self.q2.state_dict(),
             'cr2_target_state_dict': self.q2_target.state_dict(),
             'cr2_optim_state_dict': cr2_optim.state_dict(),
+            'cr2_lr_schedule': self.dsac.q2_lrs.state_dict(),
+            'cr2_lr_schedule_state_dit': self.dsac.q2_lrs.state_dict(),
             'policy_state_dict': self.policy.state_dict(),
             'policy_optim_state_dict': pol_optim.state_dict(),
+            'policy_lr_schedule_state_dict': self.dsac.pol_lrs.state_dict(),
             'policy_target_state_dict': self.policy_target.state_dict(),
             'log_alpha_state_dict': self.log_alpha,
-            'log_alpha_optim_state_dict': alpha_optim.state_dict()
+            'log_alpha_optim_state_dict': alpha_optim.state_dict(),
+            'alpha_lr_schedule_state_dict': self.dsac.alpha_lrs.state_dict()
             },
             complete_tar_file
         )
@@ -194,7 +203,7 @@ class Agent:
                       alpha=static_alpha, reward_scale=reward_scale, gamma=gamma,
                       update_interval=update_interval, auto_alpha=auto_alpha)
 
-        # Load network/tensor params
+        # Load network, tensor params and learning rate schedule
         self.policy.load_state_dict(checkpoint['policy_state_dict'])
         self.policy_target.load_state_dict(checkpoint['policy_target_state_dict'])
         self.q1.load_state_dict(checkpoint['cr1_state_dict'])
@@ -207,6 +216,10 @@ class Agent:
         self.dsac.q2_optimizer.load_state_dict(q2_optim_state_dict)
         self.dsac.policy_optimizer.load_state_dict(policy_optim_state_dict)
         self.dsac.alpha_optimizer.load_state_dict(log_alpha_optim_state_dict)
-        self.dsac.create_lr_schedules()
+
+        self.dsac.q1_lrs.load_state_dict(checkpoint['cr1_optim_state_dict'])
+        self.dsac.q2_lrs.load_state_dict(checkpoint['cr2_optim_state_dict'])
+        self.dsac.pol_lrs.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
+        self.dsac.alpha_lrs.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
 
         return self

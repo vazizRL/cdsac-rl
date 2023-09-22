@@ -5,15 +5,15 @@ from sac_agent import Agent
 
 
 if __name__ == '__main__':
-    load_checkpoint = False
-    render = False
+    load_checkpoint = True
+    render = True
     if load_checkpoint and render:
         env = gym.make('InvertedPendulum-v4', render_mode='human')
     else:
         env = gym.make('InvertedPendulum-v4')
     agent = Agent(input_dims=env.observation_space.shape, env=env, n_actions=env.action_space.shape[0],
                   layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006)
-    n_games = 250
+    n_games = 550
 
     best_score = env.reward_range[0]
     score_history = []
@@ -38,7 +38,7 @@ if __name__ == '__main__':
                 agent.learn()
             observation = observation_
         score_history.append(score)
-        avg_score = np.mean(score_history[-1:])
+        avg_score = np.mean(score_history[-10:])
 
         if avg_score > best_score:
             best_score = avg_score

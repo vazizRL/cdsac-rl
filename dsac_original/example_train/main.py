@@ -18,6 +18,7 @@ if __name__ == "__main__":
     # Key Parameters for users
     parser.add_argument("--env_id", type=str, default="gym_pendulum")  #gym_pendulum can be replaced by other envs in the env_gym folder, such as gym_ant, gym_walker2d...
     parser.add_argument("--algorithm", type=str, default="DSAC")
+    # parser.add_argument("--algorithm", type=str, default="DSAC_ORIGINAl")
     parser.add_argument("--enable_cuda", default=False, help="Enable CUDA")
     ################################################
     # 1. Parameters for environment
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     env = create_env(**args)
     args = init_args(env, **args)
 
-    start_tensorboard(args["save_folder"])
+    # start_tensorboard(args["save_folder"])
     # Step 1: create algorithm and approximate function
     alg = create_alg(**args)
     # Step 2: create sampler in trainer

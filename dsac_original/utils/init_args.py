@@ -10,6 +10,7 @@ from .common_utils import change_type, seed_everything
 
 def init_args(env, **args):
     args["algorithm"] = "DSAC"
+    # args["algorithm"] = "DSAC_ORIGINAL"
     # cuda
     if args["enable_cuda"]:
         if torch.cuda.is_available():

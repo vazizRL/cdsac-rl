@@ -3,16 +3,20 @@ import numpy as np
 import os
 from dsac_implementation.dsac_agent import Agent
 
+
+""" Environment constants"""
+gym_env = 'InvertedPendulum-v4'
+
 """ Agent constants """
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 1e-4, 1e-3, 1e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 5e-5, 5e-4, 5e-5
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 1e-6, 1e-6, 1e-6
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.5, 0.5
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -20,11 +24,11 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu', 'relu')
 ACT_ACTIV = ('relu', 'relu', 'relu')
 # Action boundaries
-ACTION_LOW = -3
-ACTION_HIGH = 3
+ACTION_LOW = -3.0
+ACTION_HIGH = 3.0
 # RL parameters
 BATCH_SIZE = 256
-T_MAX = 50
+T_MAX = 200000
 TAU = 0.015
 ALPHA = 0.2
 REWARD_SCALE = 2
@@ -34,24 +38,31 @@ AUTO_ALPHA = True
 MEM_SIZE = 1e5
 
 # Saving options
-curr_dir = os.getcwd()
+curr_dir = os.getcwd() + '/'
 ckpt_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
+    continue_training = False
     load_checkpoint = False
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
         # agent.load_checkpoint()
-        env = gym.make('InvertedPendulum-v4', render_mode='human')
+        env = gym.make(gym_env, render_mode='human')
+        agent = agent.load_checkpoint(path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
+    elif load_checkpoint and not render:
+        agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
+        # agent.load_checkpoint()
+        env = gym.make(gym_env)
         agent = agent.load_checkpoint(path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
     else:
-        env = gym.make('InvertedPendulum-v4')
+        env = gym.make(gym_env)
         agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
                       act_lr_ini=ACT_LR_INI, act_lr_fin=ACT_LR_FIN, alpha_lr_ini=ALPHA_LR_INI,
                       alpha_lr_fin=ALPHA_LR_FIN, cr_min_log_std=CR_MIN_LOG_STD, cr_max_log_std=CR_MAX_LOG_STD,
+                      cr_activ=CR_ACTIV, cr_hl=CR_HL,
                       act_min_log_std=ACT_MIN_LOG_STD, act_max_log_std=ACT_MAX_LOG_STD, act_hl=ACT_HL,
                       act_activ=ACT_ACTIV, action_low=ACTION_LOW, action_up=ACTION_HIGH, batch_size=BATCH_SIZE,
                       t_max=T_MAX, tau=TAU, alpha=ALPHA, reward_scale=REWARD_SCALE, gamma=GAMMA,
@@ -59,7 +70,7 @@ if __name__ == '__main__':
 
     n_tot_steps = 0
     # n_games = 250
-    n_games = 2000
+    n_games = 40000
 
     best_score = env.reward_range[0]
     score_history = []
@@ -80,7 +91,7 @@ if __name__ == '__main__':
             n_tot_steps += 1
             if render:
                 env.render()
-            if not load_checkpoint:
+            if not load_checkpoint or continue_training:
                 agent.learn(n_learning_iter=1, step_number=n_tot_steps)
             observation = observation_
         print(f'@Iter: {n_tot_steps}')
@@ -89,8 +100,8 @@ if __name__ == '__main__':
 
         if avg_score > best_score:
             best_score = avg_score
-            if not load_checkpoint:
-                agent.save_checkpoint(epoch=i, path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
+            if not load_checkpoint or continue_training:
+                agent.save_checkpoint(iter_n=i, path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
 
         print('episode', i, ', score %.1f' % score, ', avg_score %.1f' % avg_score)
 

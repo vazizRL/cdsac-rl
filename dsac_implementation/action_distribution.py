@@ -19,9 +19,9 @@ class TanhGaussDistribution:
             base_distribution=torch.distributions.Normal(self.mean, self.std), reinterpreted_batch_ndims=1)
         self.act_low_lim = act_low_lim
         self.act_up_lim = act_up_lim
-        self.num_stab = torch.tensor([1e-6]).to(self.device)
+        self.num_stab = torch.tensor([1e-7]).to(self.device)
 
-    def sample(self, reparameterization=False):
+    def sample(self, reparameterization=False):     # CHECKED
         """
         - Sample with or without reparameterization trick
         - Limits action and calculates log_prob of limited action
@@ -38,13 +38,13 @@ class TanhGaussDistribution:
                          (self.act_up_lim + self.act_low_lim) / 2
 
         # Implementation of restricted action probability, App. B-C
-        log_prob = self.gauss_distribution.log_prob(action) - \
+        log_prob_limited = self.gauss_distribution.log_prob(action) - \
             torch.log(1 + self.num_stab - torch.pow(torch.tanh(action), 2)).sum(-1) - \
             torch.log((self.act_up_lim - self.act_low_lim)/2).sum(-1)
 
-        return action_limited, log_prob
+        return action_limited, log_prob_limited
 
-    def log_prob(self, action_limited):
+    def log_prob(self, action_limited):     # CHECKED
         """
         - Convert bounded action to unbounded and retrieve log_prob based on current distribution
         :param action_limited: Bounded action
@@ -53,9 +53,10 @@ class TanhGaussDistribution:
         """
         action = torch.atanh((1-self.num_stab) * (2 * action_limited - (self.act_up_lim + self.act_low_lim)) /
                              (self.act_up_lim - self.act_low_lim))
-        log_prob = self.gauss_distribution.log_prob(action) - \
-            torch.log((self.act_up_lim - self.act_low_lim) *
-                      (1 + self.num_stab - torch.pow(torch.tanh(action), 2))).sum(-1)
+        # log_prob = self.gauss_distribution.log_prob(action) - \
+        #     torch.log((self.act_up_lim - self.act_low_lim) *
+        #               (1 + self.num_stab - torch.pow(torch.tanh(action), 2))).sum(-1)x
+        log_prob = self.gauss_distribution.log_prob(action)
         return log_prob
 
     def entropy(self):
