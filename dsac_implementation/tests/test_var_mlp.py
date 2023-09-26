@@ -10,7 +10,7 @@ inp_dim = 28*28
 mlp_model = MLP((inp_dim, 15, 15, 10), ('gelu', 'gelu', 'gelu'))
 
 train_on_gpu = True
-epochs = 5
+epochs = 1
 batch_size = 25
 transform = transforms.Compose([
     transforms.ToTensor(),  # Converts PIL images to tensors
@@ -47,7 +47,7 @@ for epoch in range(epochs):
 
         optimizer.zero_grad()
 
-        outputs = mlp_model(inputs)
+        outputs, head2 = mlp_model(inputs)
 
         loss = criterion(outputs, labels)
         loss.backward()
@@ -70,7 +70,7 @@ with torch.no_grad():
         else:
             images, labels = data
         images = torch.flatten(images, start_dim=1, end_dim=-1)
-        outputs = mlp_model(images)
+        outputs, head2 = mlp_model(images)
         _, predictions = torch.max(outputs, 1)
         for label, prediction in zip(labels, predictions):
             if label == prediction:

@@ -5,15 +5,15 @@ from dsac_implementation.dsac_agent import Agent
 
 
 """ Environment constants"""
-gym_env = 'InvertedPendulum-v4'
+gym_env = 'Pendulum-v1'
 
 """ Agent constants """
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
-OBSERVATION_DIM = 4
+OBSERVATION_DIM = 3
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 1e-6, 1e-6, 1e-6
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 1e-3      # 8e-5, 5e-5, 5e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 1e-3
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
 CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
@@ -24,8 +24,8 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu', 'relu')
 ACT_ACTIV = ('relu', 'relu', 'relu')
 # Action boundaries
-ACTION_LOW = -3.0
-ACTION_HIGH = 3.0
+ACTION_LOW = -2.0
+ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 256
 T_MAX = 200000
@@ -71,29 +71,37 @@ if __name__ == '__main__':
     n_tot_steps = 0
     # n_games = 250
     n_games = 40000
+    episode_end = 2000
 
     best_score = env.reward_range[0]
     score_history = []
 
     for i in range(n_games):
+        episode_iter = 0
         observation, _ = env.reset()
         done = False
         score = 0
+        interval_reward = 0
         while not done:
             action, log_prob_action = agent.choose_action(observation)
             observation_, reward, done, info, _ = env.step(action)
-            if n_tot_steps % 500 == 0:
-                print(f'Action is: {action}')
+            if n_tot_steps % 100 == 0:
+                print(f'Reward for 100-interval: {interval_reward}; with action: {action}')
+                interval_reward = 0
+            interval_reward += reward
             score += reward
             reward = np.asarray(reward)
             done = np.asarray(done)
             agent.save_experience_tupel(observation, action, reward, observation_, log_prob_action, done)
             n_tot_steps += 1
+            episode_iter += 1
             if render:
                 env.render()
             if not load_checkpoint or continue_training:
                 agent.learn(n_learning_iter=1, step_number=n_tot_steps)
             observation = observation_
+            if episode_iter > episode_end:
+                done = True
         print(f'@Iter: {n_tot_steps}')
         score_history.append(score)
         avg_score = np.mean(score_history[-1:])
