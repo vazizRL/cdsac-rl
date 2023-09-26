@@ -105,9 +105,9 @@ if __name__ == '__main__':
     agent = create_agent()
     print(f'Policy minimum std before loading: {agent.policy.min_log_std}')
 
-    path = os.getcwd() + '/'
-    # agent.save_checkpoint(epoch=1, path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
-    new_agent = agent.load_checkpoint(path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
-    print(f'Policy minimum std after loading: {agent.policy.min_log_std}')
+    # path = os.getcwd() + '/'
+    # # agent.save_checkpoint(epoch=1, path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
+    # new_agent = agent.load_checkpoint(path=path, tar_name='test_models.tar', txt_name='agent_params.txt')
+    # print(f'Policy minimum std after loading: {agent.policy.min_log_std}')
 
 

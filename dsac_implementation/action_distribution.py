@@ -17,11 +17,13 @@ class TanhGaussDistribution:
         self.mean, self.std = logits
         self.gauss_distribution = torch.distributions.Independent(
             base_distribution=torch.distributions.Normal(self.mean, self.std), reinterpreted_batch_ndims=1)
-        self.act_low_lim = act_low_lim
-        self.act_up_lim = act_up_lim
-        self.num_stab = torch.tensor([1e-7]).to(self.device)
+        # self.act_low_lim = act_low_lim
+        # self.act_up_lim = act_up_lim
+        self.act_low_lim = torch.tensor([-1.0]).to(self.device)
+        self.act_up_lim = torch.tensor([1.0]).to(self.device)
+        self.num_stab = torch.tensor([1e-6]).to(self.device)
 
-    def sample(self, reparameterization=False):     # CHECKED
+    def sample(self, reparameterization=False):
         """
         - Sample with or without reparameterization trick
         - Limits action and calculates log_prob of limited action
@@ -53,10 +55,9 @@ class TanhGaussDistribution:
         """
         action = torch.atanh((1-self.num_stab) * (2 * action_limited - (self.act_up_lim + self.act_low_lim)) /
                              (self.act_up_lim - self.act_low_lim))
-        # log_prob = self.gauss_distribution.log_prob(action) - \
-        #     torch.log((self.act_up_lim - self.act_low_lim) *
-        #               (1 + self.num_stab - torch.pow(torch.tanh(action), 2))).sum(-1)x
-        log_prob = self.gauss_distribution.log_prob(action)
+        log_prob = self.gauss_distribution.log_prob(action) - torch.log((self.act_up_lim - self.act_low_lim) *
+                      (1 + self.num_stab - torch.pow(torch.tanh(action), 2))).sum(-1)
+        # log_prob = self.gauss_distribution.log_prob(action)
         return log_prob
 
     def entropy(self):
