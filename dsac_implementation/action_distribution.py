@@ -17,10 +17,10 @@ class TanhGaussDistribution:
         self.mean, self.std = logits
         self.gauss_distribution = torch.distributions.Independent(
             base_distribution=torch.distributions.Normal(self.mean, self.std), reinterpreted_batch_ndims=1)
-        # self.act_low_lim = act_low_lim
-        # self.act_up_lim = act_up_lim
-        self.act_low_lim = torch.tensor([-1.0]).to(self.device)
-        self.act_up_lim = torch.tensor([1.0]).to(self.device)
+        self.act_low_lim = act_low_lim
+        self.act_up_lim = act_up_lim
+        # self.act_low_lim = torch.tensor([-1.0]).to(self.device)
+        # self.act_up_lim = torch.tensor([1.0]).to(self.device)
         self.num_stab = torch.tensor([1e-6]).to(self.device)
 
     def sample(self, reparameterization=False):

@@ -77,8 +77,8 @@ class Actor(nn.Module):
         self.policy = MLP(arch=self.arch, activ=self.activation)
         self.min_log_std = min_log_std
         self.max_log_std = max_log_std
-        self.action_low_lim_detached = action_low_lim
-        self.action_up_lim_detached = action_up_lim
+        self.action_low_lim = action_low_lim
+        self.action_up_lim = action_up_lim
 
         self.register_buffer("act_low_lim", torch.tensor(self.action_low_lim))
         self.register_buffer("act_up_lim", torch.tensor(self.action_up_lim))
@@ -88,7 +88,7 @@ class Actor(nn.Module):
 
     def get_class_info(self):
         return self.state_dim, self.action_dim, self.hidden_layers, self.activation, \
-               self.min_log_std, self.max_log_std, self.action_low_lim_detached, self.action_up_lim_detached
+               self.min_log_std, self.max_log_std, self.action_low_lim, self.action_up_lim
 
     def get_act_distr(self, logits):
         """

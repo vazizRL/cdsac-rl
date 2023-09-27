@@ -13,7 +13,7 @@ ACTION_DIM = 1
 OBSERVATION_DIM = 3
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 1e-3      # 8e-5, 5e-5, 5e-5
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 1e-3
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 6e-5, 1e-4
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
 CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
@@ -28,24 +28,24 @@ ACTION_LOW = -2.0
 ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 256
-T_MAX = 200000
+T_MAX = 20000         # Old 20000
 TAU = 0.015
 ALPHA = 0.2
-REWARD_SCALE = 2
+REWARD_SCALE = 0.5        # Old 2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
 AUTO_ALPHA = True
 MEM_SIZE = 1e5
 
 # Saving options
-curr_dir = os.getcwd() + '/'
+curr_dir = os.getcwd() + '//'
 ckpt_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = False
-    load_checkpoint = False
+    continue_training = True
+    load_checkpoint = True
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)

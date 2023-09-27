@@ -13,7 +13,8 @@ from typing import Dict
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  log_alpha, actor_lr_ini, actor_lr_fin, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1, **kwargs):
+                 reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1, td_bound=10,
+                 **kwargs):
         """
         - Implements DSACv0.2, based on https://arxiv.org/abs/2001.02811
         :param tau: Soft update parameter
@@ -70,6 +71,7 @@ class DSAC:
         self.static_alpha = torch.tensor(alpha).to(self.device)
         self.auto_alpha = auto_alpha
         self.update_interval = up_interval
+        self.td_bound = td_bound
 
     @property
     def adjustable_parameters(self):
@@ -78,6 +80,7 @@ class DSAC:
             'tau',
             'auto_alpha',
             'alpha',
+            'td_bound',
             'delay_update'
         )
 
@@ -140,15 +143,15 @@ class DSAC:
         means, log_stds = stocha_q
         stds = log_stds.exp()
 
-        # # Initiate zeros and ones tensors with shape of means and stds
-        # normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
-        # #  Where are these hyperparameters specified?
-        # z_norm = torch.clamp(normal.sample(), -1, 1)        # Old -3 and 3
-        # # Due to being vectors, element-wise mutiplications
-        # z = means + torch.mul(z_norm, stds)
+        # Initiate zeros and ones tensors with shape of means and stds
+        normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
+        #  Where are these hyperparameters specified?
+        z_norm = torch.clamp(normal.sample(), -3, 3)        # Old -3 and 3
+        # Due to being vectors, element-wise mutiplications
+        z = means + torch.mul(z_norm, stds)
 
-        q_distr = Normal(means, stds)
-        z = q_distr.sample()
+        # q_distr = Normal(means, stds)
+        # z = q_distr.sample()
 
         return means, stds, z
 
@@ -216,8 +219,8 @@ class DSAC:
         q1_means, q1_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q1)
         q2_means, q2_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q2)
 
-        q1_means_next, _, q1_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q1)
-        q2_means_next, _, q2_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q2)
+        q1_means_next, _, q1_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q1_target)
+        q2_means_next, _, q2_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q2_target)
 
         # Returns array of smaller mean
         q_means_next = torch.min(q1_means_next, q2_means_next)
@@ -251,31 +254,25 @@ class DSAC:
             Loss is the sum of variance-augmented standard Q-loss, variance-augmented Z-loss and log(var)
             Necessary if target is bounded?
             """
-            # Calculate the average of  variances of mean q1_stds^2 and q2_stds^2 (individual variances), new concept
-            var1 = torch.pow(q1_stds.detach(), 2)
-            var2 = torch.pow(q2_stds.detach(), 2)
-            weight = 0.5 * (torch.mean(var1) + torch.mean(var2))
+
+            # Weight between mean and Z ?
+            weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.pow(q2_stds.detach(), 2))
+            # weight = 1
 
             # q1 loss
-            squared_error_of_means_q1 = torch.pow(q1_means - targets_q1_mean, 2)
-            squared_error_of_samples_q1 = torch.pow(q1_means - targets_z1_bound, 2)
-            variances = torch.pow(q1_stds, 2)
-
             q1_loss = weight * torch.mean(
-                squared_error_of_means_q1 / (2 * variances)
-                + squared_error_of_samples_q1 / (2 * variances)
-                + torch.log(q1_stds)                                    # Log can't be negative!
+                (torch.pow(q1_means - targets_q1_mean, 2)) / (2 * torch.pow(q1_stds.detach(), 2))
+                + (torch.pow(q1_means.detach() - targets_z1_bound, 2)) / (2 * torch.pow(q1_stds, 2))
+                + torch.log(q1_stds)
             )
 
             # q2 loss
-            squared_error_of_means_q2 = torch.pow(q2_means - targets_q2_mean, 2)
-            squared_error_of_samples_q2 = torch.pow(q2_means.detach() - targets_z2_bound, 2)
-            variances = torch.pow(q2_stds, 2)
+            var2 = torch.pow(q2_stds.detach(), 2)
 
             q2_loss = weight * torch.mean(
-                squared_error_of_means_q2 / (2 * variances)
-                + squared_error_of_samples_q2 / (2 * variances)
-                + torch.log(q2_stds)                                     # Log can't be negative!
+                torch.pow(q2_means - targets_q2_mean, 2) / (2 * torch.pow(q2_stds.detach(), 2))
+                + torch.pow(q2_means.detach() - targets_z2_bound, 2) / (2 * torch.pow(q2_stds, 2))
+                + torch.log(q2_stds)
             )
 
         else:
@@ -390,20 +387,30 @@ class DSAC:
     def update(self, batch: tuple, iteration: int):
         """
         - Wrapper; Calculate gradient and perform network optimization step
+        - Perform lr scheduler step
         :param batch: Mini-batch
         :param iteration: Iteration number, necessary to determine update-interval
         :return: Dict containing quantities for logging in tensorboard
         """
         tb_info = self.compute_gradient(batch=batch, iteration=iteration)
         self.update_networks(iteration)
+        self.update_lrs()
 
         return tb_info
 
     def update_lrs(self):
+        # print(f'Before LRs: \n q1: {self.q1_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n q2: {self.q2_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n pol: {self.policy_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n alpha: {self.alpha_optimizer.param_groups[0]["lr"]}')
         self.q1_lrs.step()
         self.q2_lrs.step()
         self.pol_lrs.step()
         self.alpha_lrs.step()
+        # print(f'After Step(): \n q1: {self.q1_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n q2: {self.q2_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n pol: {self.policy_optimizer.param_groups[0]["lr"]}' +
+        #                   f'\n alpha: {self.alpha_optimizer.param_groups[0]["lr"]}')
 
     def remote_update(self, update_info: dict):
         raise NotImplementedError('The method "remote_update" is not implemented')
