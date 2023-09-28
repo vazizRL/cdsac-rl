@@ -12,8 +12,8 @@ gym_env = 'Pendulum-v1'
 ACTION_DIM = 1
 OBSERVATION_DIM = 3
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 1e-3      # 8e-5, 5e-5, 5e-5
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 6e-5, 1e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
 CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
@@ -30,11 +30,12 @@ ACTION_HIGH = 2.0
 BATCH_SIZE = 256
 T_MAX = 20000         # Old 20000
 TAU = 0.015
-ALPHA = 0.2
-REWARD_SCALE = 0.5        # Old 2
+STATIC_ALPHA = 0.2
+REWARD_SCALE = 2        # Old 2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
-AUTO_ALPHA = True
+AUTO_ALPHA = False
+LOG_ALPHA_INI = 1      # Old 1
 MEM_SIZE = 1e5
 
 # Saving options
@@ -44,8 +45,8 @@ meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = True
-    load_checkpoint = True
+    continue_training = False
+    load_checkpoint = False
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -65,8 +66,9 @@ if __name__ == '__main__':
                       cr_activ=CR_ACTIV, cr_hl=CR_HL,
                       act_min_log_std=ACT_MIN_LOG_STD, act_max_log_std=ACT_MAX_LOG_STD, act_hl=ACT_HL,
                       act_activ=ACT_ACTIV, action_low=ACTION_LOW, action_up=ACTION_HIGH, batch_size=BATCH_SIZE,
-                      t_max=T_MAX, tau=TAU, alpha=ALPHA, reward_scale=REWARD_SCALE, gamma=GAMMA,
-                      update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, memory_size=MEM_SIZE)
+                      t_max=T_MAX, tau=TAU, alpha=STATIC_ALPHA, reward_scale=REWARD_SCALE, gamma=GAMMA,
+                      update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, log_alpha_ini=LOG_ALPHA_INI,
+                      memory_size=MEM_SIZE)
 
     n_tot_steps = 0
     # n_games = 250

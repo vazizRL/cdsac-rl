@@ -15,7 +15,7 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2,
-                 auto_alpha=True, memory_size=int(5e5)
+                 auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5)
                  ):
         """
         :param obs_dim: Observation dimension
@@ -44,6 +44,7 @@ class Agent:
         :param gamma: Discount factor
         :param update_interval: Interval for updating target networks
         :param auto_alpha: Whether alpha is a learnable parameter or static
+        :param log_alpha_ini: Initial log value of alpha
         :param memory_size: Max. replay buffer size
         """
         self.batch_size = batch_size
@@ -67,7 +68,7 @@ class Agent:
                                        activation=act_activ, min_log_std=act_min_log_std, max_log_std=act_max_log_std,
                                        action_low_lim=action_low, action_up_lim=action_up)
         self.policy_target = deepcopy(self.policy)
-        self.log_alpha = nn.Parameter(torch.tensor(1, dtype=torch.float32))
+        self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32))
 
         self.dsac = DSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                          policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
@@ -93,7 +94,7 @@ class Agent:
 
     def learn(self, n_learning_iter: int, step_number: int):
         if self.memory.mem_cntr < self.batch_size:
-            print(f'Stored tupels is {self.memory.mem_cntr}, but batch size is {self.batch_size}')
+            print(f'Batch size of {self.batch_size} > Stored tupels {self.memory.mem_cntr}')
             return 0
         for learning_iter_i in range(n_learning_iter):
             batch_i = self.memory.sample_buffer(self.batch_size)
@@ -212,6 +213,13 @@ class Agent:
         self.q2_target.load_state_dict(checkpoint['cr2_target_state_dict'])
         self.log_alpha = checkpoint['log_alpha_state_dict']
 
+        # self.dsac = DSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+        #                  policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
+        #                  actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
+        #                  alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
+        #                  reward_scale=self.reward_scale, gamma=self.gamma, up_interval=self.update_interval,
+        #                  auto_alpha=self.auto_alpha, target_entropy=-action_dim)
+
         self.dsac.q1_optimizer.load_state_dict(q1_optim_state_dict)
         self.dsac.q2_optimizer.load_state_dict(q2_optim_state_dict)
         self.dsac.policy_optimizer.load_state_dict(policy_optim_state_dict)
@@ -221,5 +229,7 @@ class Agent:
         self.dsac.q2_lrs.load_state_dict(checkpoint['cr2_optim_state_dict'])
         self.dsac.pol_lrs.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
         self.dsac.alpha_lrs.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
+
+        self.dsac.log_alpha = self.log_alpha
 
         return self

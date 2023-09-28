@@ -40,7 +40,7 @@ class DSAC:
         # Do not track gradients for target networks
         self.switch_autograd_log(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
-        # Assign log_alpha to attribute
+        # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agent
         self.log_alpha = log_alpha
 
         # Assign optimizer params and create optimizers
@@ -188,7 +188,7 @@ class DSAC:
         :param log_probs_a_next: Log. probability of next action vector
         :return: Target calculated by Q and r.v. Z
         """
-        alpha = self.get_alpha(requires_grad=self.auto_alpha)
+        alpha = self.get_alpha(requires_grad=False)
         # Compute target from mean Q
         target_q = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
         # Compute target from sample Z
@@ -200,7 +200,7 @@ class DSAC:
         difference = torch.clamp(target_q_samples - q_means, -td_bound, td_bound)
         target_q_bound = q_means + difference
 
-        return target_q.detach(), target_q_bound.detach(), target_q_samples
+        return target_q.detach(), target_q_bound.detach(), target_q_samples.detach()
 
     def compute_q_loss(self, batch, bound=True):
         states, actions, rewards, states_next, _, dones = batch
@@ -256,7 +256,7 @@ class DSAC:
             """
 
             # Weight between mean and Z ?
-            weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.pow(q2_stds.detach(), 2))
+            weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.mean(torch.pow(q2_stds.detach(), 2)))
             # weight = 1
 
             # q1 loss
@@ -267,8 +267,6 @@ class DSAC:
             )
 
             # q2 loss
-            var2 = torch.pow(q2_stds.detach(), 2)
-
             q2_loss = weight * torch.mean(
                 torch.pow(q2_means - targets_q2_mean, 2) / (2 * torch.pow(q2_stds.detach(), 2))
                 + torch.pow(q2_means.detach() - targets_z2_bound, 2) / (2 * torch.pow(q2_stds, 2))
@@ -285,18 +283,19 @@ class DSAC:
         return q_loss, q1_means.detach().mean(), q2_means.detach().mean(), q1_stds.detach().mean(), \
             q2_stds.detach().mean()
 
-    def compute_policy_loss(self, batch):
-        states, actions_updated, log_ps_updated = batch
+    def compute_policy_loss(self, reduced_batch):
+        states, actions_curr_pol, log_ps_curr_pol = reduced_batch
         # Convert to tensors
         states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
-        actions_updated = torch.as_tensor(actions_updated, dtype=torch.float32).to(self.device)
-        log_ps_updated = torch.as_tensor(log_ps_updated, dtype=torch.float32).to(self.device)
+        actions_curr_pol = torch.as_tensor(actions_curr_pol, dtype=torch.float32).to(self.device)
+        log_ps_curr_pol = torch.as_tensor(log_ps_curr_pol, dtype=torch.float32).to(self.device)
 
-        q1_means, _, _ = self.evaluate_q(obs=states, actions=actions_updated, qnet=self.q1)
-        q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_updated, qnet=self.q2)
+        q1_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1)
+        q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2)
         # Not calculated according to Z! If Z, reparameterization is needed
-        policy_loss = (self.get_alpha() * log_ps_updated - torch.min(q1_means, q2_means)).mean()
-        entropy = -log_ps_updated.detach().mean()
+        policy_loss = (self.get_alpha(requires_grad=True) *
+                       log_ps_curr_pol - torch.min(q1_means, q2_means)).mean()
+        entropy = -log_ps_curr_pol.detach().mean()
 
         return policy_loss, entropy
 
@@ -316,7 +315,6 @@ class DSAC:
 
         # Construct action distribution with reparameterization trick
         logits = self.policy(states)
-        # logits_mean, logits_std = torch.chunk(logits, chunks=2, dim=-1)
         logits_mean, logits_std = logits
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
@@ -361,7 +359,7 @@ class DSAC:
             "DSAC2/policy_mean-RL iter": policy_mean,
             "DSAC2/policy_std-RL iter": policy_std,
             "DSAC2/entropy-RL iter": entropy.item(),
-            "DSAC2/alpha-RL iter": self.get_alpha(),
+            "DSAC2/alpha-RL iter": self.get_alpha(requires_grad=False),
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
         }
 
