@@ -256,8 +256,8 @@ class DSAC:
             """
 
             # Weight between mean and Z ?
-            weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.mean(torch.pow(q2_stds.detach(), 2)))
-            # weight = 1
+            # weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.mean(torch.pow(q2_stds.detach(), 2)))
+            weight = 1
 
             # q1 loss
             q1_loss = weight * torch.mean(
@@ -293,7 +293,7 @@ class DSAC:
         q1_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1)
         q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2)
         # Not calculated according to Z! If Z, reparameterization is needed
-        policy_loss = (self.get_alpha(requires_grad=True) *
+        policy_loss = (self.get_alpha(requires_grad=False) *
                        log_ps_curr_pol - torch.min(q1_means, q2_means)).mean()
         entropy = -log_ps_curr_pol.detach().mean()
 

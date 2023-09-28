@@ -45,8 +45,8 @@ meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = False
-    load_checkpoint = False
+    continue_training = True
+    load_checkpoint = True
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -97,16 +97,16 @@ if __name__ == '__main__':
             agent.save_experience_tupel(observation, action, reward, observation_, log_prob_action, done)
             n_tot_steps += 1
             episode_iter += 1
+            if episode_iter > episode_end:
+                done = True
             if render:
                 env.render()
             if not load_checkpoint or continue_training:
                 agent.learn(n_learning_iter=1, step_number=n_tot_steps)
             observation = observation_
-            if episode_iter > episode_end:
-                done = True
         print(f'@Iter: {n_tot_steps}')
         score_history.append(score)
-        avg_score = np.mean(score_history[-1:])
+        avg_score = np.mean(score_history[-3:])
 
         if avg_score > best_score:
             best_score = avg_score
