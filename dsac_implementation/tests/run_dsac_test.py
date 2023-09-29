@@ -8,32 +8,33 @@ from dsac_implementation.dsac_agent import Agent
 gym_env = 'Pendulum-v1'
 
 """ Agent constants """
+# Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 3
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 5, 0.5
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
 # Activations
-CR_ACTIV = ('relu', 'relu', 'relu')
-ACT_ACTIV = ('relu', 'relu', 'relu')
+CR_ACTIV = ('relu', 'relu')
+ACT_ACTIV = ('relu', 'relu')
 # Action boundaries
 ACTION_LOW = -2.0
 ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 256
-T_MAX = 20000         # Old 20000
+T_MAX = 60000         # Old 20000
 TAU = 0.015
 STATIC_ALPHA = 1      # Old 0.2
-REWARD_SCALE = 2        # Old 2
+REWARD_SCALE = 200        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
-AUTO_ALPHA = False      # Old True
+AUTO_ALPHA = True
 LOG_ALPHA_INI = 1      # Old 1
 MEM_SIZE = 1e5
 
@@ -45,7 +46,7 @@ meta_name = 'agent_meta.txt'
 if __name__ == '__main__':
     curr_dir = os.getcwd()
     continue_training = False
-    load_checkpoint = False
+    load_checkpoint = True
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -85,6 +86,8 @@ if __name__ == '__main__':
         interval_reward = 0
         while not done:
             action, log_prob_action = agent.choose_action(observation)
+            if episode_iter > episode_end:
+                done = True
             observation_, reward, done, info, _ = env.step(action)
             if n_tot_steps % 100 == 0:
                 print(f'Reward for 100-interval: {interval_reward}; with action: {action}')
@@ -96,8 +99,6 @@ if __name__ == '__main__':
             agent.save_experience_tupel(observation, action, reward, observation_, log_prob_action, done)
             n_tot_steps += 1
             episode_iter += 1
-            # if episode_iter > episode_end:
-            #     done = True
             if render:
                 env.render()
             if not load_checkpoint or continue_training:
