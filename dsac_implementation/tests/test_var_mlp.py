@@ -10,8 +10,8 @@ inp_dim = 28*28
 mlp_model = MLP((inp_dim, 15, 15, 10), ('gelu', 'gelu', 'gelu'))
 
 train_on_gpu = True
-epochs = 1
-batch_size = 25
+epochs = 2
+batch_size = 50
 transform = transforms.Compose([
     transforms.ToTensor(),  # Converts PIL images to tensors
     transforms.Normalize((0.5,), (0.5,))  # Normalize the pixel values to range [-1, 1]

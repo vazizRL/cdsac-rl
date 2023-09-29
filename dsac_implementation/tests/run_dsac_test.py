@@ -5,12 +5,11 @@ from dsac_implementation.dsac_agent import Agent
 
 
 """ Environment constants"""
-gym_env = 'Pendulum-v1'
+gym_env = 'InvertedDoublePendulum-v4'
 
 """ Agent constants """
-# Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
-OBSERVATION_DIM = 3
+OBSERVATION_DIM = 11
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
@@ -24,17 +23,17 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu', 'relu')
 ACT_ACTIV = ('relu', 'relu', 'relu')
 # Action boundaries
-ACTION_LOW = -2.0
-ACTION_HIGH = 2.0
+ACTION_LOW = -1.0
+ACTION_HIGH = 1.0
 # RL parameters
 BATCH_SIZE = 256
 T_MAX = 20000         # Old 20000
 TAU = 0.015
-STATIC_ALPHA = 0.2
+STATIC_ALPHA = 1      # Old 0.2
 REWARD_SCALE = 2        # Old 2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
-AUTO_ALPHA = False
+AUTO_ALPHA = False      # Old True
 LOG_ALPHA_INI = 1      # Old 1
 MEM_SIZE = 1e5
 
@@ -45,8 +44,8 @@ meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = True
-    load_checkpoint = True
+    continue_training = False
+    load_checkpoint = False
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -97,8 +96,8 @@ if __name__ == '__main__':
             agent.save_experience_tupel(observation, action, reward, observation_, log_prob_action, done)
             n_tot_steps += 1
             episode_iter += 1
-            if episode_iter > episode_end:
-                done = True
+            # if episode_iter > episode_end:
+            #     done = True
             if render:
                 env.render()
             if not load_checkpoint or continue_training:
