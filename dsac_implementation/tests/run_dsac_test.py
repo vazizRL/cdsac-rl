@@ -5,17 +5,17 @@ from dsac_implementation.dsac_agent import Agent
 
 
 """ Environment constants"""
-gym_env = 'InvertedDoublePendulum-v4'
+gym_env = 'Pendulum-v1'
 
 """ Agent constants """
 ACTION_DIM = 1
-OBSERVATION_DIM = 11
+OBSERVATION_DIM = 3
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
 # Standard deviations
 CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 5, 0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -23,8 +23,8 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu', 'relu')
 ACT_ACTIV = ('relu', 'relu', 'relu')
 # Action boundaries
-ACTION_LOW = -1.0
-ACTION_HIGH = 1.0
+ACTION_LOW = -2.0
+ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 256
 T_MAX = 20000         # Old 20000
