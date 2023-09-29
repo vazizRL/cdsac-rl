@@ -259,6 +259,20 @@ class DSAC:
             # weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.mean(torch.pow(q2_stds.detach(), 2)))
             weight = 1
 
+            # # q1 loss
+            # q1_loss = weight * torch.mean(
+            #     (torch.pow(q1_means - targets_q1_mean, 2)) / (2 * torch.pow(q1_stds.detach(), 2))
+            #     + (torch.pow(q1_means.detach() - targets_z1_bound, 2)) / (2 * torch.pow(q1_stds, 2))
+            #     + torch.log(q1_stds)
+            # )
+            #
+            # # q2 loss
+            # q2_loss = weight * torch.mean(
+            #     torch.pow(q2_means - targets_q2_mean, 2) / (2 * torch.pow(q2_stds.detach(), 2))
+            #     + torch.pow(q2_means.detach() - targets_z2_bound, 2) / (2 * torch.pow(q2_stds, 2))
+            #     + torch.log(q2_stds)
+            # )
+
             # q1 loss
             q1_loss = weight * torch.mean(
                 (torch.pow(q1_means - targets_q1_mean, 2)) / (2 * torch.pow(q1_stds.detach(), 2))

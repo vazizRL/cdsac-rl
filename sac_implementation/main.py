@@ -5,8 +5,8 @@ from sac_agent import Agent
 
 
 if __name__ == '__main__':
-    load_checkpoint = True
-    render = True
+    load_checkpoint = False
+    render = False
     if load_checkpoint and render:
         env = gym.make('Pendulum-v1', render_mode='human')
     else:
