@@ -69,8 +69,8 @@ class MLP(nn.Module):
             func = self.get_activ_func_from_str(self._activ_str[act_idx])
             ffd = func(layer_i(ffd))
         func = self.get_activ_func_from_str(self._activ_str[-1])
-        means = func(self._layers[-1][0](ffd))
-        stds = func(self._layers[-1][1](ffd))
+        means = self._layers[-1][0](ffd)
+        stds = self._layers[-1][1](ffd)
         return means, stds
 
 
