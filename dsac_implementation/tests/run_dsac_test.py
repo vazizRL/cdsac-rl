@@ -46,7 +46,7 @@ meta_name = 'agent_meta.txt'
 if __name__ == '__main__':
     curr_dir = os.getcwd()
     continue_training = False
-    load_checkpoint = True
+    load_checkpoint = False
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -86,9 +86,9 @@ if __name__ == '__main__':
         interval_reward = 0
         while not done:
             action, log_prob_action = agent.choose_action(observation)
+            observation_, reward, done, info, _ = env.step(action)
             if episode_iter > episode_end:
                 done = True
-            observation_, reward, done, info, _ = env.step(action)
             if n_tot_steps % 100 == 0:
                 print(f'Reward for 100-interval: {interval_reward}; with action: {action}')
                 interval_reward = 0
