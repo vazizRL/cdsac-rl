@@ -15,8 +15,8 @@ OBSERVATION_DIM = 3
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
-CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -0.1, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 4.0, 0.5
+CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -100, -20.0
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 100, 0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -45,8 +45,8 @@ meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = True
-    load_checkpoint = True
+    continue_training = False
+    load_checkpoint = False
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)
@@ -90,7 +90,8 @@ if __name__ == '__main__':
             if episode_iter > episode_end:
                 done = True
             if n_tot_steps % 100 == 0:
-                print(f'Reward for 100-interval: {interval_reward}; with action: {action}')
+                print(f'Reward for 100-interval: {interval_reward}; with action: {action};' + \
+                      f'stores transitions: {agent.memory.mem_cntr}')
                 interval_reward = 0
             interval_reward += reward
             score += reward
@@ -108,10 +109,10 @@ if __name__ == '__main__':
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])
 
-        if avg_score > best_score:
-            best_score = avg_score
-            if not load_checkpoint or continue_training:
-                agent.save_checkpoint(iter_n=i, path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
+        # if avg_score > best_score:
+        best_score = avg_score
+        if not load_checkpoint or continue_training:
+            agent.save_checkpoint(iter_n=i, path=curr_dir, tar_name=ckpt_name, txt_name=meta_name)
 
         print('episode', i, ', score %.1f' % score, ', avg_score %.1f' % avg_score)
 
