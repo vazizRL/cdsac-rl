@@ -331,7 +331,7 @@ class DSAC:
         loss_q.backward()
 
         # Switch off autograd when calculating policy loss
-        models = [self.q1, self.q1]
+        models = [self.q1, self.q2]
         self.switch_autograd_log(require_grad=False, models=models)
 
         # Calculate policy loss and backpropagate
