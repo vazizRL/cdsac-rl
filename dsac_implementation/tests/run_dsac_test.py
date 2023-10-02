@@ -15,8 +15,8 @@ OBSERVATION_DIM = 3
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
-CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0.0, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0.15, 0.5
+CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -0.1, -20.0
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 4.0, 0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -31,7 +31,7 @@ BATCH_SIZE = 256
 T_MAX = 60000         # Old 20000
 TAU = 0.015
 STATIC_ALPHA = 1      # Old 0.2
-REWARD_SCALE = 200        # Old 0.2
+REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
 AUTO_ALPHA = True
@@ -45,8 +45,8 @@ meta_name = 'agent_meta.txt'
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
-    continue_training = False
-    load_checkpoint = False
+    continue_training = True
+    load_checkpoint = True
     render = False
     if load_checkpoint and render:
         agent = Agent(action_dim=ACTION_DIM, obs_dim=OBSERVATION_DIM)

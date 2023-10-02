@@ -10,9 +10,9 @@ class Agent:
     def __init__(self, obs_dim, action_dim, cr_lr_ini=8e-5, cr_lr_fin=1e-6,  act_lr_ini=5e-5,
                  act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
                  cr_min_log_std=0, cr_max_log_std=5,
-                 cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
+                 cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  act_min_log_std=-20, act_max_log_std=0.5,
-                 act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
+                 act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2,
                  auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5)
