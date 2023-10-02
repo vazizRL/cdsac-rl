@@ -275,8 +275,8 @@ class DSAC:
 
         else:
             """Calculate losses if no bounds are enforced on target. Is identical to loss in paper"""
-            q1_loss = -Normal(q1_means, q1_stds).log_prob(target_z1_unbound).mean()
-            q2_loss = -Normal(q2_means, q2_stds).log_prob(target_z2_unbound).mean()
+            q1_loss = -Normal(q1_means, q1_stds).log_prob(targets_z1_bound).mean()
+            q2_loss = -Normal(q2_means, q2_stds).log_prob(targets_z2_bound).mean()
 
         q_loss = q1_loss + q2_loss
 
