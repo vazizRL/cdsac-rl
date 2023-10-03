@@ -17,8 +17,8 @@ OBSERVATION_DIM = 3
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
-CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -100, -100        # -0.1  -20
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 100, 100          # 4      0.5
+CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0, -100        # -0.1  -20
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0, 0          # 4      0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -37,7 +37,7 @@ REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
 AUTO_ALPHA = True
-LOG_ALPHA_INI = 1      # Old 1
+LOG_ALPHA_INI = 0      # Old 1
 MEM_SIZE = 1e5         # 1e5
 
 # Saving options
@@ -113,9 +113,9 @@ if __name__ == '__main__':
                 env.render()
             if not load_checkpoint or continue_training:
                 tb_info = agent.learn(n_learning_iter=1, step_number=n_tot_steps)
+                tb_writer.add_scalar('Reward', reward, n_tot_steps)
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, n_tot_steps)
-                tb_writer.add_scalar('Reward', reward, n_tot_steps)
             observation = observation_
         print(f'@Iter: {n_tot_steps}')
         score_history.append(score)

@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.normal import Normal
 
-ckpt_dir = 'C:/Users/vanya/OneDrive/Desktop/HAW_Projekt/Software/PyTorch/PyTorch_Tutorial/sac_implementation\Models'
+ckpt_dir = "C:/Users/vanya/OneDrive/Desktop/PhD_RL/RL_Framework/sac_implementation/Models"
 
 
 class CriticNetwork(nn.Module):
@@ -156,7 +156,7 @@ class ActorNetwork(nn.Module):
         # For each batch, sum the provs.
         log_probs = log_probs.sum(1, keepdim=True)
 
-        return action, log_probs
+        return action, log_probs, sigma
 
     def save_checkpoint(self):
         T.save(self.state_dict(), self.checkpoint_file)

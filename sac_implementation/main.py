@@ -1,8 +1,18 @@
-# import pybullet_envs
+import os
 import gym
 import numpy as np
 from sac_agent import Agent
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
+
+# Instantiate tb
+curr_dir = os.getcwd()
+dt = datetime.now()
+ts = datetime.timestamp(dt)
+event_path = curr_dir + f'/event_{ts}'
+os.mkdir(event_path)
+tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
 
 if __name__ == '__main__':
     load_checkpoint = False
@@ -50,8 +60,12 @@ if __name__ == '__main__':
             if render:
                 env.render()
             if not load_checkpoint:
-                agent.learn()
+                tb_info = agent.learn()
+                tb_writer.add_scalar('Reward', reward, iter_tot)
+                for key, value in tb_info.items():
+                    tb_writer.add_scalar(key, value, iter_tot)
             observation = observation_
+
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])
 

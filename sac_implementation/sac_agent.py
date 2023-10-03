@@ -33,9 +33,12 @@ class Agent:
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
 
+        self.empty_tb_data = {'SAC critic_loss': 0, 'SAC actor_loss': 0, 'SAC value_loss': 0,
+                              'SAC policy avg. std plain': 0, 'SAC policy avg. std repara': 0}
+
     def choose_action(self, observation):
         state = T.tensor([observation]).to(self.actor.device)
-        actions, _ = self.actor.sample_normal(state, reparametrize=False)
+        actions, _ , _ = self.actor.sample_normal(state, reparametrize=False)
 
         # Send it to CPU, detach from graph, turn into np.ndarray and take zeroth element
         return actions.cpu().detach().numpy()[0]
@@ -88,7 +91,7 @@ class Agent:
         """
         if self.memory.mem_cntr < self.batch_size:
             print('Memory < Batch Size, Learning not initiated')
-            return
+            return self.empty_tb_data
 
         state, old_actions, reward, new_state, done = self.memory.sample_buffer(self.batch_size)
 
@@ -108,7 +111,7 @@ class Agent:
 
         """ Calculate value loss """
         # According to current policy
-        curr_actions, log_probs = self.actor.sample_normal(state, reparametrize=False)
+        curr_actions, log_probs, pol_std = self.actor.sample_normal(state, reparametrize=False)
         log_probs = log_probs.nan_to_num()
         log_probs = log_probs.view(-1)
 
@@ -143,7 +146,7 @@ class Agent:
 
         """ Calculate Actor Loss """
         # Note: In Paper, Critic loss is calculated first
-        curr_actions_rep, log_probs_rep = self.actor.sample_normal(state, reparametrize=True)
+        curr_actions_rep, log_probs_rep, pol_std_rep = self.actor.sample_normal(state, reparametrize=True)
         log_probs_rep = log_probs_rep.nan_to_num()
         log_probs_rep = log_probs_rep.view(-1)
         q1_new_policy_rep = self.critic_1.forward(state, curr_actions_rep)
@@ -159,6 +162,16 @@ class Agent:
         self.actor.optim.step()
 
         self.update_network_parameters()
+
+        tb_info = {
+            'SAC critic_loss': critic_loss,
+            'SAC actor_loss': actor_loss,
+            'SAC value_loss': value_loss,
+            'SAC avg. policy std plain': T.mean(pol_std).detach(),
+            'SAC avg. policy std repara': T.mean(pol_std_rep).detach()
+         }
+
+        return tb_info
 
 
 
