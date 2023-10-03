@@ -416,4 +416,23 @@ class DSAC:
     def get_remote_update_info(self):
         raise NotImplementedError('The method "get_remote_update_info" is not implemented')
 
+    @staticmethod
+    def get_empty_tb_info():
+        tb_info = {
+            "DSAC2/critic_avg_q1-RL iter": 0,
+            "DSAC2/critic_avg_q2-RL iter": 0,
+            "DSAC2/critic_avg_std1-RL iter": 0,
+            "DSAC2/critic_avg_std2-RL iter": 0,
+            tb_tags["loss_actor"]: 0,
+            tb_tags["loss_critic"]: 0,
+            "DSAC2/policy_mean-RL iter": 0,
+            "DSAC2/policy_std-RL iter": 0,
+            "DSAC2/entropy-RL iter": 0,
+            "DSAC2/alpha-RL iter": 0,
+            tb_tags["alg_time"]: 0,
+        }
+
+        return tb_info
+
+
 

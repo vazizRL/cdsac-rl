@@ -2,6 +2,8 @@ import gym
 import numpy as np
 import os
 from dsac_implementation.dsac_agent import Agent
+from torch.utils.tensorboard import SummaryWriter
+from datetime import datetime
 
 
 """ Environment constants"""
@@ -15,8 +17,8 @@ OBSERVATION_DIM = 3
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
-CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -100, -20.0
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 100, 0.5
+CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -100, -100        # -0.1  -20
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 100, 100          # 4      0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)
@@ -28,20 +30,27 @@ ACTION_LOW = -2.0
 ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 256
-T_MAX = 60000         # Old 20000
+T_MAX = 60000           # Old 20000
 TAU = 0.015
-STATIC_ALPHA = 1      # Old 0.2
+STATIC_ALPHA = 1        # Old 0.2
 REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 2
 AUTO_ALPHA = True
 LOG_ALPHA_INI = 1      # Old 1
-MEM_SIZE = 1e5
+MEM_SIZE = 1e5         # 1e5
 
 # Saving options
-curr_dir = os.getcwd() + '//'
+curr_dir = os.getcwd() + '/'
 ckpt_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
+
+# Instantiate tb
+dt = datetime.now()
+ts = datetime.timestamp(dt)
+event_path = curr_dir + f'/event_{ts}'
+os.mkdir(event_path)
+tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
 
 if __name__ == '__main__':
     curr_dir = os.getcwd()
@@ -103,7 +112,10 @@ if __name__ == '__main__':
             if render:
                 env.render()
             if not load_checkpoint or continue_training:
-                agent.learn(n_learning_iter=1, step_number=n_tot_steps)
+                tb_info = agent.learn(n_learning_iter=1, step_number=n_tot_steps)
+                for key, value in tb_info.items():
+                    tb_writer.add_scalar(key, value, n_tot_steps)
+                tb_writer.add_scalar('Reward', reward, n_tot_steps)
             observation = observation_
         print(f'@Iter: {n_tot_steps}')
         score_history.append(score)

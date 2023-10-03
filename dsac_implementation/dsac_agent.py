@@ -95,12 +95,13 @@ class Agent:
     def learn(self, n_learning_iter: int, step_number: int):
         if self.memory.mem_cntr < self.batch_size:
             print(f'Batch size of {self.batch_size} > Stored tupels {self.memory.mem_cntr}')
-            return 0
+            tb_info = self.dsac.get_empty_tb_info()
+
         for learning_iter_i in range(n_learning_iter):
             batch_i = self.memory.sample_buffer(self.batch_size)
-            self.dsac.update(batch_i, iteration=step_number)
+            tb_info = self.dsac.update(batch_i, iteration=step_number)
 
-        return 0
+        return tb_info
 
     def clear_replay_buffer(self):
         """
