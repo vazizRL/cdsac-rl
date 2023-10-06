@@ -33,8 +33,14 @@ class Agent:
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
 
-        self.empty_tb_data = {'SAC critic_loss': 0, 'SAC actor_loss': 0, 'SAC value_loss': 0,
-                              'SAC policy avg. std plain': 0, 'SAC policy avg. std repara': 0}
+        self.empty_tb_data = {'SACQ/q1_val': 0,
+                              'SACQ/q2_val': 0,
+                              'SACLoss/critic_loss': 0,
+                              'SACLoss/actor_loss': 0,
+                              'SACLoss/value_loss': 0,
+                              'SACPolicy/avg. policy std plain': 0,
+                              'SACPolicy/avg. policy std repara': 0
+                              }
 
     def choose_action(self, observation):
         state = T.tensor([observation]).to(self.actor.device)
@@ -163,13 +169,14 @@ class Agent:
 
         self.update_network_parameters()
 
-        tb_info = {
-            'SAC critic_loss': critic_loss,
-            'SAC actor_loss': actor_loss,
-            'SAC value_loss': value_loss,
-            'SAC avg. policy std plain': T.mean(pol_std).detach(),
-            'SAC avg. policy std repara': T.mean(pol_std_rep).detach()
-         }
+        tb_info = {'SACQ/q1_val': q1_new_policy.mean().detach(),
+                   'SACQ/q2_val': q2_new_policy.mean().detach(),
+                   'SACLoss/critic_loss': critic_loss,
+                   'SACLoss/actor_loss': actor_loss,
+                   'SACLoss/value_loss': value_loss,
+                   'SACPolicy/avg. policy std plain': T.mean(pol_std).detach(),
+                   'SACPolicy/avg. policy std repara': T.mean(pol_std_rep).detach()
+                   }
 
         return tb_info
 
