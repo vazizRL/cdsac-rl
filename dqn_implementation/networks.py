@@ -1,3 +1,4 @@
+import torch
 import torch as T
 import torch.nn as nn
 import torch.optim as optim
@@ -11,9 +12,9 @@ class Network(nn.Module):
         self.fc1_dims = fc1_dims
         self.fc2_dims = fc2_dims
         self.n_actions = n_actions
-        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims)
-        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
-        self.output = nn.Linear(self.fc2_dims, self.n_actions)
+        self.fc1 = nn.Linear(*self.input_dims, self.fc1_dims, dtype=torch.float64)
+        self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims, dtype=torch.float64)
+        self.output = nn.Linear(self.fc2_dims, self.n_actions, dtype=torch.float64)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
         self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')

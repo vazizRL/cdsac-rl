@@ -22,6 +22,8 @@ class Agent:
         self.eps_dec = eps_dec
         self.lr = lr
         self.learn_iter = 0
+        self.empty_tb_info = {'DQN/q_val': 0,
+                              'DQN/loss': 0}
 
     @staticmethod
     def send_to_device(tensors: tuple, device: str):
@@ -30,6 +32,9 @@ class Agent:
             ten = T.tensor(ten).to(device)
             tens.append(ten)
         return tens
+
+    def remember(self, state, action, reward, new_state, done):
+        self.memory.store_transition(state, action, reward, new_state, done)
 
     def choose_action(self, state):
         """
@@ -49,15 +54,18 @@ class Agent:
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
             print(f'Stored memories: {self.memory.mem_cntr} < {self.batch_size}')
-            return
+            return self.empty_tb_info
 
         self.q_eval.optimizer.zero_grad()
-        states, actions, rewards, states_, dones = self.memory.sample_buffer(self.batch_size)
+        states, actions, rewards, states_, dones, batch_idx = self.memory.sample_buffer(self.batch_size)
         states, actions, rewards, states_, dones = self.send_to_device((states, actions, rewards, states_, dones),
                                                                        device=self.q_eval.device)
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
-        q_curr = self.q_eval(states)[batch_index, actions]
+        actions = T.max(actions, dim=1)
+
+        # q_curr = self.q_eval(states)[batch_index, actions]
+        q_curr = self.q_eval(states)[batch_index, actions[0].int()]
         q_next = self.q_eval(states_)
         q_next[dones] = 0.0
 
@@ -70,6 +78,11 @@ class Agent:
 
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
         self.learn_iter += 1
+
+        tb_info = {'DQN/q_val': q_curr.mean().detach(),
+                   'DQN/loss': loss.mean().detach()}
+
+        return tb_info
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str):
         """
@@ -99,9 +112,9 @@ class Agent:
         q_state_dict = checkpoint['q_state_dict']
         optimizer_state_dict = checkpoint['optimizer_state_dict']
 
-        self.__init__(1e-3, env.observation_space.shape, env.action_space.shape[0], gamma=0.99, epsilon=1.0,
+        self.__init__(1e-3, env.observation_space.shape, env.action_space.n, gamma=0.99, epsilon=1.0,
                       batch_size=64, fc1_dims=256, fc2_dims=256,
-                      eps_end=0.01, eps_dec=5e-4, max_mem=1e5)
+                      eps_end=0.01, eps_dec=5e-4, max_mem=int(1e5))
 
         # Load network, tensor params and learning rate schedule
         self.q_eval.load_state_dict(q_state_dict)
