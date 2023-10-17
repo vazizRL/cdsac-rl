@@ -93,7 +93,7 @@ class Agent:
         :param txt_name: Agent meta-parameters file name, saved as .txt
         """
         print('Save checkpoint...')
-        complete_tar_file = path + tar_name
+        complete_tar_file = tar_name
         T.save({
             'iter_n': iter_n,
             'q_state_dict': self.q_eval.state_dict(),
@@ -104,7 +104,7 @@ class Agent:
 
     def load_models(self, path, tar_name, env):
         # Load files
-        complete_checkpoint = path + tar_name
+        complete_checkpoint =  tar_name
         checkpoint = T.load(complete_checkpoint)
 
         # Extract parameters from checkpoint
@@ -112,9 +112,9 @@ class Agent:
         q_state_dict = checkpoint['q_state_dict']
         optimizer_state_dict = checkpoint['optimizer_state_dict']
 
-        self.__init__(1e-3, env.observation_space.shape, env.action_space.n, gamma=0.99, epsilon=1.0,
+        self.__init__(1e-3, env.observation_space.shape, env.action_space.n, gamma=0.99, epsilon=0.00,
                       batch_size=64, fc1_dims=256, fc2_dims=256,
-                      eps_end=0.01, eps_dec=5e-4, max_mem=int(1e5))
+                      eps_end=0.00, eps_dec=5e-4, max_mem=int(1e5))
 
         # Load network, tensor params and learning rate schedule
         self.q_eval.load_state_dict(q_state_dict)

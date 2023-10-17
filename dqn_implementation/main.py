@@ -16,7 +16,7 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDQN', flush_secs=2
 # Env. name
 env_name = 'LunarLander-v2'
 # tar file name
-tar_name = '/DQN_Parameters.tar'
+tar_name = 'DQN_Parameters.tar'
 
 # RL hyper-parameters
 HL1 = 256
@@ -25,14 +25,14 @@ GAMMA = 0.99
 EPS = 1.0
 BATCH_SIZE = 64
 EPS_END = 0.01
-EPS_DECAY = 5e-4
-LR = 1e-3
+EPS_DECAY = 5e-5
+LR = 1e-4
 MEM_SIZE = int(1e5)
 
 if __name__ == '__main__':
-    load_checkpoint = False
-    render = False
-    learn = True
+    load_checkpoint = True
+    render = True
+    learn = False
     if load_checkpoint and render:
         env = gym.make(env_name, render_mode='human')
     else:
