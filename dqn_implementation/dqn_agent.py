@@ -1,7 +1,4 @@
 import torch as T
-import torch.nn as nn
-
-import torch.optim as optim
 import numpy as np
 from replay_buffer import ReplayBuffer
 from networks import Network
@@ -9,7 +6,7 @@ from networks import Network
 
 class Agent:
     def __init__(self, lr, input_dims, n_actions, gamma, epsilon, batch_size, fc1_dims=256, fc2_dims=256,
-                 eps_end=0.01, eps_dec=5e-4, max_mem=1e5):
+                 eps_end=0.01, eps_dec=5e-4, max_mem=1000):
         super(Agent).__init__()
         self.max_mem = max_mem
         self.q_eval = Network(lr=lr, input_dims=input_dims, fc1_dims=fc1_dims, fc2_dims=fc2_dims, n_actions=n_actions)
@@ -112,9 +109,9 @@ class Agent:
         q_state_dict = checkpoint['q_state_dict']
         optimizer_state_dict = checkpoint['optimizer_state_dict']
 
-        self.__init__(1e-3, env.observation_space.shape, env.action_space.n, gamma=0.99, epsilon=0.00,
-                      batch_size=64, fc1_dims=256, fc2_dims=256,
-                      eps_end=0.00, eps_dec=5e-4, max_mem=int(1e5))
+        self.__init__(1e-3, env.observation_space.shape, env.action_space.n, gamma=0.99, epsilon=0.0,
+                      batch_size=64, fc1_dims=128, fc2_dims=128,
+                      eps_end=0.0, eps_dec=5e-4, max_mem=1000)
 
         # Load network, tensor params and learning rate schedule
         self.q_eval.load_state_dict(q_state_dict)

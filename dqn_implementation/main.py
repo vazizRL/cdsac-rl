@@ -19,8 +19,8 @@ env_name = 'LunarLander-v2'
 tar_name = 'DQN_Parameters.tar'
 
 # RL hyper-parameters
-HL1 = 256
-HL2 = 256
+HL1 = 128
+HL2 = 128
 GAMMA = 0.99
 EPS = 1.0
 BATCH_SIZE = 64
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     iter_tot = 0
     interval_score = 0
     n_games = 5500
-    epi_end = 2000
+    epi_end = 1200
     best_score = env.reward_range[0]
     score_history = []
 
@@ -60,9 +60,9 @@ if __name__ == '__main__':
         interval_score = 0
         while not done:
             action = agent.choose_action(observation)
-            observation_, reward, done, info, _ = env.step(action)
+            observation_, reward, done, truncations, info = env.step(action)
             if episode_iter > epi_end:
-                done = True
+                break
             observation_ = observation_.astype(np.float64)
             score += reward
             interval_score += reward
