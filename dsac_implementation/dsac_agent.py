@@ -128,7 +128,7 @@ class Agent:
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
         """
-        print('Save checkpoint...')
+        print('Saving checkpoint...')
         complete_tar_file = path + tar_name
         complete_txt_file = path + txt_name
         # Save network and optimizer parameters
