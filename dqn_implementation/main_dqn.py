@@ -30,9 +30,9 @@ LR = 1e-4
 MEM_SIZE = int(1e5)
 
 if __name__ == '__main__':
-    load_checkpoint = True
-    render = True
-    learn = False
+    load_checkpoint = False
+    render = False
+    learn = True
     if load_checkpoint and render:
         env = gym.make(env_name, render_mode='human')
     else:

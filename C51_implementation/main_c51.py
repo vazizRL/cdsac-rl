@@ -9,30 +9,31 @@ from datetime import datetime
 curr_dir = os.getcwd()
 dt = datetime.now()
 ts = datetime.timestamp(dt)
-event_path = curr_dir + f'/C51_event_{ts}'
+checkpoint_path = curr_dir + '/checkpoint_' + str(ts)
+os.mkdir(checkpoint_path)
+event_path = checkpoint_path + f'/C51_event'
 os.mkdir(event_path)
 tb_writer = SummaryWriter(log_dir=event_path, comment='c51', flush_secs=20)
 
 # Env. name
 env_name = 'LunarLander-v2'
 # File names
-tar_name = 'C51_Parameters.tar'
-pkl_name = 'agent_params.pkl'
+tar_name = '/C51_Parameters.tar'
+pkl_name = '/agent_params.pkl'
 
 # RL hyper-parameters
 N_ATOMS = 51
-V_MIN = -100
-V_MAX = 100
+V_MIN = -250
+V_MAX = 250
 
 HL1 = 128
 HL2 = 128
 GAMMA = 0.99
-EPS_START = 1.0
-EPS_END = 0.01
-DURATION = 5e4
+EPS_START = 1.00        # 1.0
+EPS_END = 0.01         # 0.01
+DURATION = 2.5e4
 BATCH_SIZE = 128
-EPS_DECAY = 5e-5
-LR = 1e-4
+LR = 1e-3
 MEM_SIZE = int(1e5)
 
 if __name__ == '__main__':
@@ -43,9 +44,9 @@ if __name__ == '__main__':
         env = gym.make(env_name, render_mode='human')
     else:
         env = gym.make(env_name)
-    agent = Agent(input_dim=env.observation_space.shape, action_dim=env.action_space.n,
-                  fc1_dims=HL1, fc2_dims=HL2, batch_size=BATCH_SIZE, gamma=GAMMA, epsilon=EPS, eps_end=EPS_END,
-                  eps_dec=EPS_DECAY, lr=LR, max_mem=MEM_SIZE)
+    agent = Agent(input_dim=env.observation_space.shape, action_dim=env.action_space.n, n_atoms=N_ATOMS,
+                  fc1_dim=HL1, fc2_dim=HL2, batch_size=BATCH_SIZE, gamma=GAMMA, start_eps=EPS_START, end_eps=EPS_END,
+                  duration=DURATION, lr=LR, max_mem=MEM_SIZE, v_min=V_MIN, v_max=V_MAX)
 
     iter_tot = 0
     interval_score = 0
@@ -55,7 +56,8 @@ if __name__ == '__main__':
     score_history = []
 
     if load_checkpoint:
-        agent.load_models(path=curr_dir, tar_name=tar_name, env=env)
+        checkpoint_path = ''
+        agent.load_checkpoint(path=checkpoint_path, tar_name=tar_name, pkl_name=pkl_name, greedy=True)
 
     for i in range(n_games):
         episode_iter = 0
@@ -82,8 +84,8 @@ if __name__ == '__main__':
             if learn:
                 tb_info = agent.learn()
                 tb_writer.add_scalar('Reward', reward, iter_tot)
-                for key, value in tb_info.items():
-                    tb_writer.add_scalar(key, value, iter_tot)
+                # for key, value in tb_info.items():
+                #     tb_writer.add_scalar(key, value, iter_tot)
             observation = observation_
 
         score_history.append(score)
@@ -92,6 +94,6 @@ if __name__ == '__main__':
         if avg_score > best_score:
             best_score = avg_score
             if not load_checkpoint:
-                agent.save_checkpoint(iter_tot, event_path, tar_name)
+                agent.save_checkpoint(path=checkpoint_path, tar_name=tar_name, pkl_name=pkl_name)
 
         print('episode', i, ', score %.1f' % score, ', avg_score %.1f' % avg_score)

@@ -73,12 +73,18 @@ class Agent:
 
         self.z_network.optimizer.zero_grad()
 
-        states, actions, rewards, states_new, dones, mem_idxs = \
-            self.send_to_device(*self.memory.sample_buffer(self.batch_size))
+        states, actions, rewards, states_next, dones, mem_idxs = \
+            self.send_to_device(self.memory.sample_buffer(self.batch_size))
 
         with torch.no_grad():
-            _, next_pmfs = self.z_network(states_new)
-            next_atoms = rewards + self.gamma * self.z_network.atoms * (1 - dones)
+            _, next_pmfs = self.z_network(states_next)
+            ones = torch.ones(self.batch_size, self.n_atoms)
+            ones, = self.send_to_device((ones,))
+            batch_atoms = ones * self.z_network.atoms
+            dones = dones.int()[:, None]
+            rewards = rewards[:, None]
+            next_atoms = rewards + self.gamma * batch_atoms * (1 - dones)
+            # next_atoms = rewards + self.gamma * self.z_network.atoms * (1-dones)
 
             ''' Projection step '''
             tz = next_atoms.clamp(self.v_min, self.v_max)
@@ -98,7 +104,7 @@ class Agent:
                 target_pmfs[i].index_add_(0, up[i].long(), d_m_u[i])
 
         # Calculate loss and optimize for one step
-        _, old_pmfs = self.z_network(states, actions.flatten())
+        _, old_pmfs = self.z_network(states, actions)
         loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean()
         loss.backward()
         self.z_network.optimizer.step()
@@ -107,14 +113,17 @@ class Agent:
 
         return old_pmfs.detach(), loss.detach()
 
-    def choose_action(self, state, curr_iter: int):
+    def choose_action(self, state):
         state, = self.send_to_device((state,))
-        epsilon = self.linear_eps_schedule(curr_iter)
+        epsilon = self.linear_eps_schedule()
         if random.random() < epsilon:
             action = np.random.choice(self.action_space)
         else:
+            # Add 0-th axis to simulate batch
+            state = state[None, :]
+            # Sum of pmf is always 1?
             actions, pmf = self.z_network(state)
-            action = actions.cpu().numpy()
+            action = actions.cpu().numpy()[0]
 
         return action
 

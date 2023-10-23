@@ -18,9 +18,9 @@ class ReplayBuffer:
         # (s, a, r, s') in separate attributes
         self.state_memory = np.zeros(shape=(self.mem_size, *input_shape), dtype=np.float64)
         self.new_state_memory = np.zeros(shape=(self.mem_size, *input_shape), dtype=np.float64)
-        self.action_memory = np.zeros((self.mem_size, n_actions), dtype=np.float64)
+        self.action_memory = np.zeros((self.mem_size, 1), dtype=np.float64)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float64)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=bool)
+        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool_)
 
     def store_transition(self, state, action, reward, state_, done):
         # Find at which place new data should be stored, old ones are overwritten

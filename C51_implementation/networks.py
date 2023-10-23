@@ -14,11 +14,11 @@ class ZNetwork(nn.Module):
         self.hl1_dim = hl1
         self.hl2_dim = hl2
         self.network = nn.Sequential(
-            nn.Linear(state_dim, hl1),
+            nn.Linear(*state_dim, hl1, dtype=torch.float64),
             nn.ReLU(),
-            nn.Linear(hl1, hl2),
+            nn.Linear(hl1, hl2, dtype=torch.float64),
             nn.ReLU(),
-            nn.Linear(hl2, self.action_dim * self.n_atoms)
+            nn.Linear(hl2, self.action_dim * self.n_atoms, dtype=torch.float64)
         )
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -39,13 +39,17 @@ class ZNetwork(nn.Module):
         q_values = (pmfs * self.atoms).sum(dim=2)
         if action is None:
             # Chose action in standard Q-fashion
-            action = torch.argmax(q_values, 1)
-        action_i_distribution = pmfs[torch.arange(batch_size), action]
-        return action, action_i_distribution
+            action = torch.argmax(q_values, dim=1)
+        action_distribution = pmfs[torch.arange(batch_size), action.int()]
+        return action, action_distribution
 
 
 if __name__ == '__main__':
-    z_network = ZNetwork(action_dim=4, state_dim=11, hl1=128, hl2=128, n_atoms=51, v_min=-10, v_max=10)
+    z_network = ZNetwork(action_dim=4, state_dim=(11,), lr=1e-3, hl1=128, hl2=128, n_atoms=11, v_min=-10, v_max=10)
+    batch_size = 1
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    input1 = torch.rand(batch_size, 11, dtype=torch.float64).to(device)
+    actions,  _ = z_network(input1)
 
 
 
