@@ -20,9 +20,9 @@ class ZNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(hl2, self.action_dim * self.n_atoms, dtype=torch.float64)
         )
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
 
     def forward(self, state_batch, action=None):
         """
@@ -38,7 +38,7 @@ class ZNetwork(nn.Module):
         # Accumulate Q-values for each action, note that self.atoms are linspace between v_min and v_max
         q_values = (pmfs * self.atoms).sum(dim=2)
         if action is None:
-            # Chose action in standard Q-fashion
+            # Chose action in standard greedy Q-fashion
             action = torch.argmax(q_values, dim=1)
         action_distribution = pmfs[torch.arange(batch_size), action.int()]
         return action, action_distribution
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     batch_size = 1
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     input1 = torch.rand(batch_size, 11, dtype=torch.float64).to(device)
-    actions,  _ = z_network(input1)
+    actions, action_distribution = z_network(input1)
 
 
 

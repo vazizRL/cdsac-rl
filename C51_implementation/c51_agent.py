@@ -77,14 +77,11 @@ class Agent:
             self.send_to_device(self.memory.sample_buffer(self.batch_size))
 
         with torch.no_grad():
+            # Gives either action, action_distr of greedy action or specified action
             _, next_pmfs = self.z_network(states_next)
-            ones = torch.ones(self.batch_size, self.n_atoms)
-            ones, = self.send_to_device((ones,))
-            batch_atoms = ones * self.z_network.atoms
             dones = dones.int()[:, None]
             rewards = rewards[:, None]
-            next_atoms = rewards + self.gamma * batch_atoms * (1 - dones)
-            # next_atoms = rewards + self.gamma * self.z_network.atoms * (1-dones)
+            next_atoms = rewards + self.gamma * self.z_network.atoms * (1-dones)
 
             ''' Projection step '''
             tz = next_atoms.clamp(self.v_min, self.v_max)
@@ -104,12 +101,12 @@ class Agent:
                 target_pmfs[i].index_add_(0, up[i].long(), d_m_u[i])
 
         # Calculate loss and optimize for one step
-        _, old_pmfs = self.z_network(states, actions)
+        _, old_pmfs = self.z_network(states, actions.flatten())
         loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean()
         loss.backward()
         self.z_network.optimizer.step()
 
-        self.iter_cntr += 0
+        self.iter_cntr += 1
 
         return old_pmfs.detach(), loss.detach()
 
@@ -166,8 +163,8 @@ class Agent:
         if greedy:
             hyper.update({'end_eps': 0, 'duration': 1})
 
-        self.__init__(input_dim=hyper['inp_dim'], action_dim=hyper['action_dim'], n_atoms=hyper['atoms'],
-                      lr=hyper['lr'], start_eps=hyper['inp_dim'], end_eps=hyper['end_eps'], duration=hyper['duration'],
+        self.__init__(input_dim=hyper['input_dim'], action_dim=hyper['action_dim'], n_atoms=hyper['atoms'],
+                      lr=hyper['lr'], start_eps=hyper['start_eps'], end_eps=hyper['end_eps'], duration=hyper['duration'],
                       gamma=hyper['gamma'], batch_size=hyper['batch_size'], fc1_dim=hyper['fc1_dim'],
                       fc2_dim=hyper['fc2_dim'], v_min=hyper['v_min'], v_max=hyper['v_max'], max_mem=hyper['max_mem'])
         self.iter_cntr = hyper['iter_cntr']

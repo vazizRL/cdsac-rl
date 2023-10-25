@@ -1,19 +1,29 @@
 import gym
 import os
 import numpy as np
-from C51_implementation.ddqn_agent import Agent
+from C51_implementation.c51_agent import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
-# Instantiate tb
+# Mode
+load_checkpoint = True
+render = True
+learn = False
+
+# Create new ckpt or specify existing one
 curr_dir = os.getcwd()
-dt = datetime.now()
-ts = datetime.timestamp(dt)
-checkpoint_path = curr_dir + '/checkpoint_' + str(ts)
-os.mkdir(checkpoint_path)
-event_path = checkpoint_path + f'/C51_event'
-os.mkdir(event_path)
-tb_writer = SummaryWriter(log_dir=event_path, comment='c51', flush_secs=20)
+if learn:
+    # Instantiate tb
+    dt = datetime.now()
+    ts = datetime.timestamp(dt)
+    checkpoint_path = curr_dir + '/checkpoint_' + str(ts)
+    os.mkdir(checkpoint_path)
+    event_path = checkpoint_path + f'/C51_event'
+    os.mkdir(event_path)
+    tb_writer = SummaryWriter(log_dir=event_path, comment='c51', flush_secs=20)
+else:
+    checkpoint_path = curr_dir + "/checkpoint_1698086476.527805"
+
 
 # Env. name
 env_name = 'LunarLander-v2'
@@ -23,23 +33,20 @@ pkl_name = '/agent_params.pkl'
 
 # RL hyper-parameters
 N_ATOMS = 51
-V_MIN = -250
-V_MAX = 250
+V_MIN = -25
+V_MAX = 25
 
 HL1 = 128
 HL2 = 128
 GAMMA = 0.99
 EPS_START = 1.00        # 1.0
 EPS_END = 0.01         # 0.01
-DURATION = 2.5e4
-BATCH_SIZE = 128
-LR = 1e-3
-MEM_SIZE = int(1e5)
+DURATION = 6.5e4
+BATCH_SIZE = 64
+LR = 1e-4
+MEM_SIZE = int(6e4)
 
 if __name__ == '__main__':
-    load_checkpoint = False
-    render = False
-    learn = True
     if load_checkpoint and render:
         env = gym.make(env_name, render_mode='human')
     else:
@@ -56,7 +63,6 @@ if __name__ == '__main__':
     score_history = []
 
     if load_checkpoint:
-        checkpoint_path = ''
         agent.load_checkpoint(path=checkpoint_path, tar_name=tar_name, pkl_name=pkl_name, greedy=True)
 
     for i in range(n_games):
