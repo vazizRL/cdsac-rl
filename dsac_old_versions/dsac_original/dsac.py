@@ -1,16 +1,15 @@
 __all__=["ApproxContainer","DSAC"]
 import time
 from copy import deepcopy
-from typing import Tuple
 
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
 from torch.optim import Adam
 from typing import Dict
-from dsac_original.utils.initialization import create_apprfunc
-from dsac_original.utils.tensorboard_setup import tb_tags
-from dsac_original.utils.common_utils import get_apprfunc_dict
+from dsac_old_versions.dsac_original.utils import create_apprfunc
+from dsac_old_versions.dsac_original.utils.tensorboard_setup import tb_tags
+from dsac_old_versions.dsac_original.utils import get_apprfunc_dict
 
 
 class ApproxContainer(torch.nn.Module):

@@ -3,7 +3,7 @@ import torch
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
-from dsac_implementation.variable_tow_headed_mlp import MLP
+from dsac_old_versions.dsac_implementation.variable_tow_headed_mlp import MLP
 
 # Note: The first dimension is the input dimension
 inp_dim = 28*28

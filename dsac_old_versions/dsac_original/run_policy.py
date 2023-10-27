@@ -1,4 +1,4 @@
-from dsac_original.utils.sys_run import PolicyRunner
+from dsac_old_versions.dsac_original.utils.sys_run import PolicyRunner
 
 runner = PolicyRunner(
     log_policy_dir_list=["./results/230721-143613"],

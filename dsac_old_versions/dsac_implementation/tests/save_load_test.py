@@ -2,7 +2,7 @@ import torch
 import torch as T
 import os
 from dsac_implementation.networks import Actor, Critic
-from dsac_implementation.dsac_agent import Agent
+from dsac_old_versions.dsac_implementation.dsac_agent import Agent
 
 """Define Global Constans"""
 # Define env. constants

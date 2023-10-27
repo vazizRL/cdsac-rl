@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import os
-from dsac_implementation.dsac_agent import Agent
+from dsac_old_versions.dsac_implementation.dsac_agent import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 

@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
 import time
-from dsac_implementation.networks import Critic, Actor
 from torch.distributions import Normal
 from torch.optim import Adam, lr_scheduler
 
-from dsac_implementation.tensorboard_tools import tb_tags
-from typing import Tuple
+from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
 from typing import Dict
 
 

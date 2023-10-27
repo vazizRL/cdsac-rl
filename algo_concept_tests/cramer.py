@@ -47,7 +47,7 @@ print(f"Energy Distance: {ed}")
 
 if __name__ == '__main__':
     # m
-    S_SIZE = 100000
+    S_SIZE = 1000
     MIN_SUPPORT = -20
     MAX_SUPPORT = 20
     supports = np.arange(MIN_SUPPORT, MAX_SUPPORT, 0.02)

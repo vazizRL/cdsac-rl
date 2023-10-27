@@ -1,8 +1,7 @@
-import numpy as np
 import torch
 import torch.nn as nn
-from dsac_implementation.variable_tow_headed_mlp import MLP
-from dsac_implementation.action_distribution import TanhGaussDistribution
+from dsac_old_versions.dsac_implementation.variable_tow_headed_mlp import MLP
+from dsac_old_versions.dsac_implementation.action_distribution import TanhGaussDistribution
 
 
 class Critic(nn.Module):
@@ -112,9 +111,6 @@ class Actor(nn.Module):
 
 
 if __name__ == '__main__':
-    import torchvision
-    import torchvision.transforms as transforms
-
     # Note: The first dimension is the input dimension
     mlp_model = MLP((3, 2, 2, 1), ('relu', 'relu', 'relu'))
 

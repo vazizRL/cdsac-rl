@@ -3,11 +3,11 @@ import time
 import numpy as np
 import torch
 
-from dsac_original.utils.initialization import create_env
-from dsac_original.utils.common_utils import set_seed
-from dsac_original.utils.explore_noise import GaussNoise, EpsilonGreedy
-from dsac_original.utils.tensorboard_setup import tb_tags
-from dsac_original.dsac import ApproxContainer
+from dsac_old_versions.dsac_original.utils import create_env
+from dsac_old_versions.dsac_original.utils import set_seed
+from dsac_old_versions.dsac_original.utils.explore_noise import GaussNoise, EpsilonGreedy
+from dsac_old_versions.dsac_original.utils.tensorboard_setup import tb_tags
+from dsac_old_versions.dsac_original.dsac import ApproxContainer
 
 
 class OffSampler:

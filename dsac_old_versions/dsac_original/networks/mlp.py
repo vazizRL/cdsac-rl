@@ -6,8 +6,8 @@ __all__ = [
 import numpy as np
 import torch
 import torch.nn as nn
-from dsac_original.utils.common_utils import get_activation_func
-from dsac_original.utils.act_distribution_cls import Action_Distribution
+from dsac_old_versions.dsac_original.utils import get_activation_func
+from dsac_old_versions.dsac_original.utils import Action_Distribution
 
 
 # Define MLP function

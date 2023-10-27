@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import torch
-from dsac_original.utils.common_utils import set_seed
+from dsac_old_versions.dsac_original.utils import set_seed
 
 __all__ = ["ReplayBuffer"]
 

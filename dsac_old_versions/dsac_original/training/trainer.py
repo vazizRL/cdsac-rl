@@ -7,9 +7,9 @@ import time
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from dsac_original.utils.tensorboard_setup import add_scalars
-from dsac_original.utils.tensorboard_setup import tb_tags
-from dsac_original.utils.common_utils import ModuleOnDevice
+from dsac_old_versions.dsac_original.utils.tensorboard_setup import add_scalars
+from dsac_old_versions.dsac_original.utils.tensorboard_setup import tb_tags
+from dsac_old_versions.dsac_original.utils import ModuleOnDevice
 
 
 class OffSerialTrainer:
