@@ -38,10 +38,13 @@ def energy_d(supports, p_target, p_curr, s_size):
     return e_distance
 
 
-def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u):
+def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100,100)):
+    """
+    - The integration limits should NOT be too far off form the lowest and highest point of the function!
+    """
     distance, error_est = integrate.quad(
         lambda x: (pdf_target.cdf(torch.tensor([x])).numpy() - pdf_curr.cdf(torch.tensor([x])).numpy()) ** 2,
-        int_l, int_u
+        int_l, int_u, points=points
     )
 
     return distance**0.5, error_est
@@ -55,7 +58,7 @@ print(f"Energy Distance: {ed}")
 
 if __name__ == '__main__':
     # m
-    S_SIZE = 1000
+    S_SIZE = 1100
     MIN_SUPPORT = -20
     MAX_SUPPORT = 20
     supports = np.arange(MIN_SUPPORT, MAX_SUPPORT, 0.02)
@@ -102,13 +105,21 @@ if __name__ == '__main__':
     # Distance between target_pdf_cont and gmm (should also be cont)
     for i in range(-10, 11, 1):
         # Define gmm
-        if i == 10:
-            means = torch.tensor([0, i])
-        else:
-            means = torch.tensor([0, i])
+        means = torch.tensor([0, i])
         variances = torch.ones(2)
         weights = torch.tensor([0.5, 0.5])
         gmm = dist.MixtureSameFamily(dist.Categorical(probs=weights), dist.Normal(means, variances))
         cramer_dist = cramer_from_pdf(pdf_target=target_pdf_cont, pdf_curr=gmm, int_l=-50, int_u=50)
         print(f'For GMM means {means}, distance to target is: {cramer_dist}')
+
+    # Test mysterious symmetry
+    lim = 50
+    means_sym = 0.1
+    gmmi = dist.MixtureSameFamily(dist.Categorical(probs=torch.tensor([0.5, 0.5])),
+                                  dist.Normal(torch.tensor([-means_sym, means_sym]), torch.tensor([1.0, 1.0])))
+    l_sym = cramer_from_pdf(target_pdf_cont, gmmi, int_l=-lim, int_u=lim, points=[10*-means_sym, 10*means_sym])
+    print(f'Symmetrical cramer distance for means {-means_sym, means_sym} is: {l_sym}. Calculated with limits:'
+          f'{-lim, lim}')
+
+
 
