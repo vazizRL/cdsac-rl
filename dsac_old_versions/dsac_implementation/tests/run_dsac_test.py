@@ -17,8 +17,8 @@ OBSERVATION_DIM = 3
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6
 # Standard deviations
-CR_MIN_LOG_STD, ACT_MIN_LOG_STD = 0, -100        # -0.1  -20
-CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 0, 0          # 4      0.5
+CR_MIN_LOG_STD, ACT_MIN_LOG_STD = -0.1, -15        # -0.1  -20
+CR_MAX_LOG_STD, ACT_MAX_LOG_STD = 4, 15          # 4      0.5
 # Hidden Layers
 CR_HL = (256, 256)
 ACT_HL = (256, 256)

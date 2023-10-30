@@ -1,10 +1,18 @@
 import numpy as np
 import torch
+import torch.distributions as dist
 from scipy.stats import energy_distance
 from scipy.stats import norm
 from scipy.stats import multivariate_normal
 from scipy import integrate
 from torch.distributions import Normal
+
+
+def normal_pdf_scaled(sprt, mean, sig, scale):
+    z = 1/(sig*np.sqrt(2*np.pi))
+    dist = np.e**(-0.5*((sprt-mean)/sig)**2)
+
+    return z*dist*scale
 
 
 def energy_d(supports, p_target, p_curr, s_size):
@@ -76,11 +84,31 @@ if __name__ == '__main__':
     # Calculate distance between distributions given by \hat{P}_m and \hat{Q}_m for samples
     for idx, samples_i in enumerate(samples):
         l_i = energy_distance(target_samples, samples_i)
-        print(f'For mean {idx-abs(MIN_SUPPORT)} of Normal distribution with std 1, the distance is: {l_i}')
+        print(f'For mean {-10 + idx} of Normal distribution with std 1, the distance is: {l_i}')
         # Own implementation
         l_i_own = energy_d(supports=supports, p_target=target_pdf, p_curr=pdfs[idx], s_size=S_SIZE)
         print(f'Own implementation of energy distance: {l_i_own}, its square root: {l_i_own**0.5}')
         l_cramer_pdf, err = cramer_from_pdf(target_pdf_cont, pdfs_cont[idx], int_l=-50, int_u=50)
         print(f'Cramer distance from PDF: {l_cramer_pdf} with max. error: {err} \n')
 
+    # Define a GMM in 1d with n Kernels in PyTorch
+    means = torch.arange(-10, 11, 1)
+    variances = torch.ones(21)
+    weights = torch.ones(21) / 21
+
+    # Categorical: Prob. of which kernel is "used"
+    gmm = dist.MixtureSameFamily(dist.Categorical(probs=weights), dist.Normal(means, variances))
+
+    # Distance between target_pdf_cont and gmm (should also be cont)
+    for i in range(-10, 11, 1):
+        # Define gmm
+        if i == 10:
+            means = torch.tensor([0, i])
+        else:
+            means = torch.tensor([0, i])
+        variances = torch.ones(2)
+        weights = torch.tensor([0.5, 0.5])
+        gmm = dist.MixtureSameFamily(dist.Categorical(probs=weights), dist.Normal(means, variances))
+        cramer_dist = cramer_from_pdf(pdf_target=target_pdf_cont, pdf_curr=gmm, int_l=-50, int_u=50)
+        print(f'For GMM means {means}, distance to target is: {cramer_dist}')
 
