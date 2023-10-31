@@ -7,12 +7,15 @@ from datetime import datetime
 
 
 """ Environment constants"""
-gym_env = 'Pendulum-v1'
+# gym_env = 'Pendulum-v1'
+gym_env = 'LunarLanderContinuous-v2'
 
 """ Agent constants """
 # Action Space for InvertedPendulum-v4
-ACTION_DIM = 1
-OBSERVATION_DIM = 3
+# ACTION_DIM = 1
+ACTION_DIM = 4
+# OBSERVATION_DIM = 3
+OBSERVATION_DIM = 8
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-5, 5e-5, 5e-5      # 8e-5, 5e-5, 5e-5
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-5, 1e-6, 1e-6

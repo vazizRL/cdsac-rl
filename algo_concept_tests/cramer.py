@@ -38,7 +38,7 @@ def energy_d(supports, p_target, p_curr, s_size):
     return e_distance
 
 
-def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100,100)):
+def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100)):
     """
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
     """
