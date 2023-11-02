@@ -55,9 +55,8 @@ class Critic(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256, 256, 256, 256),
-                 activation=('gelu', 'gelu', 'gelu', 'gelu', 'gelu', 'gelu'), min_log_std=-20, max_log_std=0.5,
-                 action_low_lim=-1, action_up_lim=1):
+    def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256),
+                 activation=('gelu',), min_log_std=-20, max_log_std=3, action_low_lim=-1, action_up_lim=1):
         """
         - Stochastic Policy Function Approximator
         - Std. and Mean share first layers
@@ -66,6 +65,10 @@ class Actor(nn.Module):
         :param action_dim: Number of dimensions in action space
         :param hidden_layers: Hidden layers, format (l1_n_Nodes, l2_m_Nodes,)
         :param activation: Actication per layer
+        :param min_log_std: Should be high negative value to emulate 0
+        :param max_log_std: Should be lesser positive value to prevent very high std
+        :param action_low_lim: Lowest action possible
+        :param action_up_lim:  Highest action possible
         """
         super().__init__()
         self.state_dim = state_dim
@@ -127,6 +130,7 @@ if __name__ == '__main__':
                 hidden_layers=hl, activ=activation)
 
     rnd_inp = torch.rand((10, 2))
+
 
 
 

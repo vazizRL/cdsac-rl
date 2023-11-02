@@ -49,14 +49,62 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
 
     return distance**0.5, error_est
 
-# Example usage:
-p = np.array([0.1, 0.2, 0.3, 0.4])
-q = np.array([0.2, 0.25, 0.3, 0.25])
-ed = energy_distance(p, q)
-print(f"Energy Distance: {ed}")
+
+def probe_gmm(gmm):
+    """
+    - Samples from some gmm and
+    :param gmm:
+    :type gmm:
+    """
+    for i in range(10):
+        sample = gmm.sample()
+        print(f'Probability for {sample} is {torch.e**gmm.log_prob(sample)}')
+    print('\n')
+
+
+def sym_distance_from_origin(lim=50, means_sym=10.0):
+    # Define Gauss at origin with std=1
+    target_distribution = Normal(torch.tensor([0]), torch.tensor([1]))
+    # Test mysterious symmetry
+    gmmi = dist.MixtureSameFamily(dist.Categorical(probs=torch.tensor([0.5, 0.5])),
+                                  dist.Normal(torch.tensor([-means_sym, means_sym]), torch.tensor([1.0, 1.0])))
+    l_sym = cramer_from_pdf(target_distribution, gmmi, int_l=-lim, int_u=lim, points=[10*-means_sym, 10*means_sym])
+    print(f'Symmetrical cramer distance for means {-means_sym, means_sym} is: {l_sym}. Calculated with limits:'
+          f'{-lim, lim}')
+
+    return gmmi
+
+
+def integral_of_cont_pdf(mean: float, std: float):
+    # Calculate \int_a^b {\mu_Y(t)t dt} nummerically, a=0, b=20
+    e = torch.e
+    normal = Normal(loc=torch.tensor(mean), scale=torch.tensor(std))
+    integral_norm = integrate.quad(lambda x: e**(normal.log_prob(torch.tensor(x))) * torch.tensor(x), 0.0, 20.0)
+    print(f'The area of the Gauss calculated with integrate.quad() from 0 to 20 is: {integral_norm}')
+
+    return 0
+
+
+def integral_of_cont_gmm(means: torch.tensor, stds: torch.tensor):
+    e = torch.e
+    n_kernels = len(means)
+    weights = torch.ones(n_kernels) * (1/n_kernels)
+    gmm = dist.MixtureSameFamily(dist.Categorical(probs=weights), dist.Normal(means, stds))
+    integral_gmm = integrate.quad(lambda x: e**(gmm.log_prob(torch.tensor(x))) * torch.tensor(x),
+                                  a=-50, b=50, points=(-10*means[0], 10*means[0]))
+    print(f'The area of the GMM with means {means} and stds {stds} '
+          f'calculated with integrate.quad() is {integral_gmm}')
+
+    return gmm
 
 
 if __name__ == '__main__':
+    # Example usage:
+    p = np.array([0.1, 0.2, 0.3, 0.4])
+    q = np.array([0.2, 0.25, 0.3, 0.25])
+    ed = energy_distance(p, q)
+    print(f"Energy Distance: {ed}")
+
     # m
     S_SIZE = 1100
     MIN_SUPPORT = -20
@@ -92,11 +140,12 @@ if __name__ == '__main__':
         l_i_own = energy_d(supports=supports, p_target=target_pdf, p_curr=pdfs[idx], s_size=S_SIZE)
         print(f'Own implementation of energy distance: {l_i_own}, its square root: {l_i_own**0.5}')
         l_cramer_pdf, err = cramer_from_pdf(target_pdf_cont, pdfs_cont[idx], int_l=-50, int_u=50)
-        print(f'Cramer distance from PDF: {l_cramer_pdf} with max. error: {err} \n')
+        print(f'Cramer distance from PDF: {l_cramer_pdf} with max. error: {err}')
+
 
     # Define a GMM in 1d with n Kernels in PyTorch
-    means = torch.arange(-10, 11, 1)
-    variances = torch.ones(21)
+    means = torch.arange(-10.0, 11.0, 1.0)
+    variances = torch.ones(21, dtype=torch.float64)
     weights = torch.ones(21) / 21
 
     # Categorical: Prob. of which kernel is "used"
@@ -105,21 +154,28 @@ if __name__ == '__main__':
     # Distance between target_pdf_cont and gmm (should also be cont)
     for i in range(-10, 11, 1):
         # Define gmm
-        means = torch.tensor([0, i])
-        variances = torch.ones(2)
+        means = torch.tensor([0, i], dtype=torch.float64)
+        variances = torch.ones(2, dtype=torch.float64)
         weights = torch.tensor([0.5, 0.5])
         gmm = dist.MixtureSameFamily(dist.Categorical(probs=weights), dist.Normal(means, variances))
         cramer_dist = cramer_from_pdf(pdf_target=target_pdf_cont, pdf_curr=gmm, int_l=-50, int_u=50)
-        print(f'For GMM means {means}, distance to target is: {cramer_dist}')
+        print(f'For GMM means {means}, distance to target is: {cramer_dist} \n')
 
-    # Test mysterious symmetry
-    lim = 50
-    means_sym = 0.1
-    gmmi = dist.MixtureSameFamily(dist.Categorical(probs=torch.tensor([0.5, 0.5])),
-                                  dist.Normal(torch.tensor([-means_sym, means_sym]), torch.tensor([1.0, 1.0])))
-    l_sym = cramer_from_pdf(target_pdf_cont, gmmi, int_l=-lim, int_u=lim, points=[10*-means_sym, 10*means_sym])
-    print(f'Symmetrical cramer distance for means {-means_sym, means_sym} is: {l_sym}. Calculated with limits:'
-          f'{-lim, lim}')
+    # Print symetric distance and get bimodal distribution
+    gmm_sym = sym_distance_from_origin(lim=50, means_sym=10.0)
+
+    # Print probes and their probabilities according to bimodal distribution
+    probe_gmm(gmm_sym)
+
+    # Print integral of a continuous pdf with integrate.quad() method
+    integral_of_cont_pdf(10.0, 1.0)
+
+    # Print integral of symmetrical gmm
+    means_gmm = torch.tensor([6.0, 4.0])
+    stds_gmm = torch.tensor([1.0, 1.0])
+    sym_gmm = integral_of_cont_gmm(means=means_gmm, stds=stds_gmm)
+
+
 
 
 

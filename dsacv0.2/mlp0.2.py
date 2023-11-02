@@ -82,6 +82,11 @@ class MLP(nn.Module):
         return 0
 
     def forward(self, x):
+        """
+        - Feed forward method
+        :param x: Input
+        :return: Return shape (Batch, n_Kernel, n_Actions)
+        """
         ffd = torch.as_tensor(x, dtype=torch.float64)
         for act_idx, layer_i in enumerate(self._layers[:-1]):
             func = self.get_activ_func_from_str(self.activ_str[act_idx])
@@ -94,6 +99,9 @@ class MLP(nn.Module):
             std_i = std_output_i(ffd)
             means = torch.cat((means, mean_i), dim=1)
             stds = torch.cat((stds, std_i), dim=1)
+
+        means = means.view(-1, self._n_kernels, self._arch[-1])
+        stds = means.view(-1, self._n_kernels, self._arch[-1])
 
         return means, stds
 
@@ -110,7 +118,9 @@ if __name__ == '__main__':
     inp = torch.ones(11, 11) * torch.arange(11)
     inp = inp.to(device)
 
-    # Instantiate Model
+    '''
+    Test for one dimensional output
+    '''
     critic = MLP(arch=arch, activ=activations, n_kernels=n_kernels)
 
     # Output of model
@@ -120,4 +130,18 @@ if __name__ == '__main__':
     print(f'Shape of means: {means.shape} \n {means} \n')
     print(f'Shape of stds: {stds.shape} \n {stds} \n')
 
-    print(f'Model summary: {summary(critic, (11,))}\nActivation: {critic.activ_str}')
+    print(f'Critic summary: {summary(critic, (11,))}\nCritic Activation: {critic.activ_str}\n')
+
+    '''
+    Test for multi-dimensional output
+    '''
+    arch_mulo = (11, 64, 32, 3)
+    activ_mulo = ('relu', 'relu')
+    actor = MLP(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
+    means_mulo, stds_mulo = actor(inp)
+
+    # Print Shapes of outputs
+    print(f'Shape of means_mulo: {means_mulo.shape} \n {means_mulo} \n')
+    print(f'Shape of stds_mulo: {stds_mulo.shape} \n {stds_mulo} \n')
+
+    print(f'Actor summary: {summary(actor, (11,))}\nActor Activation: {actor.activ_str}')

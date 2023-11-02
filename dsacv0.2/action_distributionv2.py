@@ -77,13 +77,4 @@ class TanhGaussDistribution:
         return ((self.act_up_lim - self.act_low_lim) / 2) * torch.tanh(self.mean) + \
                ((self.act_up_lim + self.act_low_lim)/2)
 
-    def kl_divergence(self, other: 'TanhGaussDistribution') -> torch.tensor:
-        """
-        - Calculates D_{KL} between two instances of this class
-        - Note: Original: other: 'GaussDistribution'
-        :param other: Other distirbution instance
-        :type other: TanhGaussDistribution or GaussDistribution
-        :return:
-        :rtype:
-        """
-        return torch.distributions.kl.kl_divergence(self.gauss_distribution, other.gauss_distribution)
+
