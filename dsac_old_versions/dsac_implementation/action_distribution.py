@@ -70,7 +70,7 @@ class TanhGaussDistribution:
 
     def mode(self):
         """
-        - Mode: Value of the term that occurs the most often. Note: Can aslo be multi-modal
+        - Mode: Value of the term that occurs the most often. Note: Can also be multi-modal
         :return: Mode scaled by lower and uppper action bounds
         :rtype: torch.tensor
         """

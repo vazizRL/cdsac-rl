@@ -205,7 +205,7 @@ class DSAC:
         # Convert to tensors
         states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
         actions = torch.as_tensor(actions, dtype=torch.float32).to(self.device)
-        rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = self.reward_scale * torch.ass_tensor(rewards, dtype=torch.float32).to(self.device)
         states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
         dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
 

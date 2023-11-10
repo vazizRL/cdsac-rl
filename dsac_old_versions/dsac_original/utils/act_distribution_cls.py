@@ -14,7 +14,7 @@ class Action_Distribution:
         act_dist = act_dist_cls(logits)
         if has_act_lim:
             act_dist.act_high_lim = getattr(self, "act_high_lim")
-            act_dist.act_low_lim = getattr(self, "act_low_lim")
+            act_dist.min_action = getattr(self, "act_low_lim")
 
         return act_dist
 

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class MLP(nn.Module):
+class MLPGMM(nn.Module):
     def __init__(self, arch: tuple, activ: tuple, n_kernels: int):
         """
         - Network with n means and n stds; n: Number of kernels
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     '''
     Test for one dimensional output
     '''
-    critic = MLP(arch=arch, activ=activations, n_kernels=n_kernels)
+    critic = MLPGMM(arch=arch, activ=activations, n_kernels=n_kernels)
 
     # Output of model
     means, stds = critic(inp)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     '''
     arch_mulo = (11, 64, 32, 3)
     activ_mulo = ('relu', 'relu')
-    actor = MLP(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
+    actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
     means_mulo, stds_mulo = actor(inp)
 
     # Print Shapes of outputs

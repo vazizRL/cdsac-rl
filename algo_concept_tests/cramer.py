@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     # Scale is Std.
     target_pdf = norm.pdf(supports, loc=0, scale=1)
-    target_pdf_cont = Normal(torch.tensor([0]), torch.tensor([1]))
+    target_pdf_cont = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
 
     # Instantiate PDFs and normalize
     pdfs = list()
@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     # Print integral of symmetrical gmm
     means_gmm = torch.tensor([6.0, 4.0])
-    stds_gmm = torch.tensor([1.0, 1.0])
+    stds_gmm = torch.tensor([5.0, 1.0])
     sym_gmm = integral_of_cont_gmm(means=means_gmm, stds=stds_gmm)
 
 
