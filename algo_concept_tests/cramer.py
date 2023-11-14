@@ -3,7 +3,7 @@ import torch
 import torch.distributions as dist
 from scipy.stats import energy_distance
 from scipy.stats import norm
-from scipy.stats import multivariate_normal
+from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod
 from scipy import integrate
 from torch.distributions import Normal
 
@@ -62,6 +62,12 @@ def probe_gmm(gmm):
     print('\n')
 
 
+def probe_gmm_mod(gmm):
+    for i in range(10):
+        sample_r = gmm.rsample()
+        print(f'MOD: Probability for rsample {sample_r} is {torch.e**gmm.log_prob(sample_r)}')
+
+
 def sym_distance_from_origin(lim=50, means_sym=10.0):
     # Define Gauss at origin with std=1
     target_distribution = Normal(torch.tensor([0]), torch.tensor([1]))
@@ -70,7 +76,21 @@ def sym_distance_from_origin(lim=50, means_sym=10.0):
                                   dist.Normal(torch.tensor([-means_sym, means_sym]), torch.tensor([1.0, 1.0])))
     l_sym = cramer_from_pdf(target_distribution, gmmi, int_l=-lim, int_u=lim, points=[10*-means_sym, 10*means_sym])
     print(f'Symmetrical cramer distance for means {-means_sym, means_sym} is: {l_sym}. Calculated with limits:'
-          f'{-lim, lim}')
+          f'{-lim, lim}\n')
+
+    return gmmi
+
+
+def sym_gmm_mod(lim=50, means_sym=10.0):
+    # Define Gauss at origin with std=1
+    target_distribution = Normal(torch.tensor([0]), torch.tensor([1]))
+    # Test mysterious symmetry
+    gmmi = ReparameterizedMixtureSameFamilyMod(dist.Categorical(probs=torch.tensor([0.5, 0.5])),
+                                               dist.Normal(torch.tensor([-means_sym, means_sym]),
+                                               torch.tensor([1.0, 1.0])))
+    l_sym = cramer_from_pdf(target_distribution, gmmi, int_l=-lim, int_u=lim, points=[10*-means_sym, 10*means_sym])
+    print(f'Modified GMM: Symmetrical cramer distance for means {-means_sym, means_sym} is: {l_sym}. '
+          f'Calculated with limits:{-lim, lim} \n')
 
     return gmmi
 
@@ -162,7 +182,7 @@ if __name__ == '__main__':
         print(f'For GMM means {means}, distance to target is: {cramer_dist} \n')
 
     # Print symetric distance and get bimodal distribution
-    gmm_sym = sym_distance_from_origin(lim=50, means_sym=10.0)
+    gmm_sym = sym_distance_from_origin(lim=20, means_sym=1.0)
 
     # Print probes and their probabilities according to bimodal distribution
     probe_gmm(gmm_sym)
@@ -174,6 +194,13 @@ if __name__ == '__main__':
     means_gmm = torch.tensor([6.0, 4.0])
     stds_gmm = torch.tensor([5.0, 1.0])
     sym_gmm = integral_of_cont_gmm(means=means_gmm, stds=stds_gmm)
+
+    '''
+    Test new GMM implementation extended for raparameterization
+    '''
+    gmm_mod = sym_gmm_mod(lim=20, means_sym=1.0)
+    samples_mod = gmm_mod.rsample((10,))
+    probe_gmm_mod(gmm_mod)
 
 
 

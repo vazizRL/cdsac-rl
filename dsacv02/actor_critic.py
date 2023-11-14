@@ -23,7 +23,7 @@ class Critic(nn.Module):
         self.hidden_layers = hidden_layers
         self.arch = tuple(inp_dim + list(self.hidden_layers) + [1])
         self.activation = activ
-        self.q = MLP(arch=self.arch, activ=self.activation)
+        self.q = MLPGMM(arch=self.arch, activ=self.activation)
         self.min_log_std = torch.tensor(min_log_std).to(self.q.device)
         self.max_log_std = torch.tensor(max_log_std).to(self.q.device)
         self.denominator = max(abs(self.min_log_std), self.max_log_std)
@@ -116,7 +116,6 @@ class Actor(nn.Module):
         if reparameterization:
             # TODO: Implement reparameterization trick for GMMs
             action = gmm.rsample()
-
 
     def log_prob(self):
         pass

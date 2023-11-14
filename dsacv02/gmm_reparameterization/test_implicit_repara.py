@@ -26,9 +26,9 @@ torch.manual_seed(123456)
 X1 = gmm1.rsample(sample_shape=(5,))
 Z1 = gmm1._distributional_transform(X1)
 
-# torch.manual_seed(123456)
-# X2 = gmm2.rsample(sample_shape=(5,))
-# Z2 = gmm2._distributional_transform(X2)
+torch.manual_seed(123456)
+X2 = gmm2.rsample(sample_shape=(5,))
+Z2 = gmm2._distributional_transform(X2)
 #
 # assert torch.allclose(X1, X2.squeeze())
 # assert torch.allclose(Z1, Z2.squeeze())

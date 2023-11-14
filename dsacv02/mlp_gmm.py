@@ -25,7 +25,7 @@ class MLPGMM(nn.Module):
     @property
     def activ(self):
         return self._activ
-    """"""
+
     @activ.setter
     def activ(self, new_activ: torch.func):
         self._activ = new_activ
@@ -33,7 +33,7 @@ class MLPGMM(nn.Module):
     @property
     def loss(self):
         return self._loss
-    """"""
+
     @loss.setter
     def loss(self, new_loss: str):
         self._loss = new_loss
@@ -69,54 +69,140 @@ class MLPGMM(nn.Module):
                 self.module_dict.update({'layer_id_' + str(layer_id): layer})
                 layer_id += 1
 
-        means = list()
-        stds = list()
-        for n in range(self._n_kernels):
-            mean = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
-            std = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
-            self.module_dict.update({f'mean_{n+1}': mean, f'std_{n+1}': std})
-            means.append(mean)
-            stds.append(std)
-        self._layers.append((means, stds))
+        means_layer = list()
+        stds_layer = list()
+        for mean_idx in range(self._n_kernels):
+            mean_layer = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            self.module_dict.update({f'mean_log{mean_idx + 1}': mean_layer})
+            means_layer.append(mean_layer)
+
+        for std_idx in range(self._n_kernels):
+            std_layer = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            self.module_dict.update({f'std_log{std_idx + 1}': std_layer})
+            stds_layer.append(std_layer)
+
+        self._layers.append((means_layer, stds_layer))
 
         return 0
 
-    def forward(self, x):
+    def forward(self, x, exp=True):
         """
         - Feed forward method
         :param x: Input
+        :param exp: Whether return is exponentiated
         :return: Return shape (Batch, n_Kernel, n_Actions)
         """
-        ffd = torch.as_tensor(x, dtype=torch.float64)
+        ffd = torch.as_tensor(x, dtype=torch.float64).to(self.device)
         for act_idx, layer_i in enumerate(self._layers[:-1]):
             func = self.get_activ_func_from_str(self.activ_str[act_idx])
             ffd = func(layer_i(ffd))
 
-        means = torch.tensor([], dtype=torch.float64).to(self.device)
-        stds = torch.tensor([], dtype=torch.float64).to(self.device)
+        means_logits = torch.tensor([], dtype=torch.float64).to(self.device)
+        stds_logits = torch.tensor([], dtype=torch.float64).to(self.device)
+
+        for mean_log_output_i, std_log_output_i in zip(self._layers[-1][0], self._layers[-1][1]):
+            mean_logit_i = mean_log_output_i(ffd)
+            std_logit_i = std_log_output_i(ffd)
+            means_logits = torch.cat((means_logits, mean_logit_i), dim=1)
+            stds_logits = torch.cat((stds_logits, std_logit_i), dim=1)
+
+        # Rows: Kernels, Columns: Actions
+        means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+        stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+
+        if exp:
+            means = means_logits.exp()
+            stds = stds_logits.exp()
+            return means, stds
+        else:
+            return means_logits, stds_logits
+
+
+class MLPGMMWeighted(MLPGMM):
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int):
+        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels)
+
+    def build_layers(self):
+        layer_id = 1
+
+        next_element_list = list(self._arch)[1:-1] + [None]
+        for arch_i, next_arch in zip(self._arch, next_element_list):
+            if next_arch:
+                layer = nn.Linear(arch_i, next_arch, dtype=torch.float64).to(self.device)
+                self._layers.append(layer)
+                self.module_dict.update({'layer_id_' + str(layer_id): layer})
+                layer_id += 1
+
+        means_layers = list()
+        stds_layers = list()
+        for mean_idx in range(self._n_kernels):
+            mean_layer_i = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            self.module_dict.update({f'mean_{mean_idx + 1}': mean_layer_i})
+            means_layers.append(mean_layer_i)
+
+        for std_idx in range(self._n_kernels):
+            std_logit_i = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            self.module_dict.update({f'std_{std_idx + 1}': std_logit_i})
+            stds_layers.append(std_logit_i)
+
+        kernel_weights_layer = nn.Linear(self._arch[-2], self._n_kernels, dtype=torch.float64).to(self.device)
+        self.module_dict.update({f'kernel_weights_layer': kernel_weights_layer})
+
+        self._layers.append((means_layers, stds_layers, kernel_weights_layer))
+
+        return 0
+
+    def forward(self, x, exp=True):
+        """
+        - Feed forward method
+        :param x: Input
+        :param exp: Whether return is exponentiated
+        :return: Return shape (Batch, n_Kernel, n_Actions)
+        """
+        ffd = torch.as_tensor(x, dtype=torch.float64).to(self.device)
+        for act_idx, layer_i in enumerate(self._layers[:-1]):
+            func = self.get_activ_func_from_str(self.activ_str[act_idx])
+            ffd = func(layer_i(ffd))
+
+        means_logits = torch.tensor([], dtype=torch.float64).to(self.device)
+        stds_logits = torch.tensor([], dtype=torch.float64).to(self.device)
         for mean_output_i, std_output_i in zip(self._layers[-1][0], self._layers[-1][1]):
-            mean_i = mean_output_i(ffd)
-            std_i = std_output_i(ffd)
-            means = torch.cat((means, mean_i), dim=1)
-            stds = torch.cat((stds, std_i), dim=1)
+            mean_i_logit = mean_output_i(ffd)
+            std_i_logit = std_output_i(ffd)
+            means_logits = torch.cat((means_logits, mean_i_logit), dim=1)
+            stds_logits = torch.cat((stds_logits, std_i_logit), dim=1)
 
-        means = means.view(-1, self._n_kernels, self._arch[-1])
-        stds = means.view(-1, self._n_kernels, self._arch[-1])
+        # Logits of k weights
+        k_weights_logits = self._layers[-1][2](ffd)
 
-        return means, stds
+        # Rows: Kernels, Columns: Actions
+        means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+        stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+
+        if exp:
+            means = means_logits.exp()
+            stds = stds_logits.exp()
+            k_weights = k_weights_logits.exp()
+            k_weights_soft = F.softmax(k_weights, dim=1)
+            return means, stds, k_weights_soft
+        else:
+            k_weights_soft = F.softmax(k_weights_logits, dim=1)
+            return means_logits, stds_logits, k_weights_soft
 
 
 if __name__ == '__main__':
     from torchsummary import summary
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    arch = (11, 64, 32, 1)
+    arch = (11, 64, 32, 1)          # 11 is the batch size
     activations = ('relu', 'relu')
-    n_kernels = 3
+    n_kernels = 5
 
     # Define some input
     inp = torch.ones(11, 11) * torch.arange(11)
     inp = inp.to(device)
+    # Create random tensor with shape 11x11
+    inp_rnd = torch.randn(11, 11)
 
     '''
     Test for one dimensional output
@@ -135,6 +221,7 @@ if __name__ == '__main__':
     '''
     Test for multi-dimensional output
     '''
+    # Rows: Kernels, Actions: dim. 2
     arch_mulo = (11, 64, 32, 3)
     activ_mulo = ('relu', 'relu')
     actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
@@ -145,3 +232,21 @@ if __name__ == '__main__':
     print(f'Shape of stds_mulo: {stds_mulo.shape} \n {stds_mulo} \n')
 
     print(f'Actor summary: {summary(actor, (11,))}\nActor Activation: {actor.activ_str}')
+
+
+    '''
+    Test MLPGMMWeighted
+    '''
+    arch_mulo_w = (11, 66, 32, 3)
+    active_mulo_w = ('gelu', 'gelu')
+    actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels)
+    means_mulo_w, stds_mulo_w, weights = actor_w(inp)
+    # Print Shapes of outputs
+    print(f'Shape of means_mulo (version with weight output): {means_mulo_w.shape} \n {means_mulo_w} \n')
+    print(f'Shape of stds_mulo (version with weight output): {stds_mulo_w.shape} \n {stds_mulo_w} \n')
+    print(f'Shape of kernel weights: {weights.shape} \n{weights}')
+    print(f'Actor summary (version with weight output): {summary(actor_w, (arch_mulo_w[0],))}'
+          f'\nActor Activation: {actor_w.activ_str}')
+
+
+
