@@ -113,9 +113,9 @@ class MLPGMM(nn.Module):
         if exp:
             means = means_logits.exp()
             stds = stds_logits.exp()
-            return means, stds
+            return means, stds, None
         else:
-            return means_logits, stds_logits
+            return means_logits, stds_logits, None
 
 
 class MLPGMMWeighted(MLPGMM):
@@ -179,6 +179,7 @@ class MLPGMMWeighted(MLPGMM):
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
         stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
 
+        # Does that make sense?
         if exp:
             means = means_logits.exp()
             stds = stds_logits.exp()
@@ -194,7 +195,7 @@ if __name__ == '__main__':
     from torchsummary import summary
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    arch = (11, 64, 32, 1)          # 11 is the batch size
+    critic_arch = (11, 64, 32, 1)          # 11 is the batch size
     activations = ('relu', 'relu')
     n_kernels = 5
 
@@ -207,10 +208,10 @@ if __name__ == '__main__':
     '''
     Test for one dimensional output
     '''
-    critic = MLPGMM(arch=arch, activ=activations, n_kernels=n_kernels)
+    critic = MLPGMM(arch=critic_arch, activ=activations, n_kernels=n_kernels)
 
     # Output of model
-    means, stds = critic(inp)
+    means, stds, _ = critic(inp)
 
     # Print Shapes of outputs
     print(f'Shape of means: {means.shape} \n {means} \n')
@@ -219,13 +220,13 @@ if __name__ == '__main__':
     print(f'Critic summary: {summary(critic, (11,))}\nCritic Activation: {critic.activ_str}\n')
 
     '''
-    Test for multi-dimensional output
+    Test for multi-dimensional output-
     '''
     # Rows: Kernels, Actions: dim. 2
     arch_mulo = (11, 64, 32, 3)
     activ_mulo = ('relu', 'relu')
     actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
-    means_mulo, stds_mulo = actor(inp)
+    means_mulo, stds_mulo, _ = actor(inp)
 
     # Print Shapes of outputs
     print(f'Shape of means_mulo: {means_mulo.shape} \n {means_mulo} \n')
