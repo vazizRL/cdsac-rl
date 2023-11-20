@@ -25,6 +25,9 @@ gmm2 = ReparameterizedMixtureSameFamilyMod(mixture_distribution=mixture1,
 torch.manual_seed(123456)
 X1 = gmm1.rsample(sample_shape=(5,))
 Z1 = gmm1._distributional_transform(X1)
+for x1, z1 in zip(X1, Z1):
+    print(f'Prob of rsample {x1}: {gmm1.log_prob(x1)}')
+    print(f'Prob. of distirubtional transform {z1}: {gmm1.log_prob(z1)}\n')
 
 torch.manual_seed(123456)
 X2 = gmm2.rsample(sample_shape=(5,))

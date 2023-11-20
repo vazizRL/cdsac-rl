@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.distributions as distr
-from dsacv02.mlp_gmm import MLPGMM
-from dsac_old_versions.dsac_implementation.action_distribution import TanhGaussDistribution
+from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
+from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod
 
 
 class Critic(nn.Module):
@@ -57,7 +57,8 @@ class Critic(nn.Module):
 
 class Actor(nn.Module):
     def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2,
-                 activation=('gelu',), min_log_std=-20, max_log_std=3, action_low_lim=-1, action_up_lim=1):
+                 activation=('gelu',), action_min_std=-20, action_max_std=3, action_low_lim=-1, action_up_lim=1,
+                 learnable_weights=False):
         """
         - Modelled as a GMM to follow the GMM of the value distribtion function. Number of kernels must be the same
         - Stochastic Policy Function Approximator
@@ -66,56 +67,74 @@ class Actor(nn.Module):
         :param action_dim: Number of dimensions in action space
         :param hidden_layers: Hidden layers, format (l1_n_Nodes, l2_m_Nodes,)
         :param activation: Activations per layer
-        :param min_log_std: Should be high negative value to emulate 0
-        :param max_log_std: Should be lesser positive value to prevent very high std
+        :param action_min_std: Lower bound on std; either as log- or raw-value
+        :param action_max_std: Upper bound on std; either as log- or raw-value
         :param action_low_lim: Lowest action possible
         :param action_up_lim:  Highest action possible
         """
         super().__init__()
+        self.learnable_weights = learnable_weights
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.hidden_layers = hidden_layers
         self.n_kernels = n_kernels
         self.arch = tuple([self.state_dim] + list(self.hidden_layers) + [self.action_dim])
         self.activation = activation
-        self.policy = MLPGMM(arch=self.arch, activ=self.activation)
-        self.min_log_std = min_log_std
-        self.max_log_std = max_log_std
+        self.min_std = action_min_std
+        self.max_std = action_max_std
         self.action_low_lim = action_low_lim
         self.action_up_lim = action_up_lim
+        if self.learnable_weights:
+            self.policy = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
+        else:
+            self.policy = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
 
         self.register_buffer("act_low_lim", torch.tensor(self.action_low_lim))
         self.register_buffer("act_up_lim", torch.tensor(self.action_up_lim))
-        self.action_distribution_cls = TanhGaussDistribution
         self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         self.to(self.device)
 
     def get_class_info(self):
         return self.state_dim, self.action_dim, self.hidden_layers, self.n_kernels, self.activation, \
-               self.min_log_std, self.max_log_std, self.action_low_lim, self.action_up_lim
+               self.min_std, self.max_std, self.action_low_lim, self.action_up_lim, self.learnable_weights
 
-    def forward(self, obs):
+    def forward(self, obs, exp=False):
         # Send to device first
         obs = torch.as_tensor(obs).to(self.device)
-        logits = self.policy(obs)
 
-        action_mean, action_log_std = logits
+        kernel_weights = None
+        if self.learnable_weights:
+            action_mean, action_std, kernel_weights = self.policy(obs, exp=exp)
+        else:
+            action_mean, action_std = self.policy(obs, exp=exp)
 
-        # Equivalent to torch.e**(...), bound the standard deviation
-        action_std = torch.clamp(action_log_std, self.min_log_std, self.max_log_std).exp()
+        # Note: If exp=True, self.min_std and self.max_std must also be given as log, otherwise as raw value
+        action_std = torch.clamp(action_std, self.min_std, self.max_std)
 
-        return action_mean, action_std
+        return action_mean, action_std, kernel_weights
 
-    def sample_from_action_distr(self, logits, reparameterization=False):
-        # Construct the GMM
-        means, stds = logits
-        weights = torch.ones(self.n_kernels) / self.n_kernels
-        gmm = distr.MixtureSameFamily(distr.Categorical(probs=weights), distr.Normal(means, stds))
+    def sample_from_action_distr(self, locs, stds, k_weights, reparameterization=False):
+        """
+        - Samples from self-implemented GMM with reparameterization implemented
+        :param locs:
+        :param stds:
+        :param k_weights:
+        :param reparameterization:
+        """
+        gmm = ReparameterizedMixtureSameFamilyMod(distr.Categorical(probs=k_weights), distr.Normal(locs, stds))
 
         # Sample from the GMM
         if reparameterization:
-            # TODO: Implement reparameterization trick for GMMs
             action = gmm.rsample()
+        else:
+            action = gmm.sample()
+
+        # Normalize each action around 0 with tanh
+        action_limited = ((self.action_up_lim - self.action_low_lim) / 2) * torch.tanh(action) + \
+                         (self.action_up_lim + self.action_low_lim) / 2
+
+        # Calculate log_prob of new action
+        # TODO: Implement new prob of r.v. sampled according to restricted GMM
 
     def log_prob(self):
         pass

@@ -85,7 +85,7 @@ class MLPGMM(nn.Module):
 
         return 0
 
-    def forward(self, x, exp=True):
+    def forward(self, x, exp=False):
         """
         - Feed forward method
         :param x: Input
@@ -152,7 +152,7 @@ class MLPGMMWeighted(MLPGMM):
 
         return 0
 
-    def forward(self, x, exp=True):
+    def forward(self, x, exp=False):
         """
         - Feed forward method
         :param x: Input
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     '''
     Test MLPGMMWeighted
     '''
-    arch_mulo_w = (11, 66, 32, 3)
+    arch_mulo_w = (11, 64, 32, 3)
     active_mulo_w = ('gelu', 'gelu')
     actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels)
     means_mulo_w, stds_mulo_w, weights = actor_w(inp)

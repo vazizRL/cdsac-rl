@@ -62,6 +62,7 @@ class Actor(nn.Module):
         - Stochastic Policy Function Approximator
         - Std. and Mean share first layers
         - Default parameters taken from original implementation
+        - Has action-specific functionalities (log_prob...)
         :param state_dim: Number of dimensions in observation space
         :param action_dim: Number of dimensions in action space
         :param hidden_layers: Hidden layers, format (l1_n_Nodes, l2_m_Nodes,)
@@ -104,6 +105,8 @@ class Actor(nn.Module):
         logits = self.policy(obs)
         # action_mean, action_log_std = torch.chunk(logits, chunks=2, dim=-1)
         action_mean, action_log_std = logits
+
+        action_mean = action_mean.exp()
         action_std = torch.clamp(action_log_std, self.min_log_std, self.max_log_std).exp()
 
         # return torch.cat((action_mean, action_std), dim=-1)
