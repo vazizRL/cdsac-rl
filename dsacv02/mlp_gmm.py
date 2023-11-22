@@ -111,11 +111,10 @@ class MLPGMM(nn.Module):
         stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
 
         if exp:
-            means = means_logits.exp()
-            stds = stds_logits.exp()
-            return means, stds, None
-        else:
-            return means_logits, stds_logits, None
+            means_logits = means_logits.exp()
+            stds_logits = stds_logits.exp()
+
+        return means_logits, stds_logits, None
 
 
 class MLPGMMWeighted(MLPGMM):
@@ -181,14 +180,12 @@ class MLPGMMWeighted(MLPGMM):
 
         # Does that make sense?
         if exp:
-            means = means_logits.exp()
-            stds = stds_logits.exp()
-            k_weights = k_weights_logits.exp()
-            k_weights_soft = F.softmax(k_weights, dim=1)
-            return means, stds, k_weights_soft
-        else:
-            k_weights_soft = F.softmax(k_weights_logits, dim=1)
-            return means_logits, stds_logits, k_weights_soft
+            means_logits = means_logits.exp()
+            stds_logits = stds_logits.exp()
+            k_weights_logits = k_weights_logits.exp()
+
+        k_weights_soft = F.softmax(k_weights_logits, dim=1)
+        return means_logits, stds_logits, k_weights_soft
 
 
 if __name__ == '__main__':

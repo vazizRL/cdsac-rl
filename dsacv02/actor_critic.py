@@ -101,6 +101,11 @@ class Actor(nn.Module):
                self.min_std, self.max_std, self.action_low_lim, self.action_up_lim, self.learnable_weights
 
     def forward(self, obs, exp=False):
+        """
+        :param obs: Must be flattened before revoking thi method
+        :param exp: Whether logits are exponentiated
+        :return: Means, stds, kernel weights
+        """
         # Send to device first
         obs = torch.as_tensor(obs).to(self.device)
 
@@ -175,9 +180,43 @@ class Actor(nn.Module):
 
 if __name__ == '__main__':
     # Note: The first dimension is the input dimension
-    pass
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
+    # Input Data
+    batch_size = 5
+    state_dim = 11
+    action_dim = 1
 
+    # Shared network parameters
+    hls = (128, 128)
+    n_k = 3
+    activation = ('gelu', 'gelu')
+    lr_weights = True
+
+    # Critic-specific parameters
+    val_min_log_std = -20           # \approx 0
+    val_max_log_std = 6
+
+    # Actor-specific parameters
+    action_min_log_std = -20           # 0
+    action_max_log_std = 1             # 2.71
+    action_low = -1
+    action_up = 1
+
+    states = torch.ones(batch_size, state_dim) * torch.arange(batch_size).unsqueeze(dim=1)
+    actions = torch.arange(batch_size)
+    actions = actions.reshape(shape=(batch_size, action_dim))
+
+    states = states.to(device)
+    actions = actions.to(device)
+
+    """
+    Test Actor Class
+    """
+    actor = Actor(state_dim=state_dim, action_dim=action_dim, hidden_layers=hls, n_kernels=n_k, activation=activation,
+                  action_min_std=action_min_log_std, action_max_std=action_max_log_std, action_low_lim=action_low,
+                  action_up_lim=action_up, learnable_weights=lr_weights)
+    actor_output = actor(states)
 
 
 
