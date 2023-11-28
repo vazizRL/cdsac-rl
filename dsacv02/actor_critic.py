@@ -26,12 +26,12 @@ class Critic(nn.Module):
         self.n_kernels = n_kernels
         self.arch = tuple(inp_dim + list(self.hidden_layers) + [1])
         self.activation = activ
-        self.min_std = torch.tensor(value_min_std).to(self.q.device)
-        self.max_std = torch.tensor(value_max_std).to(self.q.device)
         if self.learnable_weights:
             self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
         else:
             self.q = MLPGMM(arch=self.arch, activ=self.activ, n_kernels=self.n_kernels)
+        self.min_std = torch.tensor(value_min_std).to(self.q.device)
+        self.max_std = torch.tensor(value_max_std).to(self.q.device)
         self.denominator = max(abs(self.min_std), self.max_std)
         self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         self.to(self.device)
@@ -40,21 +40,21 @@ class Critic(nn.Module):
         return self.state_dim, self.action_dim, self.hidden_layers, self.n_kernels, self.activation, \
                self.min_std.item(), self.max_std.item(), self.learnable_weights
 
-    def forward(self, obs: torch.tensor, action: torch.tensor, exp=False) -> torch.tensor:
+    def forward(self, observation: torch.tensor, action: torch.tensor, exp=False) -> torch.tensor:
         """
         - Critic feed forward
         - Simple clamping as either log- or raw value
         :param exp: Whether logits are exponentiated
-        :param obs: Observation
+        :param observation: Observation
         :param action: Chosen action (result of policy GMM)
         :return: Logits of kernels
         """
-        logits = self.q(torch.cat([obs, action], dim=-1), exp=exp)
+        logits = self.q(torch.cat([observation, action], dim=-1), exp=exp)
         value_mean, stds, weights = logits
 
         value_std = torch.clamp(stds, self.min_std, self.max_std)
 
-        return value_mean, value_std
+        return value_mean, value_std, weights
 
 
 class Actor(nn.Module):
@@ -176,47 +176,6 @@ class Actor(nn.Module):
         - Entropy calculation for ReparameterizedMixtureSameFamilyMod must be implemented first
         """
         pass
-
-
-if __name__ == '__main__':
-    # Note: The first dimension is the input dimension
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-
-    # Input Data
-    batch_size = 5
-    state_dim = 11
-    action_dim = 1
-
-    # Shared network parameters
-    hls = (128, 128)
-    n_k = 3
-    activation = ('gelu', 'gelu')
-    lr_weights = True
-
-    # Critic-specific parameters
-    val_min_log_std = -20           # \approx 0
-    val_max_log_std = 6
-
-    # Actor-specific parameters
-    action_min_log_std = -20           # 0
-    action_max_log_std = 1             # 2.71
-    action_low = -1
-    action_up = 1
-
-    states = torch.ones(batch_size, state_dim) * torch.arange(batch_size).unsqueeze(dim=1)
-    actions = torch.arange(batch_size)
-    actions = actions.reshape(shape=(batch_size, action_dim))
-
-    states = states.to(device)
-    actions = actions.to(device)
-
-    """
-    Test Actor Class
-    """
-    actor = Actor(state_dim=state_dim, action_dim=action_dim, hidden_layers=hls, n_kernels=n_k, activation=activation,
-                  action_min_std=action_min_log_std, action_max_std=action_max_log_std, action_low_lim=action_low,
-                  action_up_lim=action_up, learnable_weights=lr_weights)
-    actor_output = actor(states)
 
 
 

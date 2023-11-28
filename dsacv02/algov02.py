@@ -10,14 +10,29 @@ from typing import Dict
 
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
-                 log_alpha, actor_lr_ini, actor_lr_fin, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, up_interval=2, auto_alpha=True, target_entropy=-1, td_bound=10,
+                 actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, td_bound=10,
                  **kwargs):
         """
-        - Implements DSACv0.2, based on https://arxiv.org/abs/2001.02811
+        - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
+        :param critic1: First q-network in the double-Q setting
+        :param critic2: Second q-network in the double-Q setting
+        :param critic1_target: First q-target
+        :param critic2_target: Second q-target
+        :param cr_lr_ini: Initial learning rate of both q-networks
+        :param cr_lr_fin: Final learning rate of both q-networks
+        :param policy: Actor network
+        :param policy_target: Target actor network
+        :param log_alpha: Temperament, can be learnable or static
+        :param actor_lr_ini: Actor initial learning rate
+        :param actor_lr_fin: Actor learning rate at the end of the period
+        :param alpha_lr_ini: Initial temperament learning rate, only if learnable
+        :param alpha_lr_fin: Final temperament learning rate, only if learnable
+        :param t_max: Horizont for learning rate schedule. After that, the learning rate doesn't change
+        :param target_entropy: Target entropy in actor distribution
+        :param td_bound:
+        :param kwargs:
         :param tau: Soft update parameter
-        :param alpha: Temperature parameter
-        :param act_lr: Actor learning rate
         :param reward_scale: Reward scaling, from SAC
         :param gamma: Discount factor
         :param up_interval:
@@ -68,7 +83,7 @@ class DSAC:
         self.target_entropy = torch.tensor(target_entropy).to(self.device)
         self.static_alpha = torch.tensor(alpha).to(self.device)
         self.auto_alpha = auto_alpha
-        self.update_interval = up_interval
+        self.update_interval = update_interval
         self.td_bound = td_bound
 
     @property
