@@ -14,7 +14,7 @@ stds = torch.ones(n_kernels)
 mixture1 = distr.Categorical(probs=mixture_probs)
 components1 = NormalStable(loc=locs, scale=stds)
 gmm1 = ReparameterizedMixtureSameFamilyMod(mixture_distribution=mixture1,
-                                          component_distribution=components1)
+                                           component_distribution=components1)
 
 extra_ndims = 2
 components2 = NormalStable(loc=locs.reshape(locs.shape + (1,) * extra_ndims),

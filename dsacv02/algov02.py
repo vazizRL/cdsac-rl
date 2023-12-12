@@ -1,17 +1,16 @@
 import torch
 import torch.nn as nn
+import torch.distributions as distr
 import time
-from torch.distributions import Normal
+from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
-
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from typing import Dict
 
 
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, td_bound=10,
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=None,
                  **kwargs):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
@@ -37,6 +36,7 @@ class DSAC:
         :param gamma: Discount factor
         :param up_interval:
         :param auto_alpha: Whether alpha is updated automatically
+        :param n_kernels: Number of Gaussian kernels in the GMM
         """
 
         # Initialize device
@@ -50,8 +50,10 @@ class DSAC:
         self.policy = policy
         self.policy_target = policy_target
 
+        self.n_kernels = n_kernels
+
         # Do not track gradients for target networks
-        self.switch_autograd_log(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
+        self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
         # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agent
         self.log_alpha = log_alpha
@@ -84,21 +86,15 @@ class DSAC:
         self.static_alpha = torch.tensor(alpha).to(self.device)
         self.auto_alpha = auto_alpha
         self.update_interval = update_interval
-        self.td_bound = td_bound
-
-    @property
-    def adjustable_parameters(self):
-        return (
-            'gamma',
-            'tau',
-            'auto_alpha',
-            'alpha',
-            'td_bound',
-            'delay_update'
-        )
 
     @staticmethod
-    def switch_autograd_log(require_grad, models: list):
+    def switch_autograd_logging(require_grad, models: list):
+        """
+        - Either turns on or turns off logging of the gradients of models.
+        - When calculating policy loss, grads for value networks must not be traced
+        :param require_grad: Whether gradients are logged
+        :param models: Parameterized as neutal network
+        """
         for model in models:
             for para in model.parameters():
                 if require_grad:
@@ -106,8 +102,14 @@ class DSAC:
                 else:
                     para.requires_grad = False
 
-    """ Internally Called """
+    """ 
+    Internally Called 
+    """
+
     def create_lr_schedules(self):
+        """
+        - Instantiate learning rate scheduler with cosine annealing
+        """
         self.q1_lrs = lr_scheduler.CosineAnnealingLR(self.q1_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
                                                      last_epoch=-1, verbose=False)
         self.q2_lrs = lr_scheduler.CosineAnnealingLR(self.q2_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
@@ -121,7 +123,7 @@ class DSAC:
         """
         - Calculates alpha from log_alpha and returns scalar or tensor depending on whether temperature regulation
           is on or off
-        :param requires_grad: True: torch tensor is returned
+        :param requires_grad: If True, then torch tensor is returned
         :return: alpha from class, as scalar or as tensor
         """
         if self.auto_alpha:
@@ -135,12 +137,17 @@ class DSAC:
             return self.static_alpha
 
     def soft_avg_update(self, net: torch, net_targ: torch):
-        tar_factor = 1 - self.tau
+        """
+        - \tau is a very small value specifying the rate of change of the target network
+        :param net:
+        :param net_targ: Target network
+        """
+        tar_complement = 1 - self.tau
         for para, para_targ in zip(net.parameters(), net_targ.parameters()):
-            para_targ.data.mul_(tar_factor)
+            para_targ.data.mul_(tar_complement)
             para_targ.data.add_(self.tau * para.data)
 
-    def evaluate_q(self, obs, actions, qnet):
+    def evaluate_q(self, obs, actions, qnet, exp=False, sample_from_distr=True, reparameterize=False):
         """
         - Sample in a standard fashion from \mathcal{Z} batch-wise
         - Only modification: Std is clamped
@@ -148,25 +155,28 @@ class DSAC:
         :param obs: observation
         :param actions: actions
         :param qnet: Q-value approximator function to be evaluated
-        :return:
-        :rtype:
+        :param exp: Whether
+        :param sample_from_distr: If False, the network means will be used to calculated
+        :return: PMF, Z
         """
-        stocha_q = qnet(obs, actions)
-        # means, log_stds = stocha_q[..., 0], stocha_q[..., -1]
-        means, log_stds = stocha_q
-        stds = log_stds.exp()
+        # (B, K, Q)
+        means, stds, kernel_weights = qnet(obs, actions, exp=exp)
+        if not kernel_weights:
+            kernel_weights = torch.ones(self.n_kernels) / self.n_kernels
 
-        # Initiate zeros and ones tensors with shape of means and stds
-        normal = Normal(torch.zeros_like(means), torch.ones_like(stds))
-        #  Where are these hyperparameters specified?
-        z_norm = torch.clamp(normal.sample(), -3, 3)        # Old -3 and 3
-        # Due to being vectors, element-wise mutiplications
-        z = means + torch.mul(z_norm, stds)
+        cat_distr = distr.Categorical(probs=kernel_weights)
+        comp_distr = distr.Normal(loc=means, scale=stds)
+        gmm = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+        gmm_sample = None
 
-        # q_distr = Normal(means, stds)
-        # z = q_distr.sample()
+        if sample_from_distr:
+            batch_size = obs.shape[0]
+            if reparameterize:
+                gmm_sample = gmm.rsample(sample_shape=batch_size)
+            else:
+                gmm_sample = gmm.sample(sample_shape=batch_size)
 
-        return means, stds, z
+        return gmm, gmm_sample
 
     def update_networks(self, iteration: int):
         # Value optimizing step
@@ -187,40 +197,28 @@ class DSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_target_q(self, rewards, dones, q_means, q_stds, q_means_next, q_next_samples, log_probs_a_next):
+    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, log_probs_a_next):
         """
-        - Calculates the targets with standard mean Q and sampled Z
-        - In case of Z: In accordance to paper, the target is clipped. Implementation is equivalent
-          to the formulation in the paper (s. Section V-A 1))
-        :param rewards: Reward vector
-        :param dones: Done vector
-        :param q_means: Mean Q vector
-        :param q_stds: Standard deviation of \mathcal{Z} vector
-        :param q_means_next: Next Q mean vector
-        :param q_next_samples: Next Z sampled vector
-        :param log_probs_a_next: Log. probability of next action vector
-        :return: Target calculated by Q and r.v. Z
+        - Calculates the target distribution \mathcal{Z}(\cdot|s,a) as a GMM
+        :param rewards: Rewards received at time t, r_t
+        :param dones: Whether s_{t+1} is a terminal state
+        :param q_means_next: Next Q-means from the kernels
+        :param log_probs_a_next: Log probability of the next action
+        :return: Target distribution modeles as a GMM
         """
         alpha = self.get_alpha(requires_grad=False)
         # Compute target from mean Q
         target_q = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
-        # Compute target from sample Z
-        target_q_samples = rewards + (1 - dones) * self.gamma * (q_next_samples - alpha * log_probs_a_next)
 
-        # Standard deviation restriction, clip(\mathcal_{\mathcal{D}}^{\pi_{\phi'}}{Z(s,a), Q_{\theta}(s,a)+b,
-        # Q_{\theta}(s,a)+b})
-        td_bound = 3 * torch.mean(q_stds)
-        difference = torch.clamp(target_q_samples - q_means, -td_bound, td_bound)
-        target_q_bound = q_means + difference
 
-        return target_q.detach(), target_q_bound.detach(), target_q_samples.detach()
+        return target_q.detach()
 
     def compute_q_loss(self, batch, bound=True):
         states, actions, rewards, states_next, _, dones = batch
         # Convert to tensors
         states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
         actions = torch.as_tensor(actions, dtype=torch.float32).to(self.device)
-        rewards = self.reward_scale * torch.ass_tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
         states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
         dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
 
@@ -345,7 +343,7 @@ class DSAC:
 
         # Switch off autograd when calculating policy loss
         models = [self.q1, self.q2]
-        self.switch_autograd_log(require_grad=False, models=models)
+        self.switch_autograd_logging(require_grad=False, models=models)
 
         # Calculate policy loss and backpropagate
         policy_batch = (states, new_actions, new_log_ps)
@@ -354,7 +352,7 @@ class DSAC:
         loss_policy.backward()
 
         # Switch back on autograd after calculation of policy
-        self.switch_autograd_log(require_grad=True, models=models)
+        self.switch_autograd_logging(require_grad=True, models=models)
 
         # Adjust alpha is auto-alpha is enabled
         if self.auto_alpha:
@@ -378,7 +376,9 @@ class DSAC:
 
         return tb_info
 
-    """ /Internally Called """
+    """ 
+    /Internally Called 
+    """
 
     def get_optimizers(self):
         """
