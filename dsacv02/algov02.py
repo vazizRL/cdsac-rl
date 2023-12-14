@@ -197,21 +197,30 @@ class DSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, log_probs_a_next):
+    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next,
+                                    exp=False):
         """
         - Calculates the target distribution \mathcal{Z}(\cdot|s,a) as a GMM
         :param rewards: Rewards received at time t, r_t
         :param dones: Whether s_{t+1} is a terminal state
         :param q_means_next: Next Q-means from the kernels
+        :param stds_next: Next standard deviation
+        :param kernel_weights: Weights of the Gaussian kernels in the GMM
         :param log_probs_a_next: Log probability of the next action
         :return: Target distribution modeles as a GMM
         """
+        next_batch_size = q_means_next.shape[0]
         alpha = self.get_alpha(requires_grad=False)
         # Compute target from mean Q
-        target_q = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
+        q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
+        stds_next = (1-dones) * stds_next + torch.tensor(1e-10, dtype=torch.float64)
 
+        cat_distr = distr.Categorical(probs=kernel_weights)
+        comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
+        target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+        target_samples = target_distribution.sample(sample_shape=next_batch_size)
 
-        return target_q.detach()
+        return target_distribution, target_samples
 
     def compute_q_loss(self, batch, bound=True):
         states, actions, rewards, states_next, _, dones = batch
