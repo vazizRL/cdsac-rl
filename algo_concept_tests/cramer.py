@@ -155,13 +155,13 @@ if __name__ == '__main__':
     # Calculate distance between distributions given by \hat{P}_m and \hat{Q}_m for samples
     for idx, samples_i in enumerate(samples):
         l_i = energy_distance(target_samples, samples_i)
-        print(f'For mean {-10 + idx} of Normal distribution with std 1, the distance is: {l_i}')
+        print(f'For mean {-10 + idx} of Normal distribution with std 1, the energy'
+              f' distance (from scipy module) is: {l_i}')
         # Own implementation
         l_i_own = energy_d(supports=supports, p_target=target_pdf, p_curr=pdfs[idx], s_size=S_SIZE)
         print(f'Own implementation of energy distance: {l_i_own}, its square root: {l_i_own**0.5}')
         l_cramer_pdf, err = cramer_from_pdf(target_pdf_cont, pdfs_cont[idx], int_l=-50, int_u=50)
         print(f'Cramer distance from PDF: {l_cramer_pdf} with max. error: {err}')
-
 
     # Define a GMM in 1d with n Kernels in PyTorch
     means = torch.arange(-10.0, 11.0, 1.0)
@@ -201,6 +201,42 @@ if __name__ == '__main__':
     gmm_mod = sym_gmm_mod(lim=20, means_sym=1.0)
     samples_mod = gmm_mod.rsample((10,))
     probe_gmm_mod(gmm_mod)
+    print('\n')
+
+    '''
+    Calculate distance between two GMMs
+    '''
+    # Current
+    cat_curr = dist.Categorical(probs=torch.tensor([0.5, 0.5]))
+    compo_curr = dist.Normal(loc=torch.tensor([-2.0, 2.0]), scale=torch.tensor([1.0, 1.0]))
+    gmm_curr = ReparameterizedMixtureSameFamilyMod(cat_curr, compo_curr)
+
+    # Target
+    cat_target = dist.Categorical(probs=torch.tensor([0.5, 0.5]))
+    compo_target = dist.Normal(loc=torch.tensor([-1.0, 1.0]), scale=torch.tensor([1.0, 1.0]))
+    gmm_target = ReparameterizedMixtureSameFamilyMod(cat_target, compo_target)
+
+    gmm_to_gmm, gmm_to_gmm_err = cramer_from_pdf(pdf_curr=gmm_curr, pdf_target=gmm_target, int_l=-30, int_u=30,
+                                                 points=(-30, 30))
+    print(f'Distance between the two GMMs: {gmm_to_gmm} \n')
+
+    '''
+    Test energy distance and Cramèr metric for GMM with RMM class
+    '''
+    sample_size = 200_000
+    bins = torch.as_tensor(np.arange(-30, 30, 0.01))
+    prob_mass_curr = gmm_curr.log_prob(bins).exp()
+    prob_mass_target = gmm_target.log_prob(bins).exp()
+    p_bins_curr = prob_mass_curr / prob_mass_curr.sum()
+    p_bins_target = prob_mass_target / prob_mass_target.sum()
+    own_energy_distance_gmm = energy_d(supports=bins, p_curr=p_bins_curr, p_target=p_bins_target, s_size=sample_size)
+    print(f'Own energy distance between two GMMs: {own_energy_distance_gmm} \n')
+    print(f'Compare Cramer distance between curr and tar {gmm_to_gmm**2} which has a ratio of '
+          f'{own_energy_distance_gmm/(gmm_to_gmm**2)} to {own_energy_distance_gmm}')
+    print('Note that energy distance should be twice as big as Cramèrs distance in univaraite case!\n')
+
+
+
 
 
 

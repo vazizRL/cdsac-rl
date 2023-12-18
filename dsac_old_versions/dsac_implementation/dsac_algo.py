@@ -214,6 +214,7 @@ class DSAC:
         # In evaluation and control, reparameterization trick is used
         actions_nxt, log_prob_actions_next = action_dist_nxt.sample(reparameterization=True)
 
+        # Are actions form buffer also sampled?
         q1_means, q1_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q1)
         q2_means, q2_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q2)
 

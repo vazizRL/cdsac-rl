@@ -29,14 +29,13 @@ class DSAC:
         :param alpha_lr_fin: Final temperament learning rate, only if learnable
         :param t_max: Horizont for learning rate schedule. After that, the learning rate doesn't change
         :param target_entropy: Target entropy in actor distribution
-        :param td_bound:
-        :param kwargs:
         :param tau: Soft update parameter
         :param reward_scale: Reward scaling, from SAC
         :param gamma: Discount factor
         :param up_interval:
         :param auto_alpha: Whether alpha is updated automatically
         :param n_kernels: Number of Gaussian kernels in the GMM
+        :param kwargs:
         """
 
         # Initialize device
@@ -147,7 +146,15 @@ class DSAC:
             para_targ.data.mul_(tar_complement)
             para_targ.data.add_(self.tau * para.data)
 
-    def evaluate_q(self, obs, actions, qnet, exp=False, sample_from_distr=True, reparameterize=False):
+    @staticmethod
+    def generate_gmm_distr(means, stds, kweights):
+        cat_distr = distr.Categorical(probs=kweights)
+        comp_distr = distr.Normal(loc=means, scale=stds)
+        zcal = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+
+        return zcal
+
+    def evaluate_q(self, obs, actions, qnet, exp=False, calc_distr=True, reparameterize=False):
         """
         - Sample in a standard fashion from \mathcal{Z} batch-wise
         - Only modification: Std is clamped
@@ -155,28 +162,27 @@ class DSAC:
         :param obs: observation
         :param actions: actions
         :param qnet: Q-value approximator function to be evaluated
-        :param exp: Whether
-        :param sample_from_distr: If False, the network means will be used to calculated
-        :return: PMF, Z
+        :param exp: Whether network outputs are exponentiated or not
+        :param calc_distr: If True, distribution and samples are calculated
+        :param reparameterize: Use implicit reparameterization trick for getting the samples
+        :return: Either (PMF, Z, Means, stds, K_weights) or (None, None, Means, Stds, K_weights) are returned
         """
         # (B, K, Q)
         means, stds, kernel_weights = qnet(obs, actions, exp=exp)
         if not kernel_weights:
             kernel_weights = torch.ones(self.n_kernels) / self.n_kernels
 
-        cat_distr = distr.Categorical(probs=kernel_weights)
-        comp_distr = distr.Normal(loc=means, scale=stds)
-        gmm = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+        gmm = None
         gmm_sample = None
-
-        if sample_from_distr:
+        if calc_distr:
+            gmm = self.generate_gmm_distr(means, stds, kweights=kernel_weights)
             batch_size = obs.shape[0]
             if reparameterize:
                 gmm_sample = gmm.rsample(sample_shape=batch_size)
             else:
                 gmm_sample = gmm.sample(sample_shape=batch_size)
 
-        return gmm, gmm_sample
+        return gmm, gmm_sample, means, stds, kernel_weights
 
     def update_networks(self, iteration: int):
         # Value optimizing step
@@ -197,10 +203,12 @@ class DSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next,
-                                    exp=False):
+    def compute_double_q(self, batch):
+        pass
+
+    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next):
         """
-        - Calculates the target distribution \mathcal{Z}(\cdot|s,a) as a GMM
+        - Calculates the entropy-regularized target distribution \mathcal{Z}(\cdot|s,a) as a GMM
         :param rewards: Rewards received at time t, r_t
         :param dones: Whether s_{t+1} is a terminal state
         :param q_means_next: Next Q-means from the kernels
@@ -218,90 +226,72 @@ class DSAC:
         cat_distr = distr.Categorical(probs=kernel_weights)
         comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
         target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
-        target_samples = target_distribution.sample(sample_shape=next_batch_size)
+        # Target is always used for gradient calculations, so rsample=True
+        target_samples = target_distribution.rsample(sample_shape=next_batch_size)
 
         return target_distribution, target_samples
 
-    def compute_q_loss(self, batch, bound=True):
-        states, actions, rewards, states_next, _, dones = batch
-        # Convert to tensors
+    def compute_q_loss(self, batch, double_q=True):
+        states, old_actions, rewards, states_next, _, dones = batch
+        # Convert to tensors, since in main.py, they are stored as Python datatypes
         states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
-        actions = torch.as_tensor(actions, dtype=torch.float32).to(self.device)
+        old_actions = torch.as_tensor(old_actions, dtype=torch.float32).to(self.device)
         rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
         states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
         dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
 
-        logits_next = self.policy_target(states_next)
-        action_dist_nxt = self.policy_target.get_act_distr(logits_next)
-        # In evaluation and control, reparameterization trick is used
-        actions_nxt, log_prob_actions_next = action_dist_nxt.sample(reparameterization=True)
+        # Probability and value of action
+        action_means_next, action_stds_next, kernel_weights = self.policy_target(states_next)
+        # The action is only used for Q loss calculation, repara=False, detach from graph
+        actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_act_distr(
+                                                     locs=action_means_next, stds=action_stds_next,
+                                                     k_weights=kernel_weights, reparameterization=False)
+        actions_bounded_next.detach()
+        action_log_probs_next_bounded.detach()
 
-        q1_means, q1_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q1)
-        q2_means, q2_stds, _ = self.evaluate_q(obs=states, actions=actions, qnet=self.q2)
+        _, _, means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
+                                                         exp=False, calc_distr=False, reparameterize=True)
+        _, _, means1_next, stds1_next, kweights1_next = \
+            self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q1_target,
+                            exp=False, calc_distr=False, reparameterize=True)
+        if double_q:
+            # Calculate current and target distributions
 
-        q1_means_next, _, q1_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q1_target)
-        q2_means_next, _, q2_next_sample = self.evaluate_q(obs=states_next, actions=actions_nxt, qnet=self.q2_target)
+            _, _, means2, stds2, kweights2 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q2,
+                                                             exp=False, calc_distr=False, reparameterize=True)
+            _, _, means2_next, stds2_next, kweights2_next = \
+                self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q2_target,
+                                exp=False, calc_distr=False, reparameterize=True)
+            # Calculate averages
+            means = 0.5 * (means1 + means2)
+            means_next = 0.5 * (means1_next + means2_next)
+            stds = 0.5 * (stds1 + stds2)
+            stds_next = 0.5 * (stds1_next + stds2_next)
+            kweights = 0.5 * (kweights1 + kweights2)
+            kweights_next = 0.5 * (kweights1_next + kweights2_next)
 
-        # Returns array of smaller mean
-        q_means_next = torch.min(q1_means_next, q2_means_next)
+            # Calculate current distribution
+            zcal = self.generate_gmm_distr(means, stds, kweights)
+            z = zcal.rsample(sample_shape=batch.shape[0])
 
-        # Chooses the r.v. drawn from dist. that has smaller mean, double
-        q_next_samples = torch.where(q1_means_next < q2_means_next, q1_next_sample, q2_next_sample)
-
-        # q_means_next: Standard overestimation counter measure
-        # q_next_samples: Modified overestimation counter measure
-        targets_q1_mean, targets_z1_bound, target_z1_unbound = self.compute_target_q(
-                                                                        rewards=rewards,
-                                                                        dones=dones,
-                                                                        q_means=q1_means.detach(),
-                                                                        q_stds=q1_stds.detach(),
-                                                                        q_means_next=q_means_next.detach(),
-                                                                        q_next_samples=q_next_samples.detach(),
-                                                                        log_probs_a_next=log_prob_actions_next.detach()
-                                                                                    )
-        targets_q2_mean, targets_z2_bound, target_z2_unbound = self.compute_target_q(
-                                                                        rewards=rewards,
-                                                                        dones=dones,
-                                                                        q_means=q2_means.detach(),
-                                                                        q_stds=q2_stds.detach(),
-                                                                        q_means_next=q_means_next.detach(),
-                                                                        q_next_samples=q_next_samples.detach(),
-                                                                        log_probs_a_next=log_prob_actions_next.detach()
-                                                                )
-        if bound:
-            """ 
-            Calculate losses in bounded case
-            Loss is the sum of variance-augmented standard Q-loss, variance-augmented Z-loss and log(var)
-            Necessary if target is bounded?
-            """
-
-            # Weight between mean and Z ?
-            # weight = 0.5 * (torch.mean(torch.pow(q1_stds.detach(), 2)) + torch.mean(torch.pow(q2_stds.detach(), 2)))
-            weight = 1
-
-            # q1 loss
-            q1_loss = weight * torch.mean(
-                (torch.pow(q1_means - targets_q1_mean, 2)) / (2 * torch.pow(q1_stds.detach(), 2))
-                + (torch.pow(q1_means.detach() - targets_z1_bound, 2)) / (2 * torch.pow(q1_stds, 2))
-                + torch.log(q1_stds)
-            )
-
-            # q2 loss
-            q2_loss = weight * torch.mean(
-                torch.pow(q2_means - targets_q2_mean, 2) / (2 * torch.pow(q2_stds.detach(), 2))
-                + torch.pow(q2_means.detach() - targets_z2_bound, 2) / (2 * torch.pow(q2_stds, 2))
-                + torch.log(q2_stds)
-            )
-
+            # Calculate target distribution
+            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means_next,
+                                                                 stds_next=stds_next, kernel_weights=kweights_next,
+                                                                 log_probs_a_next=action_log_probs_next_bounded)
         else:
-            """Calculate losses if no bounds are enforced on target. Is identical to loss in paper"""
-            q1_loss = -Normal(q1_means, q1_stds).log_prob(targets_z1_bound).mean()
-            q2_loss = -Normal(q2_means, q2_stds).log_prob(targets_z2_bound).mean()
+            # Calculate current and target distributions
+            zcal, z, _, _, _ = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
+                                               exp=False, calc_distr=True, reparameterize=True)
 
-        q_loss = q1_loss + q2_loss
+            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
+                                                                 stds_next=stds1_next, kernel_weights=kweights1_next,
+                                                                 log_probs_a_next=action_log_probs_next_bounded)
 
-        return q_loss, q1_means.detach().mean(), q2_means.detach().mean(), q1_stds.detach().mean(), \
-            q2_stds.detach().mean()
+        # Calculate loss with Cràmer distance
+
+
+
+        return 0
 
     def compute_policy_loss(self, reduced_batch):
         states, actions_curr_pol, log_ps_curr_pol = reduced_batch

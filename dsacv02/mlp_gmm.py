@@ -178,7 +178,7 @@ class MLPGMMWeighted(MLPGMM):
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
         stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
 
-        # Does that make sense?
+        # Exponentiate all quantities
         if exp:
             means_logits = means_logits.exp()
             stds_logits = stds_logits.exp()
