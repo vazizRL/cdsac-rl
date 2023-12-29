@@ -6,9 +6,9 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 # Mode
-load_checkpoint = False
-render = False
-learn = True
+load_checkpoint = True
+render = True
+learn = False
 
 # Create new ckpt or specify existing one
 curr_dir = os.getcwd()

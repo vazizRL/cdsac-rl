@@ -5,6 +5,7 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
+from dsacv02.tools import cramer_from_pdf, approx_integral_bounds, get_double_q_selections
 
 
 class DSAC:
@@ -203,9 +204,6 @@ class DSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_double_q(self, batch):
-        pass
-
     def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next):
         """
         - Calculates the entropy-regularized target distribution \mathcal{Z}(\cdot|s,a) as a GMM
@@ -231,14 +229,20 @@ class DSAC:
 
         return target_distribution, target_samples
 
-    def compute_q_loss(self, batch, double_q=True):
+    def compute_q_loss(self, batch, double_q=False):
+        """
+        - Calculates the Q-distribution GMM-to-GMM loss
+        :param batch: Sampled batch to learn from
+        :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
+        :return: Q-loss attached to functional graph for gradient calculation
+        """
         states, old_actions, rewards, states_next, _, dones = batch
         # Convert to tensors, since in main.py, they are stored as Python datatypes
-        states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
-        old_actions = torch.as_tensor(old_actions, dtype=torch.float32).to(self.device)
-        rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float32).to(self.device)
-        states_next = torch.as_tensor(states_next, dtype=torch.float32).to(self.device)
-        dones = torch.as_tensor(dones, dtype=torch.float32).to(self.device)
+        states = torch.as_tensor(states, dtype=torch.float64).to(self.device)
+        old_actions = torch.as_tensor(old_actions, dtype=torch.float64).to(self.device)
+        rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float64).to(self.device)
+        states_next = torch.as_tensor(states_next, dtype=torch.float64).to(self.device)
+        dones = torch.as_tensor(dones, dtype=torch.float64).to(self.device)
 
         # Probability and value of action
         action_means_next, action_stds_next, kernel_weights = self.policy_target(states_next)
@@ -246,62 +250,100 @@ class DSAC:
         actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_act_distr(
                                                      locs=action_means_next, stds=action_stds_next,
                                                      k_weights=kernel_weights, reparameterization=False)
-        actions_bounded_next.detach()
-        action_log_probs_next_bounded.detach()
+        # Important: In-place operations
+        actions_bounded_next.detach_()
+        action_log_probs_next_bounded.detach_()
 
-        _, _, means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
-                                                         exp=False, calc_distr=False, reparameterize=True)
+        # Calculate Q_{\theta}(s',a') according to q1
         _, _, means1_next, stds1_next, kweights1_next = \
             self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q1_target,
                             exp=False, calc_distr=False, reparameterize=True)
         if double_q:
-            # Calculate current and target distributions
-
+            # Calculate current according to q1, q2 and target distributions according to q2
+            _, _, means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
+                                                             exp=False, calc_distr=False, reparameterize=True)
             _, _, means2, stds2, kweights2 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q2,
                                                              exp=False, calc_distr=False, reparameterize=True)
             _, _, means2_next, stds2_next, kweights2_next = \
                 self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q2_target,
                                 exp=False, calc_distr=False, reparameterize=True)
-            # Calculate averages
-            means = 0.5 * (means1 + means2)
-            means_next = 0.5 * (means1_next + means2_next)
-            stds = 0.5 * (stds1 + stds2)
-            stds_next = 0.5 * (stds1_next + stds2_next)
-            kweights = 0.5 * (kweights1 + kweights2)
-            kweights_next = 0.5 * (kweights1_next + kweights2_next)
+
+            means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights_selected_min, \
+                kweights_next_selected_min = get_double_q_selections(means1=means1, means2=means2,
+                                                                     means1_next=means1_next,
+                                                                     means2_next=means2_next, stds1=stds1, stds2=stds2,
+                                                                     stds1_next=stds1_next, stds2_next=stds2_next,
+                                                                     kweights1=kweights1, kweights2=kweights2,
+                                                                     kweights1_next=kweights1_next,
+                                                                     kweights2_next=kweights2_next)
 
             # Calculate current distribution
-            zcal = self.generate_gmm_distr(means, stds, kweights)
+            zcal = self.generate_gmm_distr(means_min, stds_selected_min, kweights_selected_min)
             z = zcal.rsample(sample_shape=batch.shape[0])
 
             # Calculate target distribution
-            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means_next,
-                                                                 stds_next=stds_next, kernel_weights=kweights_next,
+            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
+                                                                 q_means_next=means_next_min,
+                                                                 stds_next=stds_next_selected_min,
+                                                                 kernel_weights=kweights_next_selected_min,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
+
+            # Calculate integral bounds
+            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means_min,
+                                                                 means_target=means_next_min,
+                                                                 stds_curr=stds_selected_min,
+                                                                 stds_target=stds_next_selected_min, factor=10,
+                                                                 mean_std=True)
         else:
             # Calculate current and target distributions
-            zcal, z, _, _, _ = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
-                                               exp=False, calc_distr=True, reparameterize=True)
-
+            zcal, z, means, stds, kernel_weigths = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
+                                                                   exp=False, calc_distr=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
+            # Calculate integral bounds
+            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means, means_target=means1_next,
+                                                                 stds_curr=stds, stds_target=stds1_next, factor=10,
+                                                                 mean_std=True)
 
-        # Calculate loss with Cràmer distance
+        # Detach integral bounds from graph
+        int_bound_low.detch_(), int_bound_up.detach_()
 
+        # Calculate loss with Cràmer distance on PDFs
+        q_loss = cramer_from_pdf(zcal, zcal_next, int_l=int_bound_low, int_u=int_bound_up,
+                                 points=(int_bound_low, int_bound_up))
 
+        return q_loss
 
-        return 0
-
-    def compute_policy_loss(self, reduced_batch):
-        states, actions_curr_pol, log_ps_curr_pol = reduced_batch
+    def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False):
+        """
+        - Computes policy loss for gradient calculation
+        :param states: Batch of states
+        :param actions_curr_pol: Actions according to the current policy
+        :param log_ps_curr_pol: Log probability of the action according to current policy
+        :param double_q: Whether two Q-networks are utilized for mitigating overestimation errors
+        :return: Policy loss attacehd to functional graph for gradient calculation
+        """
         # Convert to tensors
-        states = torch.as_tensor(states, dtype=torch.float32).to(self.device)
-        actions_curr_pol = torch.as_tensor(actions_curr_pol, dtype=torch.float32).to(self.device)
-        log_ps_curr_pol = torch.as_tensor(log_ps_curr_pol, dtype=torch.float32).to(self.device)
+        states = torch.as_tensor(states, dtype=torch.float64).to(self.device)
+        actions_curr_pol = torch.as_tensor(actions_curr_pol, dtype=torch.float64).to(self.device)
+        log_ps_curr_pol = torch.as_tensor(log_ps_curr_pol, dtype=torch.float64).to(self.device)
 
-        q1_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1)
-        q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2)
+        if double_q:
+            _, _, q_means1, stds1, k_weights1 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1,
+                                                                calc_distr=False, exp=False, reparameterize=False)
+            _, _, q_means2, stds2, k_weights2 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2,
+                                                                calc_distr=False, exp=False, reparameterize=False)
+            # Detach from Q-networks!
+            q_means1.detach_(), stds1.detach_(), k_weights1.detach_(), q_means2.detach_(), stds2.detach_(),
+            k_weights2.detach_()
+
+            min_means, min_means_idx = torch.min(torch.stack([q_means1, q_means2]), dim=0)
+            stds = 0.5 * (stds1 + stds2)
+            kweights = 0.5 * (k_weights1 + k_weights2)
+        else:
+            pass
+
         # Not calculated according to Z! If Z, reparameterization is needed
         policy_loss = (self.get_alpha(requires_grad=False) *
                        log_ps_curr_pol - torch.min(q1_means, q2_means)).mean()
@@ -321,7 +363,7 @@ class DSAC:
         states, _, _, _, _, _ = batch
 
         # Convert state to tensor
-        states = torch.as_tensor(states, dtype=torch.float32)
+        states = torch.as_tensor(states, dtype=torch.float64)
 
         # Construct action distribution with reparameterization trick
         logits = self.policy(states)

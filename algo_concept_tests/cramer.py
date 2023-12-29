@@ -232,7 +232,8 @@ if __name__ == '__main__':
     own_energy_distance_gmm = energy_d(supports=bins, p_curr=p_bins_curr, p_target=p_bins_target, s_size=sample_size)
     print(f'Own energy distance between two GMMs: {own_energy_distance_gmm} \n')
     print(f'Compare Cramer distance between curr and tar {gmm_to_gmm**2} which has a ratio of '
-          f'{own_energy_distance_gmm/(gmm_to_gmm**2)} to {own_energy_distance_gmm}')
+          f'{own_energy_distance_gmm/(gmm_to_gmm**2)} - energy_distance ({own_energy_distance_gmm}) to '
+          f'Cràmer distance {gmm_to_gmm**2} ')
     print('Note that energy distance should be twice as big as Cramèrs distance in univaraite case!\n')
 
 
