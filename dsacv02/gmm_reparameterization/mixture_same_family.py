@@ -221,7 +221,7 @@ class ReparameterizedMixtureSameFamilyMod(MixtureSameFamilyMod):
         if not callable(getattr(self._component_distribution, '_log_cdf', None)):
             warnings.warn(message=('The component distributions do not have numerically stable '
                                    '`_log_cdf`, will use torch.log(cdf) instead, which may not '
-                                   'be stable. NOTE: this will not affect implicit reparametrisation.'),
+                                   'be stable. NOTE: this will not affect implicit reparameterization.'),
                           )
 
     def rsample(self, sample_shape=torch.Size()):

@@ -5,7 +5,8 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_from_pdf, approx_integral_bounds, get_double_q_selections
+from dsacv02.tools import cramer_from_pdf, approx_integral_bounds, get_double_q_selections, \
+     get_partial_double_q_selections
 
 
 class DSAC:
@@ -318,11 +319,13 @@ class DSAC:
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False):
         """
         - Computes policy loss for gradient calculation
+        - WARNING: Make sure that log_ps_curr_pol is NOT detached from current graph as it is the only quantity
+                   with which policy gradients can be calculated
         :param states: Batch of states
         :param actions_curr_pol: Actions according to the current policy
         :param log_ps_curr_pol: Log probability of the action according to current policy
         :param double_q: Whether two Q-networks are utilized for mitigating overestimation errors
-        :return: Policy loss attacehd to functional graph for gradient calculation
+        :return: Policy loss attached to functional graph for gradient calculation
         """
         # Convert to tensors
         states = torch.as_tensor(states, dtype=torch.float64).to(self.device)
@@ -330,23 +333,26 @@ class DSAC:
         log_ps_curr_pol = torch.as_tensor(log_ps_curr_pol, dtype=torch.float64).to(self.device)
 
         if double_q:
-            _, _, q_means1, stds1, k_weights1 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1,
-                                                                calc_distr=False, exp=False, reparameterize=False)
-            _, _, q_means2, stds2, k_weights2 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2,
-                                                                calc_distr=False, exp=False, reparameterize=False)
-            # Detach from Q-networks!
-            q_means1.detach_(), stds1.detach_(), k_weights1.detach_(), q_means2.detach_(), stds2.detach_(),
-            k_weights2.detach_()
+            _, _, q_means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1,
+                                                               calc_distr=False, exp=False, reparameterize=False)
+            _, _, q_means2, stds2, kweights2 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2,
+                                                               calc_distr=False, exp=False, reparameterize=False)
+            # Detach from Q-networks [Inplace Operation] !
+            q_means1.detach_(), q_means2.detach_(), stds1.detach_(), kweights1.detach_(), stds2.detach_(),
+            kweights2.detach_()
 
-            min_means, min_means_idx = torch.min(torch.stack([q_means1, q_means2]), dim=0)
-            stds = 0.5 * (stds1 + stds2)
-            kweights = 0.5 * (k_weights1 + k_weights2)
+            means_min, stds_selected_min, kweights_selected_min = \
+                get_partial_double_q_selections(means1=q_means1, means2=q_means2, stds1=stds1, stds2=stds2,
+                                                kweights1=kweights1, kweights2=kweights2)
         else:
-            pass
+            _, _, means_min, stds_selected_min, kweights_selected_min = self.evaluate_q(obs=states,
+                actions=actions_curr_pol, qnet=self.q1, calc_distr=False, exp=False, reparameterize=False)
+
+            means_min.detach_(), stds_selected_min.detach_(), kweights_selected_min.detach_()
 
         # Not calculated according to Z! If Z, reparameterization is needed
-        policy_loss = (self.get_alpha(requires_grad=False) *
-                       log_ps_curr_pol - torch.min(q1_means, q2_means)).mean()
+        gmm_mean = means_min.mean(dim=1)
+        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
         entropy = -log_ps_curr_pol.detach().mean()
 
         return policy_loss, entropy

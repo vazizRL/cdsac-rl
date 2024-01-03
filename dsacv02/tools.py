@@ -106,3 +106,33 @@ def get_double_q_selections(means1, means2, means1_next, means2_next, stds1, std
 
     return means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights_selected_min, \
         kweights_next_selected_min
+
+
+def get_partial_double_q_selections(means1, means2, stds1, stds2, kweights1, kweights2):
+    """
+    - Calculates min. values per entry from two pairs of Q-arrays (means, means_next) and selects entries of other
+      four pairs (stds, stds_next, kweights, kweights_next) according to selection
+    :param means1: Q1
+    :param means2: Q2
+    :param stds1: Std. dev. 1
+    :param stds2: Std. dev. 2
+    :param kweights1: Kernel weights 1
+    :param kweights2: Kernel weights 2
+
+    """
+    # Calculate min. Q and average of stds
+    stack_means = torch.stack([means1, means2])
+    means_min, means_min_idx = torch.min(stack_means, dim=0)
+    means_min_idx = torch.as_tensor(means_min_idx, dtype=torch.bool)
+
+    # Get stds and kweights corresponding to mean_min and mean_next_min
+    # Reverse stack, 1 = 2nd array; 0 = 1st array
+    stds_selected_min = torch.zeros_like(stds1)
+    stds_selected_min[means_min_idx] = stds2[means_min_idx]
+    stds_selected_min[~means_min_idx] = stds1[~means_min_idx]
+
+    kweights_selected_min = torch.zeros_like(kweights1)
+    kweights_selected_min[means_min_idx] = kweights2[means_min_idx]
+    kweights_selected_min[~means_min_idx] = kweights1[~means_min_idx]
+
+    return means_min, stds_selected_min, kweights_selected_min,

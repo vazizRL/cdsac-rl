@@ -337,7 +337,8 @@ class DSAC:
         policy_batch = (states, new_actions, new_log_ps)
         self.policy_optimizer.zero_grad()
         loss_policy, entropy = self.compute_policy_loss(policy_batch)
-        loss_policy.backward()
+        # loss_policy.backward()
+        loss_policy.backward(retain_graph=True)
 
         # Switch back on autograd after calculation of policy
         self.switch_autograd_log(require_grad=True, models=models)

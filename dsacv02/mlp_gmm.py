@@ -176,7 +176,7 @@ class MLPGMMWeighted(MLPGMM):
 
         # Rows: Kernels, Columns: Actions
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
-        stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+        stds_logits = stds_logits.view(-1, self._n_kernels, self._arch[-1])
 
         # Exponentiate all quantities
         if exp:
