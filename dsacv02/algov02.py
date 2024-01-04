@@ -226,8 +226,9 @@ class DSAC:
 
         cat_distr = distr.Categorical(probs=kernel_weights)
         comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
+        # TODO: Iterate over
         target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
-        # Target is always used for gradient calculations, so rsample=True
+        # Target is always used for gradient calculations, so always rsample
         target_samples = target_distribution.rsample(sample_shape=next_batch_size)
 
         return target_distribution, target_samples
@@ -313,6 +314,7 @@ class DSAC:
         int_bound_low.detch_(), int_bound_up.detach_()
 
         # Calculate loss with Cràmer distance on PDFs
+        # TODO: Iterate over list of zcal's and zcal_next's, then average the loss
         q_loss = cramer_from_pdf(zcal, zcal_next, int_l=int_bound_low, int_u=int_bound_up,
                                  points=(int_bound_low, int_bound_up))
 
