@@ -7,27 +7,6 @@ import time
 from dsacv02.actor_critic import Actor, Critic
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 
-
-def generate_gmm_distr(mean, std, kweight):
-    cat_distr = distr.Categorical(probs=kweight)
-    comp_distr = distr.Normal(loc=mean, scale=std)
-    gmm_distr = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
-
-    return gmm_distr
-
-
-def check_sampling(mean, std, kweight, n_sampling):
-    own_gmm1_act1 = generate_gmm_distr(mean=mean, std=std, kweight=kweight)
-    pytorch_gmm1_act1 = distr.MixtureSameFamily(mixture_distribution=distr.Categorical(probs=kweight),
-                                                component_distribution=distr.Normal(loc=mean, scale=std))
-    own_samples = own_gmm1_act1.sample((n_sampling,))
-    pytorch_samples = pytorch_gmm1_act1.sample((n_sampling,))
-
-    print(
-        f'Element 1, Action 1. Mean by analysis: {means_act[0][:, 0].mean()}; Mean by own gmm samples: '
-        f'{own_samples.mean()}; Mean by pytorch gmm samples: {pytorch_samples.mean()}')
-
-
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 # Input Data
