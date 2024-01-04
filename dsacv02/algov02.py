@@ -177,6 +177,8 @@ class DSAC:
         gmm = None
         gmm_sample = None
         if calc_distr:
+            for mean_i, std_i, kernel_weight_i in zip(means, stds, kernel_weights):
+
             gmm = self.generate_gmm_distr(means, stds, kweights=kernel_weights)
             batch_size = obs.shape[0]
             if reparameterize:
