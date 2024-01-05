@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class MLPGMM(nn.Module):
-    def __init__(self, arch: tuple, activ: tuple, n_kernels: int):
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, multivar=False):
         """
         - Network with n means and n stds; n: Number of kernels
         :param arch: Soecified architecture (number of layers and nodes)
@@ -20,7 +20,7 @@ class MLPGMM(nn.Module):
         self._n_kernels = n_kernels
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.check_arch()
-        self.build_layers()
+        self.build_layers(multivar)
 
     @property
     def activ(self):
@@ -58,7 +58,7 @@ class MLPGMM(nn.Module):
             self._activ[name] = output.to('cpu').detach()
         return hook
 
-    def build_layers(self):
+    def build_layers(self, multivar):
         layer_id = 1
 
         next_element_list = list(self._arch)[1:-1] + [None]
@@ -118,10 +118,10 @@ class MLPGMM(nn.Module):
 
 
 class MLPGMMWeighted(MLPGMM):
-    def __init__(self, arch: tuple, activ: tuple, n_kernels: int):
-        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels)
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, multivar=False):
+        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels, multivar=multivar)
 
-    def build_layers(self):
+    def build_layers(self, multivar):
         layer_id = 1
 
         next_element_list = list(self._arch)[1:-1] + [None]

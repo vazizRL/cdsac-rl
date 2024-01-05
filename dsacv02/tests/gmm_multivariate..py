@@ -1,5 +1,6 @@
 import torch
 import torch.distributions as distr
+from torch.distributions.constraints import positive_definite
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 
 
@@ -20,9 +21,11 @@ def gen_own_multi_gmm_distr(means, cov_matrices, kweights):
 
 """
 Test random multivariate GMM for two actions
-"""
-batch_size = 3
 n_actions = 2
+n_kernels = 3
+batch_size = 1
+"""
+# Inner elements: The two actions that are drawn simultaneously
 means = torch.tensor([[-4., -3.], [-1., 0.], [2., 3.]])
 cov1 = torch.tensor([[1., 0.5], [0.5, 1.]])
 cov2 = torch.tensor([[1., 0.5], [0.5, 1.]])
@@ -32,6 +35,18 @@ kweights = torch.tensor([1/3, 1/3, 1/3], dtype=torch.float32)
 
 multi_gmm_own = gen_own_multi_gmm_distr(means=means, cov_matrices=covariances, kweights=kweights)
 
-
+"""
+Test batch-wise random multivariate GMM for two actions
+batch_size = 5
+n_actions = 2
+n_kernels = 3
+"""
+means_batch = torch.randn(size=(5, 3, 2))
+diag_elements = torch.randn(size=(5, 3, 2))
+covariances_batch = torch.diag_embed(diag_elements)
+covariances_batch.abs_()
+kweights_batch = torch.nn.functional.softmax(torch.rand(size=(5, 3)))
+multi_gmm_own_batch = gen_own_multi_gmm_distr(means=means_batch, cov_matrices=covariances_batch,
+                                              kweights=kweights_batch)
 
 
