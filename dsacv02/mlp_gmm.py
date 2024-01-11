@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dsacv02.tools import calc_size_co_matrix
 
 
 class MLPGMM(nn.Module):
@@ -77,6 +78,7 @@ class MLPGMM(nn.Module):
             means_layer.append(mean_layer)
 
         for std_idx in range(self._n_kernels):
+
             std_layer = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
             self.module_dict.update({f'std_log{std_idx + 1}': std_layer})
             stds_layer.append(std_layer)
@@ -245,6 +247,5 @@ if __name__ == '__main__':
     print(f'Shape of kernel weights: {weights.shape} \n{weights}')
     print(f'Actor summary (version with weight output): {summary(actor_w, (arch_mulo_w[0],))}'
           f'\nActor Activation: {actor_w.activ_str}')
-
 
 

@@ -2,10 +2,7 @@
 Note: The first dimension is the input dimension
 """
 import torch
-import torch.distributions as distr
-import time
 from dsacv02.actor_critic import Actor, Critic
-from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 

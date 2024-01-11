@@ -138,6 +138,7 @@ class ActorNetwork(nn.Module):
         """
         mu, sigma = self.forward(state)
 
+        # Not a multivariate form?
         prob = Normal(mu, sigma)
 
         # Sample only ONE, in torch.tensor format

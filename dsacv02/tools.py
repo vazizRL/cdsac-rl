@@ -135,4 +135,18 @@ def get_partial_double_q_selections(means1, means2, stds1, stds2, kweights1, kwe
     kweights_selected_min[means_min_idx] = kweights2[means_min_idx]
     kweights_selected_min[~means_min_idx] = kweights1[~means_min_idx]
 
-    return means_min, stds_selected_min, kweights_selected_min,
+    return means_min, stds_selected_min, kweights_selected_min
+
+
+def calc_size_co_matrix(n_actions: int):
+    """
+    - For multivariate distributions
+    - Calculates necessary number of elements of a covariance matrix as function of the action space size
+    :param n_actions: Size of action space
+    """
+    n_actions = torch.as_tensor(n_actions)
+    return n_actions + torch.floor(0.5 * (n_actions ** 2 - n_actions))
+
+
+if __name__ == '__main__':
+    print(f'The action dim required for one action is: {calc_size_co_matrix(2)}')
