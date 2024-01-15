@@ -21,6 +21,8 @@ class MLPGMM(nn.Module):
         self._n_kernels = n_kernels
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.check_arch()
+        # Calculate size of necessary output nodes for covariance matrix
+        self.covar_out_size = calc_size_co_matrix(self._arch[-1]).item().__int__()
         self.build_layers(multivar)
 
     @property
@@ -78,9 +80,8 @@ class MLPGMM(nn.Module):
             means_layer.append(mean_layer)
 
         for std_idx in range(self._n_kernels):
-
-            std_layer = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
-            self.module_dict.update({f'std_log{std_idx + 1}': std_layer})
+            std_layer = nn.Linear(self._arch[-2], self.covar_out_size, dtype=torch.float64).to(self.device)
+            self.module_dict.update({f'std_matrix_log{std_idx + 1}': std_layer})
             stds_layer.append(std_layer)
 
         self._layers.append((means_layer, stds_layer))
@@ -89,7 +90,7 @@ class MLPGMM(nn.Module):
 
     def forward(self, x, exp=False):
         """
-        - Feed forward method
+        - Feed forward method for multivariate GMMs
         :param x: Input
         :param exp: Whether return is exponentiated
         :return: Return shape (Batch, n_Kernel, n_Actions)
@@ -110,7 +111,7 @@ class MLPGMM(nn.Module):
 
         # Rows: Kernels, Columns: Actions
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
-        stds_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
+        stds_logits = means_logits.view(-1, self._n_kernels, self.covar_out_size)
 
         if exp:
             means_logits = means_logits.exp()
@@ -142,7 +143,7 @@ class MLPGMMWeighted(MLPGMM):
             means_layers.append(mean_layer_i)
 
         for std_idx in range(self._n_kernels):
-            std_logit_i = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            std_logit_i = nn.Linear(self._arch[-2], self.covar_out_size, dtype=torch.float64).to(self.device)
             self.module_dict.update({f'std_{std_idx + 1}': std_logit_i})
             stds_layers.append(std_logit_i)
 
@@ -178,7 +179,7 @@ class MLPGMMWeighted(MLPGMM):
 
         # Rows: Kernels, Columns: Actions
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
-        stds_logits = stds_logits.view(-1, self._n_kernels, self._arch[-1])
+        stds_logits = stds_logits.view(-1, self._n_kernels, self.covar_out_size)
 
         # Exponentiate all quantities
         if exp:

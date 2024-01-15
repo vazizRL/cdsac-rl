@@ -1,6 +1,8 @@
 """
 Hyperparameters, MLP architecture...etc. defined in actor_critic_test.py
 """
+import time
+import torch.distributions as distr
 from actor_critic_test import *
 
 
@@ -48,8 +50,6 @@ def check_sampling(means, stds, kweights, n_sampling):
     print(
         f'Element 1, Action 1. Mean by analysis: {means_act[0][:, 0].mean()}; Mean by own gmm samples: '
         f'{own_samples.mean()}; Mean by pytorch gmm samples: {pytorch_samples.mean()}')
-
-
 
 """
 Construct a GMM from critic parameters

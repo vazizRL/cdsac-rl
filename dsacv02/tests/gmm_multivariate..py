@@ -74,3 +74,18 @@ kweights_batch_act1 = torch.nn.functional.softmax(torch.rand(size=(5, 3)))
 multi_gmm_own_batch_act1 = gen_own_multi_gmm_distr(means=means_batch_act1, cov_matrices=covariances_batch_act1,
                                                    kweights=kweights_batch_act1)
 
+# Your tensor representing one half of a symmetric matrix
+half_tensor = torch.tensor([1, 2, 3, 4, 5, 6])
+
+# Create a zeros matrix
+symmetric_matrix = torch.zeros((3, 3), dtype=half_tensor.dtype)
+
+# Fill the upper triangular part of the matrix with your tensor values
+symmetric_matrix = symmetric_matrix.triu()  # Upper triangular part
+symmetric_matrix = symmetric_matrix + symmetric_matrix.t()  # Make it symmetric
+
+# If your tensor has a special structure, you can directly use it
+# symmetric_matrix = torch.triu(half_tensor.view(3, 3))
+
+print(symmetric_matrix)
+
