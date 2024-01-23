@@ -234,7 +234,6 @@ if __name__ == '__main__':
 
     print(f'Actor summary: {summary(actor, (11,))}\nActor Activation: {actor.activ_str}')
 
-
     '''
     Test MLPGMMWeighted
     '''
