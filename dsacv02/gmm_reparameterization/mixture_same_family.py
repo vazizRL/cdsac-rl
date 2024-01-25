@@ -132,7 +132,7 @@ class MixtureSameFamilyMod(Distribution):
     @property
     def mean(self):
         probs = self._pad_mixture_dimensions(self.mixture_distribution.probs)
-        return torch.sum(probs * self.component_distribution.mean,
+        return torch.sum(probs * self.component_distribution.mean_ref,
                          dim=-1 - self._event_ndims)  # [B, E]
 
     @property
@@ -141,7 +141,7 @@ class MixtureSameFamilyMod(Distribution):
         probs = self._pad_mixture_dimensions(self.mixture_distribution.probs)
         mean_cond_var = torch.sum(probs * self.component_distribution.variance,
                                   dim=-1 - self._event_ndims)
-        var_cond_mean = torch.sum(probs * (self.component_distribution.mean -
+        var_cond_mean = torch.sum(probs * (self.component_distribution.mean_ref -
                                            self._pad(self.mean)).pow(2.0),
                                   dim=-1 - self._event_ndims)
         return mean_cond_var + var_cond_mean
@@ -149,7 +149,7 @@ class MixtureSameFamilyMod(Distribution):
     def cdf(self, x):
         x = self._pad(x)
         cdf_x = self.component_distribution.cdf(x)
-        mix_prob = self.mixture_distribution.probs
+        mix_prob = self.mixture_distribution.probs.to('cuda:0')
 
         return torch.sum(cdf_x * mix_prob, dim=-1)
 

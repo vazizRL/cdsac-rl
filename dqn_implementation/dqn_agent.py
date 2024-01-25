@@ -76,8 +76,8 @@ class Agent:
         self.epsilon = self.epsilon - self.eps_dec if self.epsilon > self.eps_end else self.eps_end
         self.learn_iter += 1
 
-        tb_info = {'DQN/q_val': q_curr.mean().detach(),
-                   'DQN/loss': loss.mean().detach()}
+        tb_info = {'DQN/q_val': q_curr.mean_ref().detach(),
+                   'DQN/loss': loss.mean_ref().detach()}
 
         return tb_info
 

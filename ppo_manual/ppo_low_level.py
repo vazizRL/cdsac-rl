@@ -250,7 +250,7 @@ class Agent:
                 returns = advantage[batch] + values[batch]
                 # returns = disc_reward
                 critic_loss = (returns - new_critic_value)**2
-                critic_loss = critic_loss.mean()
+                critic_loss = critic_loss.mean_ref()
                 total_loss = actor_loss + 0.5 * critic_loss
 
                 # Perform an optimization network

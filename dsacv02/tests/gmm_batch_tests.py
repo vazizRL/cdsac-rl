@@ -48,7 +48,7 @@ def check_sampling(means, stds, kweights, n_sampling):
     pytorch_samples = pytorch_gmm1_act1.sample((n_sampling,))
 
     print(
-        f'Element 1, Action 1. Mean by analysis: {means_act[0][:, 0].mean()}; Mean by own gmm samples: '
+        f'Element 1, Action 1. Mean by analysis: {means_act[0][:, 0].mean_ref()}; Mean by own gmm samples: '
         f'{own_samples.mean()}; Mean by pytorch gmm samples: {pytorch_samples.mean()}')
 
 """

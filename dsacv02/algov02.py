@@ -355,14 +355,14 @@ class DSAC:
             means_min.detach_(), stds_selected_min.detach_(), kweights_selected_min.detach_()
 
         # Not calculated according to Z! If Z, reparameterization is needed
-        gmm_mean = means_min.mean(dim=1)
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
-        entropy = -log_ps_curr_pol.detach().mean()
+        gmm_mean = means_min.mean_ref(dim=1)
+        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean_ref()
+        entropy = -log_ps_curr_pol.detach().mean_ref()
 
         return policy_loss, entropy
 
     def compute_alpha_loss(self, log_ps):
-        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean()
+        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_ref()
 
         return loss_alpha
 
@@ -380,7 +380,7 @@ class DSAC:
         logits_mean, logits_std = logits
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
-        policy_std = logits_std.mean().item()
+        policy_std = logits_std.mean_ref().item()
 
         act_dist = self.policy.get_act_distr(logits)
         new_actions, new_log_ps = act_dist.sample(reparameterization=True)

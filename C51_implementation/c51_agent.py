@@ -102,7 +102,7 @@ class Agent:
 
         # Calculate loss and optimize for one step
         _, old_pmfs = self.z_network(states, actions.flatten())
-        loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean()
+        loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean_ref()
         loss.backward()
         self.z_network.optimizer.step()
 

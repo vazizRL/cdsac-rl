@@ -242,12 +242,12 @@ poetry run pip install "stable_baselines3==2.0.0a1"
                         target_pmfs[i].index_add_(0, u[i].long(), d_m_u[i])
 
                 _, old_pmfs = q_network.get_action(data.observations, data.actions.flatten())
-                loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean()
+                loss = (-(target_pmfs * old_pmfs.clamp(min=1e-5, max=1 - 1e-5).log()).sum(-1)).mean_ref()
 
                 if global_step % 100 == 0:
                     writer.add_scalar("losses/loss", loss.item(), global_step)
                     old_val = (old_pmfs * q_network.atoms).sum(1)
-                    writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
+                    writer.add_scalar("losses/q_values", old_val.mean_ref().item(), global_step)
                     print("SPS:", int(global_step / (time.time() - start_time)))
                     writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
