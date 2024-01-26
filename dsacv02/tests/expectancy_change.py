@@ -46,13 +46,6 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
 
     cramer = torch.trapz((dy_target - dy_curr)**2, dx=spacing)
 
-    # c = integrate.quad(
-    #     lambda x: (pdf_target.cdf(torch.tensor([x]).to(dev)) - pdf_curr.cdf(torch.tensor([x]).to(dev))) ** 2,
-    #     int_l, int_u, points=points
-    # )
-    # distance, error_est = c
-    # return distance**0.5, error_est
-
     return cramer**0.5
 
 
@@ -63,11 +56,20 @@ def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tenso
     return gmm
 
 
+def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, spacing, dev='cpu'):
+    steps = int((supp_u - supp_l) / spacing)
+    dx = torch.linspace(supp_l, supp_u, steps=steps).to(dev)
+
+    cdf_curve = pdf.cdf(dx)
+
+    return cdf_curve
+
+
 if __name__ == '__main__':
     curr_path = os.getcwd()
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     # Reference distribution
-    mean_ref = torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
+    mean_ref = torch.tensor([0.0, 8.0], dtype=torch.float64).to(device)
     std_ref = torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
     kweight_ref = torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
     distr_ref = generate_gmm(locs=mean_ref, scales=std_ref, kweights=kweight_ref)
@@ -107,8 +109,12 @@ if __name__ == '__main__':
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
 
-    # Fit gmm_approx to output normal distribution
+    # Train parameters
     epochs = 4
+    epochs_low_e = 1
+    epochs_high_e = 1
+
+    # Fit gmm_approx to output normal distributio
     for epoch in range(epochs):
         for batch in batches:
             for data_i in batch:
@@ -135,6 +141,11 @@ if __name__ == '__main__':
     print(f'The mean of the two kernels for the expectancy is: {preds_means_all.mean(dim=0)}')
     print(f'The mean of the two kernels for the std is: {preds_stds_all.mean(dim=0)}')
 
+    # Evaluate CDFs for: Ref, Low_H, High_H
+    cdf_pre = calculate_cdf(pred_gmm_i, supp_l=-8, supp_u=12, spacing=0.001, dev=device)
+    cdf_low_target = calculate_cdf(distr_low_e, supp_l=-8, supp_u=12, spacing=0.001, dev=device)
+    cdf_high_target = calculate_cdf(distr_high_e, supp_l=-8, supp_u=12, spacing=0.001, dev=device)
+
     '''
     Deep copy the trained network (trained for means=[1.0, 0.0], stds=[1.0, 1.0])
     '''
@@ -145,13 +156,14 @@ if __name__ == '__main__':
     Measure change in expectancy for low entropy target distribution
     '''
     optimizer_low = optim.Adam(gmm_approx_low_e.parameters(), lr=0.001)
-    epochs_low_e = 1
     means_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
+    dc_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
             stds_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
+            dc_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
             for data_i in batch:
                 # kweights = None
                 data_i.unsqueeze_(dim=1)
@@ -165,6 +177,9 @@ if __name__ == '__main__':
                                               kweights=kweights)
                 cramer_py_loss_low_i = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_i, int_l=-10,
                                                       int_u=10, spacing=0.01, points=(-5, 5), dev=device)
+                # Log loss
+                dc_history_batch_low_e = torch.cat((dc_history_batch_low_e,
+                                                    cramer_py_loss_low_i.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
 
                 optimizer_low.zero_grad()
                 cramer_py_loss_low_i.backward()
@@ -173,19 +188,21 @@ if __name__ == '__main__':
             # Log mean and std change
             means_history_low_e_target = torch.cat((means_history_low_e_target, means_history_batch_low_e), dim=0)
             stds_history_low_e_target = torch.cat((stds_history_low_e_target, stds_history_batch_low_e), dim=0)
+            dc_history_low_e_target = torch.cat((dc_history_low_e_target, dc_history_batch_low_e), dim=0)
         print(f'Finished episode low entropy: {epoch + 1}')
 
     '''
     Measure change in expectancy for high entropy target distribution
     '''
     optimizer_high = optim.Adam(gmm_approx_high_e.parameters(), lr=0.001)
-    epochs_high_e = 1
     means_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
+    dc_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
             stds_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
+            dc_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
             for data_i in batch:
                 # kweights = None
                 data_i.unsqueeze_(dim=1)
@@ -199,6 +216,9 @@ if __name__ == '__main__':
                                                kweights=kweights)
                 cramer_py_loss_high_i = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_i, int_l=-10,
                                                        int_u=12, spacing=0.01, points=(-5, 5), dev=device)
+                # Log loss
+                dc_history_batch_high_e = torch.cat((dc_history_batch_high_e,
+                                                     cramer_py_loss_high_i.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
 
                 optimizer_high.zero_grad()
                 cramer_py_loss_high_i.backward()
@@ -207,8 +227,18 @@ if __name__ == '__main__':
             # Log mean and std change
             means_history_high_e_target = torch.cat((means_history_high_e_target, means_history_batch_high_e), dim=0)
             stds_history_high_e_target = torch.cat((stds_history_high_e_target, stds_history_batch_high_e), dim=0)
-        print(f'Finished episode low entropy: {epoch + 1}')
+            dc_history_high_e_target = torch.cat((dc_history_high_e_target, dc_history_batch_high_e), dim=0)
+        print(f'Finished episode high entropy: {epoch + 1}')
 
+    '''
+    Calculate CDFs: Retro-Fitted GMM for low and high entropy
+    '''
+    cdf_low_post = calculate_cdf(pred_gmm_low_i, supp_l=-8, supp_u=12, spacing=0.001, dev=device)
+    cdf_high_post = calculate_cdf(pred_gmm_high_i, supp_l=-8, supp_u=12, spacing=0.001, dev=device)
+
+    '''
+    Save Data
+    '''
     ts = time.time()
     save_path = curr_path + '/' + str(ts)
     os.mkdir(save_path)
@@ -216,7 +246,19 @@ if __name__ == '__main__':
     # Save the logging tensor
     torch.save(means_history_low_e_target, save_path + '/' + 'means_history_low')
     torch.save(stds_history_low_e_target, save_path + '/' + 'stds_history_low')
+    torch.save(dc_history_low_e_target, save_path + '/' + 'dc_history_low')
 
     torch.save(means_history_high_e_target, save_path + '/' + 'means_history_high')
     torch.save(stds_history_high_e_target, save_path + '/' + 'stds_history_high')
+    torch.save(dc_history_high_e_target, save_path + '/' + 'dc_history_high')
+
+    # Save CDFs
+    torch.save(cdf_pre, save_path + '/' + 'cdf_ref')
+    torch.save(cdf_low_target, save_path + '/' + 'cdf_low_target')
+    torch.save(cdf_high_target, save_path + '/' + 'cdf_high_target')
+
+    torch.save(cdf_low_post, save_path + '/' + 'cdf_low_post')
+    torch.save(cdf_high_post, save_path + '/' + 'cdf_high_post')
+
+
 
