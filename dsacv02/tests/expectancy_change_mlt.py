@@ -4,14 +4,17 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
-dir_name = 'r15_mod2'
-loading_path = curr_path + '/' + dir_name
+main_dir = 'Learnable_Weights'
+dir_name = 'r9_mod3_lr_E'
+loading_path = curr_path + '/' + main_dir + '/' + dir_name
 
 means_history_low = torch.load(loading_path + '/' + 'means_history_low').cpu().detach().numpy()
 stds_history_low = torch.load(loading_path + '/' + 'stds_history_low').cpu().detach().numpy()
+kweights_history_low = torch.load(loading_path + '/' + 'kweights_history_low').cpu().detach().numpy()
 
 means_history_high = torch.load(loading_path + '/' + 'means_history_high').cpu().detach().numpy()
 stds_history_high = torch.load(loading_path + '/' + 'stds_history_high').cpu().detach().numpy()
+kweights_history_high = torch.load(loading_path + '/' + 'kweights_history_high').cpu().detach().numpy()
 
 dc_history_low = torch.load(loading_path + '/' + 'dc_history_low').cpu().detach().numpy()
 dc_history_high = torch.load(loading_path + '/' + 'dc_history_high').cpu().detach().numpy()
@@ -106,6 +109,28 @@ plt.plot(dc_history_high, label='dc_high')
 plt.xlabel('Train iterations')
 plt.ylabel('Cramer loss')
 plt.title('Change in Cramer Loss')
+plt.legend()
+
+# Show the plot
+plt.show(block=False)
+
+'''
+Change in kernel weights per iteration
+'''
+k1_low = kweights_history_low[:, 0]
+k2_low = kweights_history_low[:, 1]
+k1_high = kweights_history_high[:, 0]
+k2_high = kweights_history_high[:, 1]
+plt.figure()
+plt.plot(k1_low, label='kweights1_low')
+plt.plot(k2_low, label='kweights2_low')
+plt.plot(k1_high, label='kweights1_high')
+plt.plot(k2_high, label='kweights2_high')
+
+# Add labels and legend
+plt.xlabel('Train iterations')
+plt.ylabel('Kernel Weight')
+plt.title('Kernel Weighting')
 plt.legend()
 
 # Show the plot

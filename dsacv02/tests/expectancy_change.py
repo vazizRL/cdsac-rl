@@ -9,7 +9,7 @@ import os
 import time
 from scipy import integrate
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
-from dsacv02.mlp_gmm import MLPGMM
+from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
 from copy import deepcopy
 
 
@@ -69,21 +69,21 @@ if __name__ == '__main__':
     curr_path = os.getcwd()
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     # Reference distribution
-    mean_ref = torch.tensor([0.0, 8.0], dtype=torch.float64).to(device)
-    std_ref = torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
+    mean_ref = torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
+    std_ref = torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
     kweight_ref = torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
     distr_ref = generate_gmm(locs=mean_ref, scales=std_ref, kweights=kweight_ref)
 
     # High-entropy Distribution
-    mean_high_e = torch.tensor([3.0], dtype=torch.float64).to(device)
-    std_high_e = torch.tensor([3.0], dtype=torch.float64).to(device)
-    kweight_high_e = torch.tensor([1.0], dtype=torch.float64).to(device)
+    mean_high_e = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
+    std_high_e = torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
+    kweight_high_e = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
     distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
 
     # Low-entropy Distribution
-    mean_low_e = torch.tensor([3.0], dtype=torch.float64).to(device)
-    std_low_e = torch.tensor([1.0], dtype=torch.float64).to(device)
-    kweight_low_e = torch.tensor([1.0], dtype=torch.float64).to(device)
+    mean_low_e = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
+    std_low_e = torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
+    kweight_low_e = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
 
     # # Calculate Distances
@@ -95,15 +95,19 @@ if __name__ == '__main__':
     activ = ('gelu',)
     n_kernels = 2
     multivar = False
-    kweights = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
-    kweights.to(device)
+    learnable_weights = True
+    kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
+    kweights_fix.to(device)
 
     # Initialize network and optimizer
-    gmm_approx = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, multivar=multivar)
+    if learnable_weights:
+        gmm_approx = MLPGMMWeighted(arch=arch, activ=activ, n_kernels=n_kernels, multivar=multivar)
+    else:
+        gmm_approx = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, multivar=multivar)
     optimizer_ref = optim.Adam(gmm_approx.parameters(), lr=0.001)
 
     # Initialize input
-    n_datapoints = 5000
+    n_datapoints = 6000
     mb_size = 20
     n_mb = int(n_datapoints / mb_size)
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
@@ -120,9 +124,14 @@ if __name__ == '__main__':
             for data_i in batch:
                 # kweights = None
                 data_i.unsqueeze_(dim=1)
-                pred_means, pred_stds, _ = gmm_approx(data_i)
+                pred_means, pred_stds, kweights = gmm_approx(data_i)
                 pred_stds.abs_()
-                pred_gmm_i = generate_gmm(locs=pred_means.squeeze(), scales=pred_stds.squeeze(), kweights=kweights)
+                if learnable_weights:
+                    pred_gmm_i = generate_gmm(locs=pred_means.squeeze(), scales=pred_stds.squeeze(),
+                                              kweights=kweights.squeeze())
+                else:
+                    pred_gmm_i = generate_gmm(locs=pred_means.squeeze(), scales=pred_stds.squeeze(),
+                                              kweights=kweights_fix)
                 # Loss data_i
                 cramer_py_loss_i = cramer_py_test(pdf_target=distr_ref, pdf_curr=pred_gmm_i, int_l=-10, int_u=10,
                                                   spacing=0.01, points=(-5, 5), dev=device)
@@ -153,28 +162,36 @@ if __name__ == '__main__':
     gmm_approx_high_e = deepcopy(gmm_approx)
 
     '''
-    Measure change in expectancy for low entropy target distribution
+    #
+    Measure change for low entropy target distribution
+    #
     '''
     optimizer_low = optim.Adam(gmm_approx_low_e.parameters(), lr=0.001)
     means_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
+    kweights_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
             stds_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
             dc_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
+            kweights_history_batch_low_e = torch.tensor([], dtype=torch.float64, device=device)
             for data_i in batch:
                 # kweights = None
                 data_i.unsqueeze_(dim=1)
-                pred_means_low_e, pred_stds_low_e, _ = gmm_approx_low_e(data_i)
+                pred_means_low_e, pred_stds_low_e, kweights_low_e = gmm_approx_low_e(data_i)
                 # Log preds
                 means_history_batch_low_e = torch.cat((means_history_batch_low_e, pred_means_low_e), dim=0)
                 stds_history_batch_low_e = torch.cat((stds_history_batch_low_e, pred_stds_low_e), dim=0)
-
+                kweights_history_batch_low_e = torch.cat((kweights_history_batch_low_e, kweights_low_e), dim=0)
                 pred_stds_low_e.abs_()
-                pred_gmm_low_i = generate_gmm(locs=pred_means_low_e.squeeze(), scales=pred_stds_low_e.squeeze(),
-                                              kweights=kweights)
+                if learnable_weights:
+                    pred_gmm_low_i = generate_gmm(locs=pred_means_low_e.squeeze(), scales=pred_stds_low_e.squeeze(),
+                                                  kweights=kweights_low_e.squeeze())
+                else:
+                    pred_gmm_low_i = generate_gmm(locs=pred_means_low_e.squeeze(), scales=pred_stds_low_e.squeeze(),
+                                                  kweights=kweights_fix)
                 cramer_py_loss_low_i = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_i, int_l=-10,
                                                       int_u=10, spacing=0.01, points=(-5, 5), dev=device)
                 # Log loss
@@ -188,32 +205,41 @@ if __name__ == '__main__':
             # Log mean and std change
             means_history_low_e_target = torch.cat((means_history_low_e_target, means_history_batch_low_e), dim=0)
             stds_history_low_e_target = torch.cat((stds_history_low_e_target, stds_history_batch_low_e), dim=0)
+            kweights_history_low_e_target = torch.cat((kweights_history_low_e_target, kweights_history_batch_low_e),
+                                                      dim=0)
             dc_history_low_e_target = torch.cat((dc_history_low_e_target, dc_history_batch_low_e), dim=0)
         print(f'Finished episode low entropy: {epoch + 1}')
 
     '''
-    Measure change in expectancy for high entropy target distribution
+    Measure change for high entropy target distribution
     '''
     optimizer_high = optim.Adam(gmm_approx_high_e.parameters(), lr=0.001)
     means_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
+    kweights_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
             stds_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
             dc_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
+            kweights_history_batch_high_e = torch.tensor([], dtype=torch.float64, device=device)
             for data_i in batch:
                 # kweights = None
                 data_i.unsqueeze_(dim=1)
-                pred_means_high_e, pred_stds_high_e, _ = gmm_approx_high_e(data_i)
+                pred_means_high_e, pred_stds_high_e, kweights_high_e = gmm_approx_high_e(data_i)
                 # Log preds
                 means_history_batch_high_e = torch.cat((means_history_batch_high_e, pred_means_high_e), dim=0)
                 stds_history_batch_high_e = torch.cat((stds_history_batch_high_e, pred_stds_high_e), dim=0)
-
+                kweights_history_batch_high_e = torch.cat((kweights_history_batch_high_e, kweights_high_e), dim=0)
                 pred_stds_high_e.abs_()
-                pred_gmm_high_i = generate_gmm(locs=pred_means_high_e.squeeze(), scales=pred_stds_high_e.squeeze(),
-                                               kweights=kweights)
+                if learnable_weights:
+                    pred_gmm_high_i = generate_gmm(locs=pred_means_high_e.squeeze(), scales=pred_stds_high_e.squeeze(),
+                                                   kweights=kweights_high_e.squeeze())
+                else:
+                    pred_gmm_high_i = generate_gmm(locs=pred_means_high_e.squeeze(), scales=pred_stds_high_e.squeeze(),
+                                                   kweights=kweights_fix)
+
                 cramer_py_loss_high_i = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_i, int_l=-10,
                                                        int_u=12, spacing=0.01, points=(-5, 5), dev=device)
                 # Log loss
@@ -228,6 +254,8 @@ if __name__ == '__main__':
             means_history_high_e_target = torch.cat((means_history_high_e_target, means_history_batch_high_e), dim=0)
             stds_history_high_e_target = torch.cat((stds_history_high_e_target, stds_history_batch_high_e), dim=0)
             dc_history_high_e_target = torch.cat((dc_history_high_e_target, dc_history_batch_high_e), dim=0)
+            kweights_history_high_e_target = torch.cat((kweights_history_high_e_target, kweights_history_batch_high_e),
+                                                       dim=0)
         print(f'Finished episode high entropy: {epoch + 1}')
 
     '''
@@ -243,13 +271,15 @@ if __name__ == '__main__':
     save_path = curr_path + '/' + str(ts)
     os.mkdir(save_path)
 
-    # Save the logging tensor
+    # Save the logged tensor
     torch.save(means_history_low_e_target, save_path + '/' + 'means_history_low')
     torch.save(stds_history_low_e_target, save_path + '/' + 'stds_history_low')
+    torch.save(kweights_history_low_e_target, save_path + '/' + 'kweights_history_low')
     torch.save(dc_history_low_e_target, save_path + '/' + 'dc_history_low')
 
     torch.save(means_history_high_e_target, save_path + '/' + 'means_history_high')
     torch.save(stds_history_high_e_target, save_path + '/' + 'stds_history_high')
+    torch.save(kweights_history_high_e_target, save_path + '/' + 'kweights_history_high')
     torch.save(dc_history_high_e_target, save_path + '/' + 'dc_history_high')
 
     # Save CDFs
