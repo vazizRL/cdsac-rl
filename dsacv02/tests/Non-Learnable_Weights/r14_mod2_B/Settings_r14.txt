@@ -1,0 +1,5 @@
+MLP: 		1-10-1
+Ref.:		N([0,8],[1,1])
+Target Low:	N(3,1)
+Target High:	N(3,3)	
+Lernable W.	False
