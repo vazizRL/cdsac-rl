@@ -1,5 +1,0 @@
-MLP: 		1-10-1
-Ref.:		N(means=[0.0, 8.0],stds=[1.0,1.0])
-Target Low:	N(means=[3.0],stds=[1.0])
-Target High:	N(means=[3.0],stds=[3.0])	
-Lernable W.	True

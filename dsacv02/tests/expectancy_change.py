@@ -41,10 +41,10 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     steps = int((int_u - int_l) / spacing)
     dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
 
-    dy_curr = pdf_curr.cdf(dx)
-    dy_target = pdf_target.cdf(dx)
+    dy_curr_cdf = pdf_curr.cdf(dx)
+    dy_target_cdf = pdf_target.cdf(dx)
 
-    cramer = torch.trapz((dy_target - dy_curr)**2, dx=spacing)
+    cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
 
     return cramer**0.5
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     # High-entropy Distribution
     mean_high_e = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
-    std_high_e = torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
+    std_high_e = torch.tensor([5.0, 5.0], dtype=torch.float64).to(device)
     kweight_high_e = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
     distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
 
@@ -94,16 +94,16 @@ if __name__ == '__main__':
     arch = (1, 10, 1)
     activ = ('gelu',)
     n_kernels = 2
-    multivar = False
+    multivar = True
     learnable_weights = True
     kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
     kweights_fix.to(device)
 
     # Initialize network and optimizer
     if learnable_weights:
-        gmm_approx = MLPGMMWeighted(arch=arch, activ=activ, n_kernels=n_kernels, multivar=multivar)
+        gmm_approx = MLPGMMWeighted(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
     else:
-        gmm_approx = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, multivar=multivar)
+        gmm_approx = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
     optimizer_ref = optim.Adam(gmm_approx.parameters(), lr=0.001)
 
     # Initialize input

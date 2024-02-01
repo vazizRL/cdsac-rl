@@ -210,7 +210,7 @@ class Agent:
                 # We named the discounted reward sum 'advantage'
                 returns = advantage[batch] + values[batch]
                 critic_loss = (returns - critic_value)**2
-                critic_loss = critic_loss.mean_ref()
+                critic_loss = critic_loss.mean_target()
 
                 total_loss = actor_loss + self.coeff_lvf * critic_loss
                 self.actor.optimizer.zero_grad()

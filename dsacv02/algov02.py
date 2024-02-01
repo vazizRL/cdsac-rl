@@ -11,8 +11,8 @@ from dsacv02.tools import cramer_from_pdf, approx_integral_bounds, get_double_q_
 
 class DSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
-                 actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=None,
+                 actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, static_alpha=0.2,
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1,
                  **kwargs):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
@@ -30,11 +30,12 @@ class DSAC:
         :param alpha_lr_ini: Initial temperament learning rate, only if learnable
         :param alpha_lr_fin: Final temperament learning rate, only if learnable
         :param t_max: Horizont for learning rate schedule. After that, the learning rate doesn't change
-        :param target_entropy: Target entropy in actor distribution
+        :param target_entropy: Target entropy in actor distribution, function of action space (s. SAC paper)
         :param tau: Soft update parameter
+        :param static_alpha: Static alpha, in case that self.auto_alpha=False
         :param reward_scale: Reward scaling, from SAC
         :param gamma: Discount factor
-        :param up_interval:
+        :param update_interval: Determines data-generation to updating ratio
         :param auto_alpha: Whether alpha is updated automatically
         :param n_kernels: Number of Gaussian kernels in the GMM
         :param kwargs:
@@ -45,18 +46,18 @@ class DSAC:
 
         self.q1: nn.Module = critic1
         self.q2: nn.Module = critic2
-        self.q1_target = critic1_target
-        self.q2_target = critic2_target
+        self.q1_target: nn.Module = critic1_target
+        self.q2_target: nn.Module = critic2_target
 
-        self.policy = policy
-        self.policy_target = policy_target
+        self.policy: nn.Module= policy
+        self.policy_target: nn.Module = policy_target
 
         self.n_kernels = n_kernels
 
         # Do not track gradients for target networks
         self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
-        # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agent
+        # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agentv02.py
         self.log_alpha = log_alpha
 
         # Assign optimizer params and create optimizers
@@ -71,20 +72,21 @@ class DSAC:
         self.q1_optimizer = Adam(self.q1.parameters(), lr=cr_lr_ini)
         self.q2_optimizer = Adam(self.q2.parameters(), lr=cr_lr_ini)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=actor_lr_ini)
-        self.alpha_optimizer = Adam([self.log_alpha], lr=alpha_lr_ini)
+        # Alpha is only a simple tensor with a scalar value
+        self.alpha_optimizer = Adam([self.log_alpha], lr=self.alpha_lr_ini)
 
-        self.q1_lrs = None
-        self.q2_lrs = None
-        self.pol_lrs = None
-        self.alpha_lrs = None
+        self.q1_lr_schedule = None
+        self.q2_lr_schedule = None
+        self.pol_lr_schedule = None
+        self.alpha_lr_schedule = None
         self.create_lr_schedules()
 
         # Algorithm parameters
-        self.reward_scale = reward_scale
+        self.reward_scale = torch.tensor(reward_scale).to(self.device)
         self.gamma = torch.tensor(gamma).to(self.device)
         self.tau = torch.tensor(tau).to(self.device)
         self.target_entropy = torch.tensor(target_entropy).to(self.device)
-        self.static_alpha = torch.tensor(alpha).to(self.device)
+        self.static_alpha = torch.tensor(static_alpha).to(self.device)
         self.auto_alpha = auto_alpha
         self.update_interval = update_interval
 
@@ -94,7 +96,7 @@ class DSAC:
         - Either turns on or turns off logging of the gradients of models.
         - When calculating policy loss, grads for value networks must not be traced
         :param require_grad: Whether gradients are logged
-        :param models: Parameterized as neutal network
+        :param models: Parameterized as neural network
         """
         for model in models:
             for para in model.parameters():
@@ -111,14 +113,14 @@ class DSAC:
         """
         - Instantiate learning rate scheduler with cosine annealing
         """
-        self.q1_lrs = lr_scheduler.CosineAnnealingLR(self.q1_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
-                                                     last_epoch=-1, verbose=False)
-        self.q2_lrs = lr_scheduler.CosineAnnealingLR(self.q2_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
-                                                     last_epoch=-1, verbose=False)
-        self.pol_lrs = lr_scheduler.CosineAnnealingLR(self.policy_optimizer, T_max=self.t_max,
-                                                      eta_min=self.policy_lr_fin, last_epoch=-1, verbose=False)
-        self.alpha_lrs = lr_scheduler.CosineAnnealingLR(self.alpha_optimizer, T_max=self.t_max,
-                                                        eta_min=self.alpha_lr_fin, last_epoch=-1, verbose=False)
+        self.q1_lr_schedule = lr_scheduler.CosineAnnealingLR(self.q1_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
+                                                             last_epoch=-1, verbose=False)
+        self.q2_lr_schedule = lr_scheduler.CosineAnnealingLR(self.q2_optimizer, T_max=self.t_max, eta_min=self.q_lr_fin,
+                                                             last_epoch=-1, verbose=False)
+        self.pol_lr_schedule = lr_scheduler.CosineAnnealingLR(self.policy_optimizer, T_max=self.t_max,
+                                                              eta_min=self.policy_lr_fin, last_epoch=-1, verbose=False)
+        self.alpha_lr_schedule = lr_scheduler.CosineAnnealingLR(self.alpha_optimizer, T_max=self.t_max,
+                                                                eta_min=self.alpha_lr_fin, last_epoch=-1, verbose=False)
 
     def get_alpha(self, requires_grad=False):
         """
@@ -140,7 +142,7 @@ class DSAC:
     def soft_avg_update(self, net: torch, net_targ: torch):
         """
         - \tau is a very small value specifying the rate of change of the target network
-        :param net:
+        :param net: Online network
         :param net_targ: Target network
         """
         tar_complement = 1 - self.tau
@@ -149,51 +151,60 @@ class DSAC:
             para_targ.data.add_(self.tau * para.data)
 
     @staticmethod
-    def generate_gmm_distr(means, stds, kweights):
+    def generate_gmm_distr(means, stds, kweights, multivar=False):
+        """
+        TODO: Refactor to avoid if-statement
+        - Generates either a multivariate or standard Gaussian Mxiture Model
+        :param means: Kernel means
+        :param stds: Kernel standard deviations
+        :param kweights: Kernel weights
+        :param multivar: CHANGE! Whether components of GMM are multivariate or not
+        :return: Returns a GMM
+        """
         cat_distr = distr.Categorical(probs=kweights)
-        comp_distr = distr.Normal(loc=means, scale=stds)
+        if multivar:
+            comp_distr = distr.MultivariateNormal(loc=means, covariance_matrix=stds)
+        else:
+            comp_distr = distr.Normal(loc=means, scale=stds)
         zcal = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
 
         return zcal
 
-    def evaluate_q(self, obs, actions, qnet, exp=False, calc_distr=True, reparameterize=False):
+    def evaluate_z(self, obs, actions, znet, exp=False, sample=False, reparameterize=False):
         """
-        - Sample in a standard fashion from \mathcal{Z} batch-wise
-        - Only modification: Std is clamped
-        - Note that stds can not be negative
+        - Evaluates Z and can return mathcal{Z} and its samples
+        - Note: that stds can not be negative
         :param obs: observation
         :param actions: actions
-        :param qnet: Q-value approximator function to be evaluated
+        :param znet: Q-value distribution approximator function to be evaluated
         :param exp: Whether network outputs are exponentiated or not
-        :param calc_distr: If True, distribution and samples are calculated
+        :param sample: If True, samples from mathcal{Z} are returned
         :param reparameterize: Use implicit reparameterization trick for getting the samples
-        :return: Either (PMF, Z, Means, stds, K_weights) or (None, None, Means, Stds, K_weights) are returned
+        :return: Either (Z, GMM_PDF, Means, Stds, K_weights) or (None, GMM_PDF, Means, Stds, K_weights) are returned
         """
         # (B, K, Q)
-        means, stds, kernel_weights = qnet(obs, actions, exp=exp)
+        means, stds, kernel_weights = znet(obs, actions, exp=exp)
+        stds.abs_()
         if not kernel_weights:
             kernel_weights = torch.ones(self.n_kernels) / self.n_kernels
+        gmm = self.generate_gmm_distr(means, stds, kweights=kernel_weights)
 
-        gmm = None
         gmm_sample = None
-        if calc_distr:
-            for mean_i, std_i, kernel_weight_i in zip(means, stds, kernel_weights):
-
-            gmm = self.generate_gmm_distr(means, stds, kweights=kernel_weights)
+        if sample:
             batch_size = obs.shape[0]
             if reparameterize:
                 gmm_sample = gmm.rsample(sample_shape=batch_size)
             else:
                 gmm_sample = gmm.sample(sample_shape=batch_size)
 
-        return gmm, gmm_sample, means, stds, kernel_weights
+        return gmm_sample, gmm, means, stds, kernel_weights
 
     def update_networks(self, iteration: int):
-        # Value optimizing step
+        # Q-Value optimizing step [Every step?]
         self.q1_optimizer.step()
         self.q2_optimizer.step()
 
-        # Update every n-th iteration
+        # Update policy, alpha and targets every n-th iteration
         if iteration % self.update_interval == 0:
             # Policy optimizing step
             self.policy_optimizer.step()
@@ -209,11 +220,12 @@ class DSAC:
 
     def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next):
         """
-        - Calculates the entropy-regularized target distribution \mathcal{Z}(\cdot|s,a) as a GMM
+        - Calculates the entropy-regularized target distribution \mathcal{Z}_H(\cdot|s,a) as a GMM
+        - Note: Standard deviations are set to 0 for terminal states
         :param rewards: Rewards received at time t, r_t
         :param dones: Whether s_{t+1} is a terminal state
-        :param q_means_next: Next Q-means from the kernels
-        :param stds_next: Next standard deviation
+        :param q_means_next: Next Q-means from kernels
+        :param stds_next: Next standard deviation from kernels
         :param kernel_weights: Weights of the Gaussian kernels in the GMM
         :param log_probs_a_next: Log probability of the next action
         :return: Target distribution modeles as a GMM
@@ -226,16 +238,17 @@ class DSAC:
 
         cat_distr = distr.Categorical(probs=kernel_weights)
         comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
-        # TODO: Iterate over
+
         target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
         # Target is always used for gradient calculations, so always rsample
         target_samples = target_distribution.rsample(sample_shape=next_batch_size)
 
         return target_distribution, target_samples
 
-    def compute_q_loss(self, batch, double_q=False):
+    def compute_q_loss(self, batch, double_q=False, integral_bound_factor=5):
         """
-        - Calculates the Q-distribution GMM-to-GMM loss
+        - Calculates the Q-distribution GMM-to-GMM cramer loss
+        :param integral_bound_factor:
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
         :return: Q-loss attached to functional graph for gradient calculation
@@ -259,18 +272,18 @@ class DSAC:
         action_log_probs_next_bounded.detach_()
 
         # Calculate Q_{\theta}(s',a') according to q1
-        _, _, means1_next, stds1_next, kweights1_next = \
-            self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q1_target,
-                            exp=False, calc_distr=False, reparameterize=True)
+        _, zcal1_next, means1_next, stds1_next, kweights1_next = \
+            self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q1_target,
+                            exp=False, sample=False, reparameterize=True)
         if double_q:
             # Calculate current according to q1, q2 and target distributions according to q2
-            _, _, means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
-                                                             exp=False, calc_distr=False, reparameterize=True)
-            _, _, means2, stds2, kweights2 = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q2,
-                                                             exp=False, calc_distr=False, reparameterize=True)
-            _, _, means2_next, stds2_next, kweights2_next = \
-                self.evaluate_q(obs=states_next, actions=actions_bounded_next, qnet=self.q2_target,
-                                exp=False, calc_distr=False, reparameterize=True)
+            _, zcal1, means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
+                                                                 exp=False, sample=False, reparameterize=True)
+            _, zcal2, means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q2,
+                                                                 exp=False, sample=False, reparameterize=True)
+            _, zcal2_next, means2_next, stds2_next, kweights2_next = \
+                self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
+                                exp=False, sample=False, reparameterize=True)
 
             means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights_selected_min, \
                 kweights_next_selected_min = get_double_q_selections(means1=means1, means2=means2,
@@ -296,18 +309,21 @@ class DSAC:
             int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means_min,
                                                                  means_target=means_next_min,
                                                                  stds_curr=stds_selected_min,
-                                                                 stds_target=stds_next_selected_min, factor=10,
+                                                                 stds_target=stds_next_selected_min,
+                                                                 factor=integral_bound_factor,
                                                                  mean_std=True)
         else:
-            # Calculate current and target distributions
-            zcal, z, means, stds, kernel_weigths = self.evaluate_q(obs=states, actions=old_actions, qnet=self.q1,
-                                                                   exp=False, calc_distr=True, reparameterize=True)
+            # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
+            # before If-statement
+            zcal, z, means, stds, kernel_weigths = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
+                                                                   exp=False, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
             # Calculate integral bounds
             int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means, means_target=means1_next,
-                                                                 stds_curr=stds, stds_target=stds1_next, factor=10,
+                                                                 stds_curr=stds, stds_target=stds1_next,
+                                                                 factor=integral_bound_factor,
                                                                  mean_std=True)
 
         # Detach integral bounds from graph
@@ -337,10 +353,10 @@ class DSAC:
         log_ps_curr_pol = torch.as_tensor(log_ps_curr_pol, dtype=torch.float64).to(self.device)
 
         if double_q:
-            _, _, q_means1, stds1, kweights1 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q1,
-                                                               calc_distr=False, exp=False, reparameterize=False)
-            _, _, q_means2, stds2, kweights2 = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2,
-                                                               calc_distr=False, exp=False, reparameterize=False)
+            _, _, q_means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1,
+                                                               sample=False, exp=False, reparameterize=False)
+            _, _, q_means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q2,
+                                                               sample=False, exp=False, reparameterize=False)
             # Detach from Q-networks [Inplace Operation] !
             q_means1.detach_(), q_means2.detach_(), stds1.detach_(), kweights1.detach_(), stds2.detach_(),
             kweights2.detach_()
@@ -349,20 +365,20 @@ class DSAC:
                 get_partial_double_q_selections(means1=q_means1, means2=q_means2, stds1=stds1, stds2=stds2,
                                                 kweights1=kweights1, kweights2=kweights2)
         else:
-            _, _, means_min, stds_selected_min, kweights_selected_min = self.evaluate_q(obs=states,
-                actions=actions_curr_pol, qnet=self.q1, calc_distr=False, exp=False, reparameterize=False)
+            _, _, means_min, stds_selected_min, kweights_selected_min = self.evaluate_z(obs=states,
+                                                                                        actions=actions_curr_pol, znet=self.q1, sample=False, exp=False, reparameterize=False)
 
             means_min.detach_(), stds_selected_min.detach_(), kweights_selected_min.detach_()
 
         # Not calculated according to Z! If Z, reparameterization is needed
-        gmm_mean = means_min.mean_ref(dim=1)
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean_ref()
-        entropy = -log_ps_curr_pol.detach().mean_ref()
+        gmm_mean = means_min.mean_target(dim=1)
+        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean_target()
+        entropy = -log_ps_curr_pol.detach().mean_target()
 
         return policy_loss, entropy
 
     def compute_alpha_loss(self, log_ps):
-        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_ref()
+        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_target()
 
         return loss_alpha
 
@@ -380,7 +396,7 @@ class DSAC:
         logits_mean, logits_std = logits
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
-        policy_std = logits_std.mean_ref().item()
+        policy_std = logits_std.mean_target().item()
 
         act_dist = self.policy.get_act_distr(logits)
         new_actions, new_log_ps = act_dist.sample(reparameterization=True)
@@ -465,10 +481,10 @@ class DSAC:
         #                   f'\n q2: {self.q2_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n pol: {self.policy_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n alpha: {self.alpha_optimizer.param_groups[0]["lr"]}')
-        self.q1_lrs.step()
-        self.q2_lrs.step()
-        self.pol_lrs.step()
-        self.alpha_lrs.step()
+        self.q1_lr_schedule.step()
+        self.q2_lr_schedule.step()
+        self.pol_lr_schedule.step()
+        self.alpha_lr_schedule.step()
         # print(f'After Step(): \n q1: {self.q1_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n q2: {self.q2_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n pol: {self.policy_optimizer.param_groups[0]["lr"]}' +

@@ -5,12 +5,14 @@ from dsacv02.tools import calc_size_co_matrix
 
 
 class MLPGMM(nn.Module):
-    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, multivar=False):
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, device: str, multivar=False):
         """
         - Network with n means and n stds; n: Number of kernels
-        :param arch: Soecified architecture (number of layers and nodes)
+        :param arch: Specifies architecture (number of layers and nodes)
         :param activ: Activations per layer
         :param n_kernels: Number of kernels of the GMM.
+        :param device: Specifies device on which to run the MLP
+        :param multivar: Whether MLP models univariate or multivariate GMM
         """
         super().__init__()
         self.module_dict = nn.ModuleDict()
@@ -128,8 +130,8 @@ class MLPGMM(nn.Module):
 
 
 class MLPGMMWeighted(MLPGMM):
-    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, multivar=False):
-        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels, multivar=multivar)
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, device: str, multivar=False):
+        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels, device, multivar=multivar)
 
     def build_layers(self):
         layer_id = 1
@@ -150,7 +152,10 @@ class MLPGMMWeighted(MLPGMM):
             means_layers.append(mean_layer_i)
 
         for std_idx in range(self._n_kernels):
-            std_logit_i = nn.Linear(self._arch[-2], self.covar_out_size, dtype=torch.float64).to(self.device)
+            if self.multivar:
+                std_logit_i = nn.Linear(self._arch[-2], self.covar_out_size, dtype=torch.float64).to(self.device)
+            else:
+                std_logit_i = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
             self.module_dict.update({f'std_{std_idx + 1}': std_logit_i})
             stds_layers.append(std_logit_i)
 
@@ -186,7 +191,10 @@ class MLPGMMWeighted(MLPGMM):
 
         # Rows: Kernels, Columns: Actions
         means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
-        stds_logits = stds_logits.view(-1, self._n_kernels, self.covar_out_size)
+        if self.multivar:
+            stds_logits = stds_logits.view(-1, self._n_kernels, self.covar_out_size)
+        else:
+            stds_logits = stds_logits.view(-1, self._n_kernels, self._arch[-1])
 
         # Exponentiate all quantities
         if exp:
@@ -201,21 +209,21 @@ class MLPGMMWeighted(MLPGMM):
 if __name__ == '__main__':
     from torchsummary import summary
 
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    dev = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     critic_arch = (11, 64, 32, 1)          # 11 is the batch size
     activations = ('relu', 'relu')
     n_kernels = 5
 
     # Define some input
     inp = torch.ones(11, 11) * torch.arange(11)
-    inp = inp.to(device)
+    inp = inp.to(dev)
     # Create random tensor with shape 11x11
     inp_rnd = torch.randn(11, 11)
 
     '''
     Test for one dimensional output
     '''
-    critic = MLPGMM(arch=critic_arch, activ=activations, n_kernels=n_kernels)
+    critic = MLPGMM(arch=critic_arch, activ=activations, n_kernels=n_kernels, device=dev)
 
     # Output of model
     means, stds, _ = critic(inp)
@@ -232,7 +240,7 @@ if __name__ == '__main__':
     # Rows: Kernels, Actions: dim. 2
     arch_mulo = (11, 64, 32, 3)
     activ_mulo = ('relu', 'relu')
-    actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels)
+    actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels, device=dev)
     means_mulo, stds_mulo, _ = actor(inp)
 
     # Print Shapes of outputs
@@ -246,7 +254,7 @@ if __name__ == '__main__':
     '''
     arch_mulo_w = (11, 64, 32, 3)
     active_mulo_w = ('gelu', 'gelu')
-    actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels)
+    actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels, device=dev)
     means_mulo_w, stds_mulo_w, weights = actor_w(inp)
     # Print Shapes of outputs
     print(f'Shape of means_mulo (version with weight output): {means_mulo_w.shape} \n {means_mulo_w} \n')

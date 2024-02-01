@@ -117,7 +117,7 @@ class DSAC:
         logits = self.networks.policy(obs)
         logits_mean, logits_std = torch.chunk(logits, chunks=2, dim=-1)
         policy_mean = torch.tanh(logits_mean).mean().item()
-        policy_std = logits_std.mean_ref().item()
+        policy_std = logits_std.mean_target().item()
 
         act_dist = self.networks.create_action_distributions(logits)
         new_act, new_log_prob = act_dist.rsample()
@@ -226,7 +226,7 @@ class DSAC:
         )
 
 
-        return q1_loss + q2_loss, q1.detach().mean_ref(), q2.detach().mean_ref(), q1_std.detach().mean_ref(), q2_std.detach().mean_ref()
+        return q1_loss + q2_loss, q1.detach().mean_target(), q2.detach().mean_target(), q1_std.detach().mean_target(), q2_std.detach().mean_target()
 
     def __compute_target_q(self, r, done, q,q_std, q_next, q_next_sample, log_prob_a_next):
         target_q = r + (1 - done) * self.gamma * (
@@ -245,14 +245,14 @@ class DSAC:
         q1, _, _ = self.__q_evaluate(obs, new_act, self.networks.q1)
         q2, _, _ = self.__q_evaluate(obs, new_act, self.networks.q2)
         loss_policy = (self.__get_alpha() * new_log_prob - torch.min(q1,q2)).mean()
-        entropy = -new_log_prob.detach().mean_ref()
+        entropy = -new_log_prob.detach().mean_target()
         return loss_policy, entropy
 
     def __compute_loss_alpha(self, data: Dict):
         new_log_prob = data["new_log_prob"]
         loss_alpha = (
             -self.networks.log_alpha
-            * (new_log_prob.detach() + self.target_entropy).mean_ref()
+            * (new_log_prob.detach() + self.target_entropy).mean_target()
         )
         return loss_alpha
 

@@ -33,7 +33,7 @@ def energy_d(supports, p_target, p_curr, s_size):
     diff_t_t = np.abs(t_samples - t_samples_prime)
     diff_c_c = np.abs(samples - samples_prime)
     diff_t_c = np.abs(t_samples - samples)
-    e_distance = 2 * diff_t_c.mean_ref() - diff_t_t.mean_ref() - diff_c_c.mean_ref()
+    e_distance = 2 * diff_t_c.mean_target() - diff_t_t.mean_target() - diff_c_c.mean_target()
 
     return e_distance
 

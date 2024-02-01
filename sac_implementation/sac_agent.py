@@ -169,8 +169,8 @@ class Agent:
 
         self.update_network_parameters()
 
-        tb_info = {'SACQ/q1_val': q1_new_policy.mean_ref().detach(),
-                   'SACQ/q2_val': q2_new_policy.mean_ref().detach(),
+        tb_info = {'SACQ/q1_val': q1_new_policy.mean_target().detach(),
+                   'SACQ/q2_val': q2_new_policy.mean_target().detach(),
                    'SACLoss/critic_loss': critic_loss,
                    'SACLoss/actor_loss': actor_loss,
                    'SACLoss/value_loss': value_loss,

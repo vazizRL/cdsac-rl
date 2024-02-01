@@ -5,8 +5,9 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
 main_dir = 'Learnable_Weights'
-dir_name = 'r9_mod3_lr_E'
-loading_path = curr_path + '/' + main_dir + '/' + dir_name
+dir_name = 'test'
+# loading_path = curr_path + '/' + main_dir + '/' + dir_name
+loading_path = curr_path + '/' + dir_name
 
 means_history_low = torch.load(loading_path + '/' + 'means_history_low').cpu().detach().numpy()
 stds_history_low = torch.load(loading_path + '/' + 'stds_history_low').cpu().detach().numpy()

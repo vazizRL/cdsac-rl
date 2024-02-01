@@ -24,10 +24,31 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
     return distance, error_est
 
 
+def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu', points=None):
+    """
+    - The integration limits should NOT be too far off form the lowest and highest point of the function!
+    - Optional: Define an interval to focus on, in case of rapid
+    - Implementation:
+        1. Define the supports
+        2. Calculate the difference squred
+        3. Integrate over all dx
+    """
+    # Discretize for numerical integration
+    steps = int((int_u - int_l) / spacing)
+    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
+
+    dy_curr_cdf = pdf_curr.cdf(dx)
+    dy_target_cdf = pdf_target.cdf(dx)
+
+    cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
+
+    return cramer**0.5
+
+
 def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor, stds_curr: torch.tensor,
                            stds_target: torch.tensor, factor, mean_std=False):
     """
-    - Approximates useful integration bounds when given current and target GMM parameters
+    - Approximates numerically relevant integration bounds when given current and target GMM meta-parameters
     :param means_curr: Means of the current GMM
     :param means_target: Means of the target GMM
     :param stds_curr: Standard deviations of the current GMM

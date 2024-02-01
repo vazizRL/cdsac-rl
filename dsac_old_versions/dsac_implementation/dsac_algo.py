@@ -279,8 +279,8 @@ class DSAC:
 
         q_loss = q1_loss + q2_loss
 
-        return q_loss, q1_means.detach().mean_ref(), q2_means.detach().mean_ref(), q1_stds.detach().mean_ref(), \
-               q2_stds.detach().mean_ref()
+        return q_loss, q1_means.detach().mean_target(), q2_means.detach().mean_target(), q1_stds.detach().mean_target(), \
+               q2_stds.detach().mean_target()
 
     def compute_policy_loss(self, reduced_batch):
         states, actions_curr_pol, log_ps_curr_pol = reduced_batch
@@ -293,13 +293,13 @@ class DSAC:
         q2_means, _, _ = self.evaluate_q(obs=states, actions=actions_curr_pol, qnet=self.q2)
         # Not calculated according to Z! If Z, reparameterization is needed
         policy_loss = (self.get_alpha(requires_grad=False) *
-                       log_ps_curr_pol - torch.min(q1_means, q2_means)).mean_ref()
-        entropy = -log_ps_curr_pol.detach().mean_ref()
+                       log_ps_curr_pol - torch.min(q1_means, q2_means)).mean_target()
+        entropy = -log_ps_curr_pol.detach().mean_target()
 
         return policy_loss, entropy
 
     def compute_alpha_loss(self, log_ps):
-        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_ref()
+        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_target()
 
         return loss_alpha
 
@@ -317,7 +317,7 @@ class DSAC:
         logits_mean, logits_std = logits
         # item() returns scalar as normal Python scalars
         policy_mean = torch.tanh(logits_mean).mean().item()
-        policy_std = logits_std.mean_ref().item()
+        policy_std = logits_std.mean_target().item()
 
         act_dist = self.policy.get_act_distr(logits)
         new_actions, new_log_ps = act_dist.sample(reparameterization=True)
