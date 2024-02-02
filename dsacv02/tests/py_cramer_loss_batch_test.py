@@ -31,7 +31,7 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     - Optional: Define an interval to focus on, in case of rapid
     - Implementation:
         1. Define the supports
-        2. Calculate the difference squred
+        2. Calculate the difference squared
         3. Integrate over all dx
     """
     # Discretize for numerical integration
@@ -43,7 +43,7 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     dy_target_cdf = pdf_target.cdf(dx)
 
     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
-    # cramer = cramer.sum(dim=0)
+    cramer = cramer.sum(dim=0)
 
     return cramer**0.5
 
@@ -66,8 +66,8 @@ if __name__ == '__main__':
     n_kernels = 2
     multivar = False
     learnable_weights = True
-    kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
-    kweights_fix.to(device)
+    kweights_fixed = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
+    kweights_fixed.to(device)
 
     # Initialize network and optimizer
     if learnable_weights:
@@ -84,18 +84,20 @@ if __name__ == '__main__':
     batches = input_total.view(n_mb, mb_size, 1)
 
     # Target distribution
-    mean_target = (torch.ones(size=(mb_size, n_kernels, 1)) * torch.tensor([2.0, 8.0])).to(device)
-    # mean_target.to_(device)
+    mean_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
+    mean_target.unsqueeze_(dim=2)
     # mean_target = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
-    std_target = (torch.ones(size=(mb_size, n_kernels, 1)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
+    std_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
+    std_target.unsqueeze_(dim=2)
     # std_target.to_(device)
-    kweight_target = (torch.ones(size=(mb_size, n_kernels, 1)) * torch.tensor([0.2, 0.8])).to(device)
+    kweight_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
+    kweight_target.unsqueeze_(dim=2)
     # kweight_target.to_(device)
     # kweight_target = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
     distr_target = generate_gmm(locs=mean_target, scales=std_target, kweights=kweight_target)
 
     # Train parameters
-    episodes = 4
+    episodes = 7
 
     # # Put target distribtuion in batch format
     # distr_target_batch = torch.ones(size=(20, 1, 1)) * distr_target
@@ -105,7 +107,7 @@ if __name__ == '__main__':
             means, stds, kweights = gmm_approx(batch)
             stds.abs_()
             gmm_preds = generate_gmm(locs=means, scales=stds, kweights=kweights.unsqueeze(dim=2))
-            loss_batch = cramer_py_test(pdf_curr=gmm_preds, pdf_target=distr_target, int_l=-4, int_u=14, spacing=0.001,
+            loss_batch = cramer_py_test(pdf_curr=gmm_preds, pdf_target=distr_target, int_l=-3, int_u=13, spacing=0.001,
                                         dev=device)
             optimizer.zero_grad()
             loss_batch.mean().backward()
