@@ -118,11 +118,13 @@ if __name__ == '__main__':
         print(f'Episode {i} finished')
 
     means_trained, stds_trained, kweights_trained = gmm_approx(batches[0])
+    means_trained.squeeze_(dim=2)
+    stds_trained.squeeze_(dim=2)
     print(f'Means after training: {means_trained},\nStds after training:{stds_trained},'
           f'\nKweights after training: {kweights_trained}\n')
     print(f'Last measured batch loss: {loss_batch.mean()}')
 
-    gmm_fin0 = generate_gmm(means_trained, stds_trained.abs(), kweights_trained.unsqueeze(dim=2))
+    gmm_fin0 = generate_gmm(means_trained, stds_trained.abs(), kweights_trained)
     print(f'Samples from GMM: {gmm_fin0.sample()}')
 
 
