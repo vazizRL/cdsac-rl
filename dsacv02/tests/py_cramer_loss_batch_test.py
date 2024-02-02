@@ -84,20 +84,20 @@ if __name__ == '__main__':
     batches = input_total.view(n_mb, mb_size, 1)
 
     # Target distribution
-    mean_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
-    mean_target.unsqueeze_(dim=2)
-    # mean_target = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
-    std_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
-    std_target.unsqueeze_(dim=2)
-    # std_target.to_(device)
-    kweight_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
-    kweight_target.unsqueeze_(dim=2)
-    # kweight_target.to_(device)
-    # kweight_target = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
+    mean_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
+    # mean_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
+    # mean_target.unsqueeze_(dim=2)
+    std_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
+    # std_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
+    # std_target.unsqueeze_(dim=2)
+    kweight_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
+    # kweight_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
+    # kweight_target.unsqueeze_(dim=2)
     distr_target = generate_gmm(locs=mean_target, scales=std_target, kweights=kweight_target)
 
     # Train parameters
-    episodes = 7
+    # episodes = 10
+    episodes = 5
 
     # # Put target distribtuion in batch format
     # distr_target_batch = torch.ones(size=(20, 1, 1)) * distr_target
@@ -106,7 +106,10 @@ if __name__ == '__main__':
         for batch in batches:
             means, stds, kweights = gmm_approx(batch)
             stds.abs_()
-            gmm_preds = generate_gmm(locs=means, scales=stds, kweights=kweights.unsqueeze(dim=2))
+            means.squeeze_(dim=2)
+            stds.squeeze_(dim=2)
+            # gmm_preds = generate_gmm(locs=means, scales=stds, kweights=kweights.unsqueeze(dim=2))
+            gmm_preds = generate_gmm(locs=means, scales=stds, kweights=kweights)
             loss_batch = cramer_py_test(pdf_curr=gmm_preds, pdf_target=distr_target, int_l=-3, int_u=13, spacing=0.001,
                                         dev=device)
             optimizer.zero_grad()
@@ -116,8 +119,11 @@ if __name__ == '__main__':
 
     means_trained, stds_trained, kweights_trained = gmm_approx(batches[0])
     print(f'Means after training: {means_trained},\nStds after training:{stds_trained},'
-          f'\nKweights after training: {kweights_trained}')
+          f'\nKweights after training: {kweights_trained}\n')
+    print(f'Last measured batch loss: {loss_batch.mean()}')
 
+    gmm_fin0 = generate_gmm(means_trained, stds_trained.abs(), kweights_trained.unsqueeze(dim=2))
+    print(f'Samples from GMM: {gmm_fin0.sample()}')
 
 
 
