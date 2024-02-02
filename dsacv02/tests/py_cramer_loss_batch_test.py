@@ -85,13 +85,10 @@ if __name__ == '__main__':
 
     # Target distribution
     mean_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
-    # mean_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([2.0, 8.0], dtype=torch.float64)).to(device)
     # mean_target.unsqueeze_(dim=2)
     std_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
-    # std_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
     # std_target.unsqueeze_(dim=2)
     kweight_target = (torch.ones(size=(mb_size, 1)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
-    # kweight_target = (torch.ones(size=(mb_size, n_kernels)) * torch.tensor([0.2, 0.8], dtype=torch.float64)).to(device)
     # kweight_target.unsqueeze_(dim=2)
     distr_target = generate_gmm(locs=mean_target, scales=std_target, kweights=kweight_target)
 
