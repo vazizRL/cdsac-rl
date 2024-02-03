@@ -125,6 +125,8 @@ class MLPGMM(nn.Module):
         if exp:
             means_logits = means_logits.exp()
             stds_logits = stds_logits.exp()
+        else:
+            stds_logits.abs_()
 
         return means_logits, stds_logits, None
 
@@ -196,11 +198,13 @@ class MLPGMMWeighted(MLPGMM):
         else:
             stds_logits = stds_logits.view(-1, self._n_kernels, self._arch[-1])
 
-        # Exponentiate all quantities
+        # Exponentiate all quantities or take absolute value of std
         if exp:
             means_logits = means_logits.exp()
             stds_logits = stds_logits.exp()
             k_weights_logits = k_weights_logits.exp()
+        else:
+            stds_logits.abs_()
 
         k_weights_soft = F.softmax(k_weights_logits, dim=1)
         return means_logits, stds_logits, k_weights_soft

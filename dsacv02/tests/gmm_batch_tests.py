@@ -78,11 +78,11 @@ actions2_gmm = []
 for idx_act, (mean_act_i, std_act_i, kernel_weight_act_i) in enumerate(zip(means_act, stds_act, kernel_weights_act)):
     action1_i, action1_log_prob_i = actor.sample_from_action_distr(locs=mean_act_i[:, 0],
                                                                    stds=std_act_i[:, 0],
-                                                                   k_weights=kernel_weight_act_i,
+                                                                   kweights=kernel_weight_act_i,
                                                                    reparameterization=True)
     action2_i, action2_log_prob_i = actor.sample_from_action_distr(locs=mean_act_i[:, 1],
                                                                    stds=std_act_i[:, 1],
-                                                                   k_weights=kernel_weight_act_i,
+                                                                   kweights=kernel_weight_act_i,
                                                                    reparameterization=True)
 
     gmm_act1_i = generate_own_gmm_distr(mean=mean_act_i[:, 0], std=std_act_i[:, 0],

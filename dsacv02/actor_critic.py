@@ -117,15 +117,15 @@ class Actor(nn.Module):
 
         return action_mean, action_std, kernel_weights
 
-    def sample_from_action_distr(self, locs, stds, k_weights, reparameterization=False):
+    def sample_from_action_distr(self, locs, stds, kweights, reparameterization=False):
         """
         - Samples from self-implemented GMM with reparameterization implemented
-        :param locs:
-        :param stds:
-        :param k_weights:
-        :param reparameterization:
+        :param locs: Means of kernels for actions
+        :param stds: Std. of kernels for actions
+        :param kweights: Kernel weights
+        :param reparameterization: Whether reparameterization will be performed or not
         """
-        gmm = ReparameterizedMixtureSameFamilyMod(distr.Categorical(probs=k_weights), distr.Normal(locs, stds))
+        gmm = ReparameterizedMixtureSameFamilyMod(distr.Categorical(probs=kweights), distr.Normal(locs, stds))
 
         # Sample from the GMM
         if reparameterization:

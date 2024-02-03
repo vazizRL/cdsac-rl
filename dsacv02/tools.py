@@ -24,23 +24,26 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
     return distance, error_est
 
 
-def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu', points=None):
+def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
+    - Batch-wise implementation
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
     - Optional: Define an interval to focus on, in case of rapid
     - Implementation:
         1. Define the supports
-        2. Calculate the difference squred
+        2. Calculate the difference squared
         3. Integrate over all dx
     """
     # Discretize for numerical integration
     steps = int((int_u - int_l) / spacing)
     dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
+    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
 
     dy_curr_cdf = pdf_curr.cdf(dx)
     dy_target_cdf = pdf_target.cdf(dx)
 
     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
+    cramer = cramer.sum(dim=0)
 
     return cramer**0.5
 

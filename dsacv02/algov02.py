@@ -5,11 +5,11 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_from_pdf, approx_integral_bounds, get_double_q_selections, \
+from dsacv02.tools import cramer_from_pdf, cramer_torch, approx_integral_bounds, get_double_q_selections, \
      get_partial_double_q_selections
 
 
-class DSAC:
+class RealDSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, static_alpha=0.2,
                  reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1,
@@ -49,7 +49,7 @@ class DSAC:
         self.q1_target: nn.Module = critic1_target
         self.q2_target: nn.Module = critic2_target
 
-        self.policy: nn.Module= policy
+        self.policy: nn.Module = policy
         self.policy_target: nn.Module = policy_target
 
         self.n_kernels = n_kernels
@@ -161,12 +161,12 @@ class DSAC:
         :param multivar: CHANGE! Whether components of GMM are multivariate or not
         :return: Returns a GMM
         """
-        cat_distr = distr.Categorical(probs=kweights)
+        mix_distr = distr.Categorical(probs=kweights)
         if multivar:
             comp_distr = distr.MultivariateNormal(loc=means, covariance_matrix=stds)
         else:
             comp_distr = distr.Normal(loc=means, scale=stds)
-        zcal = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+        zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
 
         return zcal
 
@@ -185,9 +185,12 @@ class DSAC:
         # (B, K, Q)
         means, stds, kernel_weights = znet(obs, actions, exp=exp)
         stds.abs_()
+        means.squeeze_(dim=2)
+        stds.squeeze_(dim=2)
         if not kernel_weights:
-            kernel_weights = torch.ones(self.n_kernels) / self.n_kernels
-        gmm = self.generate_gmm_distr(means, stds, kweights=kernel_weights)
+            mb_size = actions.shape[0]
+            kernel_weights = torch.ones(mb_size, self.n_kernels) / self.n_kernels
+        gmm = self.generate_gmm_distr(means=means, stds=stds, kweights=kernel_weights, multivar=False)
 
         gmm_sample = None
         if sample:
@@ -245,7 +248,7 @@ class DSAC:
 
         return target_distribution, target_samples
 
-    def compute_q_loss(self, batch, double_q=False, integral_bound_factor=5):
+    def compute_z_loss(self, batch, double_q=False, integral_bound_factor=5, exp=False):
         """
         - Calculates the Q-distribution GMM-to-GMM cramer loss
         :param integral_bound_factor:
@@ -263,6 +266,8 @@ class DSAC:
 
         # Probability and value of action
         action_means_next, action_stds_next, kernel_weights = self.policy_target(states_next)
+        action_means_next.squeeze_(dim=2)
+        action_stds_next.squeeze_(dim=2)
         # The action is only used for Q loss calculation, repara=False, detach from graph
         actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_act_distr(
                                                      locs=action_means_next, stds=action_stds_next,
@@ -274,16 +279,16 @@ class DSAC:
         # Calculate Q_{\theta}(s',a') according to q1
         _, zcal1_next, means1_next, stds1_next, kweights1_next = \
             self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q1_target,
-                            exp=False, sample=False, reparameterize=True)
+                            exp=exp, sample=False, reparameterize=True)
         if double_q:
             # Calculate current according to q1, q2 and target distributions according to q2
             _, zcal1, means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
-                                                                 exp=False, sample=False, reparameterize=True)
+                                                                 exp=exp, sample=False, reparameterize=True)
             _, zcal2, means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q2,
-                                                                 exp=False, sample=False, reparameterize=True)
+                                                                 exp=exp, sample=False, reparameterize=True)
             _, zcal2_next, means2_next, stds2_next, kweights2_next = \
                 self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
-                                exp=False, sample=False, reparameterize=True)
+                                exp=exp, sample=False, reparameterize=True)
 
             means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights_selected_min, \
                 kweights_next_selected_min = get_double_q_selections(means1=means1, means2=means2,
@@ -316,7 +321,7 @@ class DSAC:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
             zcal, z, means, stds, kernel_weigths = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
-                                                                   exp=False, sample=True, reparameterize=True)
+                                                                   exp=exp, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
@@ -327,16 +332,15 @@ class DSAC:
                                                                  mean_std=True)
 
         # Detach integral bounds from graph
-        int_bound_low.detch_(), int_bound_up.detach_()
+        int_bound_low.detach_(), int_bound_up.detach_()
 
-        # Calculate loss with Cràmer distance on PDFs
-        # TODO: Iterate over list of zcal's and zcal_next's, then average the loss
-        q_loss = cramer_from_pdf(zcal, zcal_next, int_l=int_bound_low, int_u=int_bound_up,
-                                 points=(int_bound_low, int_bound_up))
+        # Calculate loss with batch-sensitive Cràmer distance on PDFs
+        q_loss = cramer_torch(pdf_target=zcal_next, pdf_curr=zcal, int_l=int_bound_low, int_u=int_bound_up,
+                              spacing=1e-3, dev=self.device)
 
-        return q_loss
+        return q_loss.mean()
 
-    def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False):
+    def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
         - Computes policy loss for gradient calculation
         - WARNING: Make sure that log_ps_curr_pol is NOT detached from current graph as it is the only quantity
@@ -345,6 +349,7 @@ class DSAC:
         :param actions_curr_pol: Actions according to the current policy
         :param log_ps_curr_pol: Log probability of the action according to current policy
         :param double_q: Whether two Q-networks are utilized for mitigating overestimation errors
+        :param exp: Whether logits of networks are exponentiated or not
         :return: Policy loss attached to functional graph for gradient calculation
         """
         # Convert to tensors
@@ -354,9 +359,9 @@ class DSAC:
 
         if double_q:
             _, _, q_means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1,
-                                                               sample=False, exp=False, reparameterize=False)
+                                                               sample=False, exp=exp, reparameterize=False)
             _, _, q_means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q2,
-                                                               sample=False, exp=False, reparameterize=False)
+                                                               sample=False, exp=exp, reparameterize=False)
             # Detach from Q-networks [Inplace Operation] !
             q_means1.detach_(), q_means2.detach_(), stds1.detach_(), kweights1.detach_(), stds2.detach_(),
             kweights2.detach_()
@@ -365,24 +370,25 @@ class DSAC:
                 get_partial_double_q_selections(means1=q_means1, means2=q_means2, stds1=stds1, stds2=stds2,
                                                 kweights1=kweights1, kweights2=kweights2)
         else:
-            _, _, means_min, stds_selected_min, kweights_selected_min = self.evaluate_z(obs=states,
-                                                                                        actions=actions_curr_pol, znet=self.q1, sample=False, exp=False, reparameterize=False)
+            _, _, means_min, stds_selected_min, kweights_selected_min = \
+                self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1, sample=False, exp=exp,
+                                reparameterize=False)
 
             means_min.detach_(), stds_selected_min.detach_(), kweights_selected_min.detach_()
 
         # Not calculated according to Z! If Z, reparameterization is needed
         gmm_mean = means_min.mean_target(dim=1)
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean_target()
-        entropy = -log_ps_curr_pol.detach().mean_target()
+        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
+        entropy = -log_ps_curr_pol.detach().mean()
 
         return policy_loss, entropy
 
     def compute_alpha_loss(self, log_ps):
-        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean_target()
+        loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean()
 
         return loss_alpha
 
-    def compute_gradient(self, batch: tuple, iteration: int):
+    def compute_gradient(self, batch: tuple, iteration: int, exp=False):
         start_time = time.time()
 
         # Unpack batch
@@ -392,39 +398,39 @@ class DSAC:
         states = torch.as_tensor(states, dtype=torch.float64)
 
         # Construct action distribution with reparameterization trick
-        logits = self.policy(states)
-        logits_mean, logits_std = logits
-        # item() returns scalar as normal Python scalars
-        policy_mean = torch.tanh(logits_mean).mean().item()
-        policy_std = logits_std.mean_target().item()
+        means_act, stds_act, kweights_act = self.policy(obs=states, exp=exp)
 
-        act_dist = self.policy.get_act_distr(logits)
-        new_actions, new_log_ps = act_dist.sample(reparameterization=True)
-        # extended_batch = tuple(list(batch) + [new_action, new_log_p])
+        # NOTE: Only for Tensorbaord; item() returns a Python native type
+        policy_mean = means_act.mean().item()
+        policy_std = stds_act.mean().item()
 
-        # Calculate value loss and backpropagate
+        #
+        action_bounded_curr, log_prob_bounded_curr = self.policy.sample_from_action_distr(
+            self, locs=means_act, stds=stds_act, kweights=kweights_act, reparameterization=True)
+
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()
-        loss_q, q1_mean, q2_mean, q1_std, q2_std = self.compute_q_loss(batch)
+
+        # Compute Z-Loss, NOTE: Check exponentiation
+        loss_q, q1_mean, q2_mean, q1_std, q2_std = self.compute_z_loss(batch=batch, double_q=False,
+                                                                       integral_bound_factor=5, exp=False)
         loss_q.backward()
 
         # Switch off autograd when calculating policy loss
+        # TODO: Alternatively, disconnect the leaf from the computational graph [Before optimizer step?]
         models = [self.q1, self.q2]
         self.switch_autograd_logging(require_grad=False, models=models)
 
-        # Calculate policy loss and backpropagate
-        policy_batch = (states, new_actions, new_log_ps)
         self.policy_optimizer.zero_grad()
-        loss_policy, entropy = self.compute_policy_loss(policy_batch)
+        loss_policy, entropy = self.compute_policy_loss(states=states, actions_curr_pol=action_bounded_curr,
+                                                        log_ps_curr_pol=log_prob_bounded_curr, double_q=False)
         loss_policy.backward()
-
         # Switch back on autograd after calculation of policy
         self.switch_autograd_logging(require_grad=True, models=models)
 
-        # Adjust alpha is auto-alpha is enabled
         if self.auto_alpha:
             self.alpha_optimizer.zero_grad()
-            loss_alpha = self.compute_alpha_loss(log_ps=new_log_ps)
+            loss_alpha = self.compute_alpha_loss(log_ps=log_prob_bounded_curr)
             loss_alpha.backward()
 
         tb_info = {

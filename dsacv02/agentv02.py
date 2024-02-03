@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from dsac_old_versions.dsac_implementation.dsac_algo import DSAC
-from dsac_old_versions.dsac_implementation.networks import Critic, Actor
-from dsac_old_versions.dsac_implementation.replay_buffer import ReplayBuffer
+from dsacv02.algov02 import RealDSAC
+from dsacv02.actor_critic import Critic, Actor
+from dsacv02.replay_bufferv02 import ReplayBuffer
 from copy import deepcopy
 
 
@@ -70,12 +70,12 @@ class Agent:
         self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32))
 
-        self.dsac = DSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
-                         policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
-                         actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
-                         alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
-                         reward_scale=self.reward_scale, gamma=self.gamma, up_interval=self.update_interval,
-                         auto_alpha=self.auto_alpha, target_entropy=-action_dim)
+        self.dsac = RealDSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+                             policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
+                             actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
+                             alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
+                             reward_scale=self.reward_scale, gamma=self.gamma, up_interval=self.update_interval,
+                             auto_alpha=self.auto_alpha, target_entropy=-action_dim)
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
 
