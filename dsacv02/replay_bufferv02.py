@@ -15,14 +15,14 @@ class ReplayBuffer:
         self.new_state_memory = np.zeros(shape=(self.mem_size, *obs_shape), dtype=np.float64)
         self.action_memory = np.zeros((self.mem_size, n_actions), dtype=np.float64)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float64)
-        self.log_p = np.zeros(self.mem_size, dtype=np.float64)
+        # self.log_p = np.zeros(self.mem_size, dtype=np.float64)
         self.terminal_memory = np.zeros(self.mem_size, dtype=bool)
 
     def __get_RAM__(self):
         return int(sys.getsizeof(self))
 
     def store_transition(self, state: np.ndarray, action: np.ndarray, reward: float, state_: np.ndarray,
-                         log_p: np.ndarray, done: bool):
+                        done: bool):
         # Find at which place new data should be stored, old ones are overwritten
         index = self.mem_cntr % self.mem_size
 
@@ -30,7 +30,7 @@ class ReplayBuffer:
         self.action_memory[index] = action
         self.reward_memory[index] = reward
         self.new_state_memory[index] = state_
-        self.log_p[index] = log_p
+        # self.log_p[index] = log_p
         self.terminal_memory[index] = done
 
         self.mem_cntr += 1
@@ -61,17 +61,17 @@ class ReplayBuffer:
         actions = self.action_memory[batch]
         rewards = self.reward_memory[batch]
         states_ = self.new_state_memory[batch]
-        log_ps = self.log_p[batch]
+        # log_ps = self.log_p[batch]
         dones = self.terminal_memory[batch]
 
-        return states, actions, rewards, states_, log_ps, dones
+        return states, actions, rewards, states_, dones
 
     def clear_buffer(self):
         self.state_memory.fill(0.0)
         self.new_state_memory.fill(0.0)
         self.action_memory.fill(0.0)
         self.reward_memory.fill(0.0)
-        self.log_p.fill(0.0)
+        # self.log_p.fill(0.0)
         self.terminal_memory.fill(0.0)
 
 

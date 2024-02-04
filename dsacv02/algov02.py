@@ -256,7 +256,7 @@ class RealDSAC:
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
         :return: Q-loss attached to functional graph for gradient calculation
         """
-        states, old_actions, rewards, states_next, _, dones = batch
+        states, old_actions, rewards, states_next, dones = batch
         # Convert to tensors, since in main.py, they are stored as Python datatypes
         states = torch.as_tensor(states, dtype=torch.float64).to(self.device)
         old_actions = torch.as_tensor(old_actions, dtype=torch.float64).to(self.device)
@@ -392,7 +392,7 @@ class RealDSAC:
         start_time = time.time()
 
         # Unpack batch
-        states, _, _, _, _, _ = batch
+        states, _, _, _, _ = batch
 
         # Convert state to tensor
         states = torch.as_tensor(states, dtype=torch.float64)
@@ -404,8 +404,8 @@ class RealDSAC:
         policy_mean = means_act.mean().item()
         policy_std = stds_act.mean().item()
 
-        #
-        action_bounded_curr, log_prob_bounded_curr = self.policy.sample_from_action_distr(
+        # TODO: prob_bounded is only the logit, calculated from non-exponentiated inputs
+        action_bounded_curr, prob_bounded_curr = self.policy.sample_from_action_distr(
             self, locs=means_act, stds=stds_act, kweights=kweights_act, reparameterization=True)
 
         self.q1_optimizer.zero_grad()
@@ -416,22 +416,24 @@ class RealDSAC:
                                                                        integral_bound_factor=5, exp=False)
         loss_q.backward()
 
-        # Switch off autograd when calculating policy loss
-        # TODO: Alternatively, disconnect the leaf from the computational graph [Before optimizer step?]
-        models = [self.q1, self.q2]
-        self.switch_autograd_logging(require_grad=False, models=models)
+        loss_policy, entropy = None, None
+        if iteration % self.update_interval == 0:
+            # Switch off autograd when calculating policy loss
+            # TODO: Alternatively, disconnect the leaf from the computational graph with context-manager
+            #       [Before optimizer step?]
+            models = [self.q1, self.q2]
+            self.switch_autograd_logging(require_grad=False, models=models)
+            self.policy_optimizer.zero_grad()
+            loss_policy, entropy = self.compute_policy_loss(states=states, actions_curr_pol=action_bounded_curr,
+                                                            log_ps_curr_pol=prob_bounded_curr, double_q=False)
+            loss_policy.backward()
+            # Switch back on autograd after calculation of policy
+            self.switch_autograd_logging(require_grad=True, models=models)
 
-        self.policy_optimizer.zero_grad()
-        loss_policy, entropy = self.compute_policy_loss(states=states, actions_curr_pol=action_bounded_curr,
-                                                        log_ps_curr_pol=log_prob_bounded_curr, double_q=False)
-        loss_policy.backward()
-        # Switch back on autograd after calculation of policy
-        self.switch_autograd_logging(require_grad=True, models=models)
-
-        if self.auto_alpha:
-            self.alpha_optimizer.zero_grad()
-            loss_alpha = self.compute_alpha_loss(log_ps=log_prob_bounded_curr)
-            loss_alpha.backward()
+            if self.auto_alpha:
+                self.alpha_optimizer.zero_grad()
+                loss_alpha = self.compute_alpha_loss(log_ps=prob_bounded_curr)
+                loss_alpha.backward()
 
         tb_info = {
             "DSAC2/critic_avg_q1-RL iter": q1_mean.item(),

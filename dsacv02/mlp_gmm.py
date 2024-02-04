@@ -21,7 +21,7 @@ class MLPGMM(nn.Module):
         self.activ_str = activ
         self._activ = dict()
         self._n_kernels = n_kernels
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = device
         self.check_arch()
         # Calculate size of necessary output nodes for covariance matrix
         self.covar_out_size = calc_size_co_matrix(self._arch[-1]).item().__int__()

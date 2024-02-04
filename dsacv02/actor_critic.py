@@ -7,17 +7,22 @@ from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMi
 
 class Critic(nn.Module):
     def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2, activ=('gelu',),
-                 value_min_std=-0.1, value_max_std=5, learnable_weights=False
+                 value_min_std=-0.1, value_max_std=5, learnable_weights=False, device='cuda:0'
                 ):
         """
-        - Modelling Q distribution as a Gaussian.
-        - min/max_log_std: clip(\mathcal{T}^{\pi_{\phi'}_{mathcal{D}}}Z(s,a), Q_{\theta}(s,a) - b, Q_{\theta}(s,a) + b)
-        :param value_min_std: Can either be log or raw value
-        :param value_max_std: Can either be log or raw value
-        :param arch: Based on DSAC paper. First dim. is obs. dim.; likely to change
-        :param act: Based on DSAC paper.
+        - Modelling Q distribution as a Gaussian Mixed Model.
+        :param state_dim: Dimension of observation space
+        :param action_dim: Dimension of action space
+        :param hidden_layers: Hidden layers of value approximator
+        :param n_kernels: Number of kernels in the GMM
+        :param activ: Activation functions, note that last nodes do not have an activation
+        :param value_min_std: Minimum permissible standard deviation of the Gaussian kernels
+        :param value_max_std: Maximum permissible standard deviation of the Gaussian kernels
+        :param learnable_weights: Whether kernel weights of the GMMs are learnable or not
+        :param device: Device on which Critic is running on
         """
         super().__init__()
+        self.device = device
         self.learnable_weights = learnable_weights
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -27,18 +32,18 @@ class Critic(nn.Module):
         self.arch = tuple(inp_dim + list(self.hidden_layers) + [1])
         self.activation = activ
         if self.learnable_weights:
-            self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
+            self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
+                                    multivar=False)
         else:
-            self.q = MLPGMM(arch=self.arch, activ=self.activ, n_kernels=self.n_kernels)
+            self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device, multivar=False)
         self.min_std = torch.tensor(value_min_std).to(self.q.device)
         self.max_std = torch.tensor(value_max_std).to(self.q.device)
         self.denominator = max(abs(self.min_std), self.max_std)
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         self.to(self.device)
 
     def get_class_info(self):
         return self.state_dim, self.action_dim, self.hidden_layers, self.n_kernels, self.activation, \
-               self.min_std.item(), self.max_std.item(), self.learnable_weights
+               self.min_std.item(), self.max_std.item(), self.learnable_weights, self.device
 
     def forward(self, observation: torch.tensor, action: torch.tensor, exp=False) -> torch.tensor:
         """
@@ -60,7 +65,7 @@ class Critic(nn.Module):
 class Actor(nn.Module):
     def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2,
                  activation=('gelu',), action_min_std=-20, action_max_std=3, action_low_lim=-1, action_up_lim=1,
-                 learnable_weights=False):
+                 learnable_weights=False, device='cuda:0'):
         """
         - Modelled as a GMM to follow the GMM of the value distribtion function. Number of kernels must be the same
         - Stochastic Policy Function Approximator
@@ -73,8 +78,10 @@ class Actor(nn.Module):
         :param action_max_std: Upper bound on std; either as log- or raw-value
         :param action_low_lim: Lowest action possible
         :param action_up_lim:  Highest action possible
+        :param device:  Device on which actor is running
         """
         super().__init__()
+        self.device = device
         self.learnable_weights = learnable_weights
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -87,18 +94,19 @@ class Actor(nn.Module):
         self.action_low_lim = torch.tensor(action_low_lim)
         self.action_up_lim = torch.tensor(action_up_lim)
         if self.learnable_weights:
-            self.policy = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
+            self.policy = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels,
+                                         device=device, multivar=False)
         else:
-            self.policy = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels)
+            self.policy = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
+                                 multivar=False)
         self.register_buffer("act_low_lim", torch.tensor(self.action_low_lim))
         self.register_buffer("act_up_lim", torch.tensor(self.action_up_lim))
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         self.to(self.device)
         self.eps = 1e-7
 
     def get_class_info(self):
         return self.state_dim, self.action_dim, self.hidden_layers, self.n_kernels, self.activation, \
-               self.min_std, self.max_std, self.action_low_lim, self.action_up_lim, self.learnable_weights
+               self.min_std, self.max_std, self.action_low_lim, self.action_up_lim, self.learnable_weights, self.device
 
     def forward(self, obs, exp=False):
         """

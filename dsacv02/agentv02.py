@@ -7,31 +7,32 @@ from copy import deepcopy
 
 
 class Agent:
-    def __init__(self, obs_dim, action_dim, cr_lr_ini=8e-5, cr_lr_fin=1e-6,  act_lr_ini=5e-5,
+    def __init__(self, obs_dim, action_dim, n_kernels, cr_lr_ini=8e-5, cr_lr_fin=1e-6,  act_lr_ini=5e-5,
                  act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
-                 cr_min_log_std=0, cr_max_log_std=5,
+                 value_min_std=0, value_max_std=5,
                  cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
-                 act_min_log_std=-20, act_max_log_std=0.5,
+                 act_min_std=-20, act_max_std=0.5,
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
-                 batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=2,
-                 auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5)
+                 batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
+                 auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5), device='cuda:0'
                  ):
         """
         :param obs_dim: Observation dimension
         :param action_dim: Vector with length |A|
         :param cr_lr_ini: Initial critic learning rate
+        :param n_kernels: Number of kernels in GMM
         :param cr_lr_fin: Final critic learning rate after applying learning rate scheduler
         :param act_lr_ini: Initial Actor learning rate
         :param act_lr_fin: Final actor learning rate
         :param alpha_lr_ini: Initial alpha learning rate
         :param alpha_lr_fin: Final alpha learning rate after applying learning scheduler
-        :param cr_min_log_std: Min. standard deviation for /mathcal{Z}, recommended to set to 0 in initial version
-        :param cr_max_log_std: Max. standard devation for /mathcal{Z},
+        :param value_min_std: Min. standard deviation for /mathcal{Z}, recommended to set to 0 in initial version
+        :param value_max_std: Max. standard deviation for /mathcal{Z},
         :param cr_hl: Hidden layers of critic network
         :param cr_activ: All activations of critic network per layer
-        :param act_min_log_std: Min. std. of actor output
-        :param act_max_log_std: Max. std. of actor output
+        :param act_min_std: Min. std. of actor output
+        :param act_max_std: Max. std. of actor output
         :param act_hl: Hidden layers of actor network
         :param act_activ: All activations of actor network per layer
         :param action_low: Action low limit
@@ -46,6 +47,7 @@ class Agent:
         :param auto_alpha: Whether alpha is a learnable parameter or static
         :param log_alpha_ini: Initial log value of alpha
         :param memory_size: Max. replay buffer size
+        :param device: Device on which networks are running
         """
         self.batch_size = batch_size
         self.t_max = t_max
@@ -58,48 +60,60 @@ class Agent:
         self.agent_params = (self.t_max, self.tau, self.reward_scale, self.gamma, self.update_interval,
                              self.auto_alpha, self.static_alpha)
 
-        self.q1: nn.Module = Critic(obs_dim=obs_dim, action_dim=action_dim, min_log_std=cr_min_log_std,
-                                    max_log_std=cr_max_log_std, hidden_layers=cr_hl, activ=cr_activ)
-        self.q2: nn.Module = Critic(obs_dim=obs_dim, action_dim=action_dim, min_log_std=cr_min_log_std,
-                                    max_log_std=cr_max_log_std, hidden_layers=cr_hl, activ=cr_activ)
+        self.q1: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device)
+        self.q2: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device)
         self.q1_target: nn.Module = deepcopy(self.q1)
         self.q2_target: nn.Module = deepcopy(self.q2)
         self.policy: nn.Module = Actor(state_dim=obs_dim, action_dim=action_dim, hidden_layers=act_hl,
-                                       activation=act_activ, min_log_std=act_min_log_std, max_log_std=act_max_log_std,
-                                       action_low_lim=action_low, action_up_lim=action_up)
+                                       activation=act_activ, action_min_std=act_min_std, action_max_std=act_max_std,
+                                       action_low_lim=action_low, action_up_lim=action_up, device=device)
         self.policy_target = deepcopy(self.policy)
-        self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32))
+        self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32, device=device))
 
-        self.dsac = RealDSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+        self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
+                             critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                              policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
-                             reward_scale=self.reward_scale, gamma=self.gamma, up_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=-action_dim)
+                             reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
+                             auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels=n_kernels)
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
 
-    def save_experience_tupel(self, state, action, reward, state_, log_p, done):
+    def save_experience_tupel(self, state, action, reward, state_, done):
         """
         - Writes experience tuple to replay buffer
         :type state: np.ndarray
         :type action: np.ndarray
         :type reward: np.ndarray
         :type state_: np.ndarray
-        :type log_p: np.ndarray
         :type done: np.ndarray
 
         """
-        self.memory.store_transition(state, action, reward, state_, log_p, done)
+        self.memory.store_transition(state, action, reward, state_, done)
 
     def learn(self, n_learning_iter: int, step_number: int):
+        """
+        - Chain of method revokes: learn->Update->compute_gradients -> compute_z_loss
+                                                                    -> compute_policy_loss
+        - After loss, update networks parameters by update_networks() and refresh learning schedule by
+          update_lrs()
+        :param n_learning_iter: Number of iterations in which the networks are fitted to the current experience.
+                                Note that the value networks are always fitted, the fitting of the policy depends on
+                                step_number
+        :param step_number: Total train step number from main.py
+        :return: RL learning quantities (losses, rewards, ...etc.)
+        """
         if self.memory.mem_cntr < self.batch_size:
             print(f'Batch size of {self.batch_size} > Stored tupels {self.memory.mem_cntr}')
+            print(f'Continue without learning')
             tb_info = self.dsac.get_empty_tb_info()
-
-        for learning_iter_i in range(n_learning_iter):
-            batch_i = self.memory.sample_buffer(self.batch_size)
-            tb_info = self.dsac.update(batch_i, iteration=step_number)
+        else:
+            for learning_iter_i in range(n_learning_iter):
+                batch_i = self.memory.sample_buffer(batch_size=self.batch_size)
+                tb_info = self.dsac.update(batch=batch_i, iteration=step_number)
 
         return tb_info
 
@@ -114,16 +128,18 @@ class Agent:
 
     def choose_action(self, observation):
         # observation = torch.as_tensor(observation)
-        logits = self.dsac.policy.forward(observation)
-        action_distribution = self.dsac.policy.get_act_distr(logits)
-        actions, log_prob_actions = action_distribution.sample(reparameterization=False)
+        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+        actions_bounded, probs_bounded = self.dsac.policy.sample_from_action_distr(locs=action_mean,
+                                                                                   stds=action_std,
+                                                                                   kweights=kernel_weights,
+                                                                                   reparameterization=False)
 
-        return actions.cpu().detach().numpy(), log_prob_actions.cpu().detach().numpy()
+        return actions_bounded.cpu().detach().numpy(), probs_bounded.cpu().detach().numpy()
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str):
         """
         - Saves: Networks, optimizers and agent meta-parameters
-        :param epoch: Epoch in which saving was performed
+        :param iter_n: Global iteration number at which the saving is performed
         :param path: Directory in which checkpoint is saved
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
@@ -138,23 +154,22 @@ class Agent:
             'cr1_state_dict': self.q1.state_dict(),
             'cr1_target_state_dict': self.q1_target.state_dict(),
             'cr1_optim_state_dict': cr1_optim.state_dict(),
-            'cr1_lr_schedule_state_dit': self.dsac.q1_lrs.state_dict(),
+            'cr1_lr_schedule_state_dit': self.dsac.q1_lr_schedule.state_dict(),
             'cr2_state_dict': self.q2.state_dict(),
             'cr2_target_state_dict': self.q2_target.state_dict(),
             'cr2_optim_state_dict': cr2_optim.state_dict(),
-            'cr2_lr_schedule': self.dsac.q2_lrs.state_dict(),
-            'cr2_lr_schedule_state_dit': self.dsac.q2_lrs.state_dict(),
+            'cr2_lr_schedule_state_dit': self.dsac.q2_lr_schedule.state_dict(),
             'policy_state_dict': self.policy.state_dict(),
-            'policy_optim_state_dict': pol_optim.state_dict(),
-            'policy_lr_schedule_state_dict': self.dsac.pol_lrs.state_dict(),
             'policy_target_state_dict': self.policy_target.state_dict(),
+            'policy_optim_state_dict': pol_optim.state_dict(),
+            'policy_lr_schedule_state_dict': self.dsac.pol_lr_schedule.state_dict(),
             'log_alpha_state_dict': self.log_alpha,
             'log_alpha_optim_state_dict': alpha_optim.state_dict(),
-            'alpha_lr_schedule_state_dict': self.dsac.alpha_lrs.state_dict()
+            'alpha_lr_schedule_state_dict': self.dsac.alpha_lr_schedule.state_dict()
             },
             complete_tar_file
         )
-        # Save
+        # Save training and algorithm data
         agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale, self.gamma,
                            self.update_interval, self.auto_alpha)
         actor_meta_params = self.policy.get_class_info()
