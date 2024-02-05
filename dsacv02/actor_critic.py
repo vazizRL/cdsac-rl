@@ -148,8 +148,10 @@ class Actor(nn.Module):
                          (self.action_up_lim + self.action_low_lim) / 2
 
         # Calculate log_prob of new action
-        log_prob_bounded = gmm.log_prob(action) - torch.log(1 + self.eps - torch.pow(torch.tanh(action), 2)).sum(-1) \
+        log_prob_bounded = gmm.log_prob(action.squeeze()) - \
+                           torch.log(1 + self.eps - torch.pow(torch.tanh(action), 2)).sum(-1) \
             - torch.log((self.action_up_lim - self.action_low_lim) / 2).sum(-1)
+        log_prob_bounded.unsqueeze_(dim=1)
 
         return action_bounded, log_prob_bounded
 

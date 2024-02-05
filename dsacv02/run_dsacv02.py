@@ -20,8 +20,8 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 1e-4, 1e-4, 1e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 1e-5, 1e-5, 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.1, 10.0
-ACT_MIN_STD, ACT_MAX_STD = 0.01, 3
+CR_MIN_STD, CR_MAX_STD = 0.01, 0.5
+ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
 # Hidden Layers
 CR_HL = (64, 64)
 ACT_HL = (64, 64)
@@ -33,14 +33,14 @@ ACTION_LOW = -2.0
 ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 64
-T_MAX = 15000           # Old 20000
+T_MAX = 1000           # Old 20000
 TAU = 1.0
-STATIC_ALPHA = 1        # Old 0.2
-REWARD_SCALE = 2        # Old 0.2
+STATIC_ALPHA = 0        # Old 0.2
+REWARD_SCALE = 1        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = True
-ALPHA_INI = 2.71      # Old 1
+AUTO_ALPHA = False
+ALPHA_INI = 0.1      # Old 1
 MEM_SIZE = 1e5         # 1e5
 N_POL_UPDATE_INTERVAL = 1
 
@@ -70,13 +70,14 @@ if __name__ == '__main__':
                   cr_activ=CR_ACTIV, cr_hl=CR_HL,
                   act_min_std=ACT_MIN_STD, act_max_std=ACT_MAX_STD, act_hl=ACT_HL,
                   act_activ=ACT_ACTIV, action_low=ACTION_LOW, action_up=ACTION_HIGH, batch_size=BATCH_SIZE,
-                  t_max=T_MAX, tau=TAU, alpha=STATIC_ALPHA, reward_scale=REWARD_SCALE, gamma=GAMMA,
-                  update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, log_alpha_ini=ALPHA_INI,
+                  t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
+                  reward_scale=REWARD_SCALE, gamma=GAMMA,
+                  update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA,
                   memory_size=MEM_SIZE, device=DEVICE)
 
     n_tot_steps = 0
     n_games = 250
-    episode_end = 2000
+    episode_end = 10000
     backup_info_interval = 100
 
     best_score = env.reward_range[0]

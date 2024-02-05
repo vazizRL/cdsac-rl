@@ -169,13 +169,16 @@ class Agent:
 
         self.update_network_parameters()
 
-        tb_info = {'SACQ/q1_val': q1_new_policy.mean_target().detach(),
-                   'SACQ/q2_val': q2_new_policy.mean_target().detach(),
-                   'SACLoss/critic_loss': critic_loss,
-                   'SACLoss/actor_loss': actor_loss,
-                   'SACLoss/value_loss': value_loss,
-                   'SACPolicy/avg. policy std plain': T.mean(pol_std).detach(),
-                   'SACPolicy/avg. policy std repara': T.mean(pol_std_rep).detach()
+        tb_info = {'SACQ/q1_val': q1_new_policy.mean().detach(),
+                   'SACQ/q2_val': q2_new_policy.mean().detach(),
+                   'SACQ/approx_value': value.mean().detach(),
+                   'SACQ/approx_value_target': value_target.mean().detach(),
+                   'SACLoss/critic_loss': critic_loss.detach().item(),
+                   'SACLoss/actor_loss': actor_loss.detach().item(),
+                   'SACLoss/value_loss': value_loss.detach().item(),
+                   'SACPolicy/avg. policy std plain': pol_std.mean().detach().item(),
+                   'SACPolicy/avg. policy std repara.': pol_std_rep.mean().detach().item(),
+                   'SACPolicy/avg. entropy plain.': log_probs.mean().detach().item()
                    }
 
         return tb_info

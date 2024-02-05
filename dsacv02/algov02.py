@@ -11,9 +11,9 @@ from dsacv02.tools import cramer_from_pdf, cramer_torch, approx_integral_bounds,
 
 class RealDSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
-                 actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001, static_alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1,
-                 **kwargs):
+                 actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
+                 static_alpha=0.2,
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
         :param critic1: First q-network in the double-Q setting
@@ -237,7 +237,9 @@ class RealDSAC:
         """
         next_batch_size = q_means_next.shape[0]
         alpha = self.get_alpha(requires_grad=False)
-        # Compute target from mean Q
+        # Compute target from mean Q.
+        rewards.unsqueeze_(dim=1)
+        dones.unsqueeze_(dim=1)
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
         stds_next = (1-dones) * stds_next + torch.tensor(1e-10, dtype=torch.float64)
 
@@ -246,7 +248,7 @@ class RealDSAC:
 
         target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
         # Target is always used for gradient calculations, so always rsample
-        target_samples = target_distribution.rsample(sample_shape=next_batch_size)
+        target_samples = target_distribution.rsample()
 
         return target_distribution, target_samples
 
@@ -267,13 +269,13 @@ class RealDSAC:
         dones = torch.as_tensor(dones, dtype=torch.float64).to(self.device)
 
         # Probability and value of action
-        action_means_next, action_stds_next, kernel_weights = self.policy_target(states_next)
+        action_means_next, action_stds_next, kweights_pol = self.policy_target(states_next)
         action_means_next.squeeze_(dim=2)
         action_stds_next.squeeze_(dim=2)
         # The action is only used for Q loss calculation, repara=False, detach from graph
         actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_action_distr(
                                                      locs=action_means_next, stds=action_stds_next,
-                                                     kweights=kernel_weights, reparameterization=False)
+                                                     kweights=kweights_pol, reparameterization=False)
         # Important: In-place operations
         actions_bounded_next.detach_()
         action_log_probs_next_bounded.detach_()
@@ -322,7 +324,7 @@ class RealDSAC:
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
-            zcal, z, means, stds, kernel_weigths = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
+            z, zcal, means, stds, kernel_weights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
                                                                    exp=exp, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
@@ -340,7 +342,7 @@ class RealDSAC:
         q_loss = cramer_torch(pdf_target=zcal_next, pdf_curr=zcal, int_l=int_bound_low, int_u=int_bound_up,
                               spacing=1e-3, dev=self.device)
 
-        return q_loss.mean()
+        return q_loss.mean(), means.mean(), stds.mean(), kernel_weights[:, 0].mean(), kernel_weights[:, 1].mean()
 
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
@@ -376,10 +378,14 @@ class RealDSAC:
                 self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1, sample=False, exp=exp,
                                 reparameterize=False)
 
-            means_min.detach_(), stds_selected_min.detach_(), kweights_selected_min.detach_()
+            means_min = means_min.detach()
+            stds_selected_min = stds_selected_min.detach()
+            kweights_selected_min = kweights_selected_min.detach()
 
         # Not calculated according to Z! If Z, reparameterization is needed
-        gmm_mean = means_min.mean_target(dim=1)
+        gmm_mean = means_min.mean(dim=1)
+        gmm_mean.unsqueeze_(dim=1)
+
         policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
         entropy = -log_ps_curr_pol.detach().mean()
 
@@ -406,8 +412,8 @@ class RealDSAC:
         stds_act.abs_()
 
         # NOTE: Only for Tensorbaord; item() returns a Python native type
-        policy_mean = means_act.mean().item()
-        policy_std = stds_act.mean().item()
+        policy_mean = means_act.mean().detach().item()
+        policy_std = stds_act.mean().detach().item()
 
         # TODO: prob_bounded is only the logit, calculated from non-exponentiated inputs
         action_bounded_curr, prob_bounded_curr = self.policy.sample_from_action_distr(
@@ -418,8 +424,8 @@ class RealDSAC:
         self.q2_optimizer.zero_grad()
 
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, q1_mean, q2_mean, q1_std, q2_std = self.compute_z_loss(batch=batch, double_q=False,
-                                                                       integral_bound_factor=5, exp=False)
+        loss_q, mean_q, std_mean, k1_mean, k2_mean = self.compute_z_loss(batch=batch, double_q=False,
+                                                                         integral_bound_factor=5, exp=False)
         loss_q.backward()
 
         loss_policy, entropy = None, None
@@ -442,16 +448,18 @@ class RealDSAC:
                 loss_alpha.backward()
 
         tb_info = {
-            "DSAC2/critic_avg_q1-RL iter": q1_mean.item(),
-            "DSAC2/critic_avg_q2-RL iter": q2_mean.item(),
-            "DSAC2/critic_avg_std1-RL iter": q1_std.item(),
-            "DSAC2/critic_avg_std2-RL iter": q2_std.item(),
-            tb_tags["loss_actor"]: loss_policy.item(),
-            tb_tags["loss_critic"]: loss_q.item(),
-            "DSAC2/policy_mean-RL iter": policy_mean,
-            "DSAC2/policy_std-RL iter": policy_std,
-            "DSAC2/entropy-RL iter": entropy.item(),
+            "DSAC2/gmm_critic_avg_value iter": mean_q.detach().item(),
+            "DSAC2/gmm_critic_avg_std iter": std_mean.detach().item(),
+            "DSAC2/gmm_critic_avg_k1_weight iter": k1_mean.detach().item(),
+            "DSAC2/gmm_critic_avg_k2_weight iter": k2_mean.detach().item(),
+            "DSAC2/gmm_actor_avg_action iter": policy_mean,
+            "DSAC2/gmm_actor_avg_std iter": policy_std,
+            "DSAC2/gmm_actor_avg_k1_weight iter": kweights_act[:, 0].mean().detach().item(),
+            "DSAC2/gmm_actor_avg_k2_weight iter": kweights_act[:, 1].mean().detach().item(),
+            "DSAC2/entropy-RL iter": entropy.detach().item(),
             "DSAC2/alpha-RL iter": self.get_alpha(requires_grad=False),
+            tb_tags["loss_actor"]: loss_policy.detach().item(),
+            tb_tags["loss_critic"]: loss_q.detach().item(),
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
         }
 
@@ -513,16 +521,18 @@ class RealDSAC:
     @staticmethod
     def get_empty_tb_info():
         tb_info = {
-            "DSAC2/critic_avg_q1-RL iter": 0,
-            "DSAC2/critic_avg_q2-RL iter": 0,
-            "DSAC2/critic_avg_std1-RL iter": 0,
-            "DSAC2/critic_avg_std2-RL iter": 0,
-            tb_tags["loss_actor"]: 0,
-            tb_tags["loss_critic"]: 0,
-            "DSAC2/policy_mean-RL iter": 0,
-            "DSAC2/policy_std-RL iter": 0,
+            "DSAC2/gmm_critic_avg_value iter": 0,
+            "DSAC2/gmm_critic_avg_std iter": 0,
+            "DSAC2/gmm_critic_avg_k1_weight iter": 0,
+            "DSAC2/gmm_critic_avg_k2_weight iter": 0,
+            "DSAC2/gmm_actor_avg_action iter": 0,
+            "DSAC2/gmm_actor_avg_std iter": 0,
+            "DSAC2/gmm_actor_avg_k1_weight iter": 0,
+            "DSAC2/gmm_actor_avg_k2_weight iter": 0,
             "DSAC2/entropy-RL iter": 0,
             "DSAC2/alpha-RL iter": 0,
+            tb_tags["loss_actor"]: 0,
+            tb_tags["loss_critic"]: 0,
             tb_tags["alg_time"]: 0,
         }
 

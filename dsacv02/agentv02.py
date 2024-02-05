@@ -14,7 +14,7 @@ class Agent:
                  act_min_std=-20, act_max_std=0.5,
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
-                 batch_size=50, t_max=50, tau=0.001, alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
+                 batch_size=50, t_max=50, tau=0.001, static_alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
                  auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5), device='cuda:0'
                  ):
         """
@@ -41,7 +41,7 @@ class Agent:
         :param batch_size: Batch size for MB-SGD
         :param t_max: Horizont for learning scheduler
         :param tau: Soft-upate factor
-        :param alpha: Entropy temperature
+        :param static_alpha: Entropy temperature in static case
         :param reward_scale: Scaling the reward
         :param gamma: Discount factor
         :param update_interval: Interval for updating target networks
@@ -57,7 +57,7 @@ class Agent:
         self.gamma = gamma
         self.update_interval = update_interval
         self.auto_alpha = auto_alpha
-        self.static_alpha = alpha
+        self.static_alpha = static_alpha
         self.agent_params = (self.t_max, self.tau, self.reward_scale, self.gamma, self.update_interval,
                              self.auto_alpha, self.static_alpha)
 
@@ -80,7 +80,7 @@ class Agent:
                              critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                              policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
-                             alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
+                             alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
                              auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels=n_kernels)
 
