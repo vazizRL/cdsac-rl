@@ -7,8 +7,8 @@ from copy import deepcopy
 
 
 class Agent:
-    def __init__(self, obs_dim, action_dim, n_kernels, cr_lr_ini=8e-5, cr_lr_fin=1e-6,  act_lr_ini=5e-5,
-                 act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
+    def __init__(self, obs_dim, action_dim, n_kernels, learnable_kweights=True, cr_lr_ini=8e-5, cr_lr_fin=1e-6,
+                 act_lr_ini=5e-5, act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
                  value_min_std=0, value_max_std=5,
                  cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  act_min_std=-20, act_max_std=0.5,
@@ -22,6 +22,7 @@ class Agent:
         :param action_dim: Vector with length |A|
         :param cr_lr_ini: Initial critic learning rate
         :param n_kernels: Number of kernels in GMM
+        :param learnable_kweights: Whether the networks for value and policy have learnable kernel weights
         :param cr_lr_fin: Final critic learning rate after applying learning rate scheduler
         :param act_lr_ini: Initial Actor learning rate
         :param act_lr_fin: Final actor learning rate
@@ -61,14 +62,17 @@ class Agent:
                              self.auto_alpha, self.static_alpha)
 
         self.q1: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
-                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device)
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
+                                    learnable_weights=learnable_kweights)
         self.q2: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
-                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device)
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
+                                    learnable_weights=learnable_kweights)
         self.q1_target: nn.Module = deepcopy(self.q1)
         self.q2_target: nn.Module = deepcopy(self.q2)
         self.policy: nn.Module = Actor(state_dim=obs_dim, action_dim=action_dim, hidden_layers=act_hl,
                                        activation=act_activ, action_min_std=act_min_std, action_max_std=act_max_std,
-                                       action_low_lim=action_low, action_up_lim=action_up, device=device)
+                                       action_low_lim=action_low, action_up_lim=action_up, device=device,
+                                       learnable_weights=learnable_kweights)
         self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32, device=device))
 
@@ -129,6 +133,11 @@ class Agent:
     def choose_action(self, observation):
         # observation = torch.as_tensor(observation)
         action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+        action_mean.squeeze_(dim=2)
+        action_std.squeeze_(dim=2)
+        action_std.abs_()
+        if not self.policy.learnable_weights:
+            kernel_weights = torch.ones(action_mean.shape[1]) / self.policy.n_kernels
         actions_bounded, probs_bounded = self.dsac.policy.sample_from_action_distr(locs=action_mean,
                                                                                    stds=action_std,
                                                                                    kweights=kernel_weights,

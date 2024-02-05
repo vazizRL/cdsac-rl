@@ -184,10 +184,10 @@ class RealDSAC:
         """
         # (B, K, Q)
         means, stds, kernel_weights = znet(obs, actions, exp=exp)
-        stds.abs_()
         means.squeeze_(dim=2)
         stds.squeeze_(dim=2)
-        if not kernel_weights:
+        stds.abs_()
+        if kernel_weights is None:
             mb_size = actions.shape[0]
             kernel_weights = torch.ones(mb_size, self.n_kernels) / self.n_kernels
         gmm = self.generate_gmm_distr(means=means, stds=stds, kweights=kernel_weights, multivar=False)
@@ -196,9 +196,11 @@ class RealDSAC:
         if sample:
             batch_size = obs.shape[0]
             if reparameterize:
-                gmm_sample = gmm.rsample(sample_shape=batch_size)
+                gmm_sample = gmm.rsample()
+                gmm_sample.unsqueeze(dim=1)
             else:
-                gmm_sample = gmm.sample(sample_shape=batch_size)
+                gmm_sample = gmm.sample()
+                gmm_sample.unsqueeze(dim=1)
 
         return gmm_sample, gmm, means, stds, kernel_weights
 
@@ -269,9 +271,9 @@ class RealDSAC:
         action_means_next.squeeze_(dim=2)
         action_stds_next.squeeze_(dim=2)
         # The action is only used for Q loss calculation, repara=False, detach from graph
-        actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_act_distr(
+        actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_action_distr(
                                                      locs=action_means_next, stds=action_stds_next,
-                                                     k_weights=kernel_weights, reparameterization=False)
+                                                     kweights=kernel_weights, reparameterization=False)
         # Important: In-place operations
         actions_bounded_next.detach_()
         action_log_probs_next_bounded.detach_()
@@ -399,6 +401,9 @@ class RealDSAC:
 
         # Construct action distribution with reparameterization trick
         means_act, stds_act, kweights_act = self.policy(obs=states, exp=exp)
+        means_act.squeeze_(dim=2)
+        stds_act.squeeze_(dim=2)
+        stds_act.abs_()
 
         # NOTE: Only for Tensorbaord; item() returns a Python native type
         policy_mean = means_act.mean().item()
@@ -406,7 +411,8 @@ class RealDSAC:
 
         # TODO: prob_bounded is only the logit, calculated from non-exponentiated inputs
         action_bounded_curr, prob_bounded_curr = self.policy.sample_from_action_distr(
-            self, locs=means_act, stds=stds_act, kweights=kweights_act, reparameterization=True)
+            locs=means_act, stds=stds_act, kweights=kweights_act, reparameterization=True
+        )
 
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()

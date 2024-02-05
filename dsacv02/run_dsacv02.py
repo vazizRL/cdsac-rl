@@ -85,12 +85,15 @@ if __name__ == '__main__':
     for i in range(n_games):
         episode_iter = 0
         observation, _ = env.reset()
+        observation = np.expand_dims(observation, axis=0)
         done = False
         score = 0
         interval_reward = 0
         while not done:
             action, prob_action = agent.choose_action(observation)
             observation_, reward, done, info, _ = env.step(action)
+            observation_ = observation_.reshape((1, OBSERVATION_DIM))
+            # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > episode_end:
                 break
             if n_tot_steps % backup_info_interval == 0:

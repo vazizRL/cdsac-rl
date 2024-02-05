@@ -138,8 +138,10 @@ class Actor(nn.Module):
         # Sample from the GMM
         if reparameterization:
             action = gmm.rsample()
+            action.unsqueeze_(dim=1)
         else:
             action = gmm.sample()
+            action.unsqueeze_(dim=1)
 
         # Normalize each action around 0 with tanh
         action_bounded = ((self.action_up_lim - self.action_low_lim) / 2) * torch.tanh(action) + \
