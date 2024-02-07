@@ -13,7 +13,8 @@ class RealDSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
                  static_alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1):
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1,
+                 device='cuda:0'):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
         :param critic1: First q-network in the double-Q setting
@@ -42,7 +43,7 @@ class RealDSAC:
         """
 
         # Initialize device
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        self.device = device
 
         self.q1: nn.Module = critic1
         self.q2: nn.Module = critic2
@@ -448,16 +449,16 @@ class RealDSAC:
                 loss_alpha.backward()
 
         tb_info = {
-            "DSAC2/gmm_critic_avg_value iter": mean_q.detach().item(),
-            "DSAC2/gmm_critic_avg_std iter": std_mean.detach().item(),
-            "DSAC2/gmm_critic_avg_k1_weight iter": k1_mean.detach().item(),
-            "DSAC2/gmm_critic_avg_k2_weight iter": k2_mean.detach().item(),
-            "DSAC2/gmm_actor_avg_action iter": policy_mean,
-            "DSAC2/gmm_actor_avg_std iter": policy_std,
-            "DSAC2/gmm_actor_avg_k1_weight iter": kweights_act[:, 0].mean().detach().item(),
-            "DSAC2/gmm_actor_avg_k2_weight iter": kweights_act[:, 1].mean().detach().item(),
-            "DSAC2/entropy-RL iter": entropy.detach().item(),
-            "DSAC2/alpha-RL iter": self.get_alpha(requires_grad=False),
+            "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
+            "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
+            "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": k1_mean.detach().item(),
+            "DSAC2_CrDistr/gmm_critic_avg_k2_weight iter": k2_mean.detach().item(),
+            "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
+            "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
+            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act[:, 0].mean().detach().item(),
+            "DSAC2_ActDistr/gmm_actor_avg_k2_weight iter": kweights_act[:, 1].mean().detach().item(),
+            "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
+            "DSAC2_Alpha/alpha-RL iter": self.get_alpha(requires_grad=False),
             tb_tags["loss_actor"]: loss_policy.detach().item(),
             tb_tags["loss_critic"]: loss_q.detach().item(),
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
@@ -521,16 +522,16 @@ class RealDSAC:
     @staticmethod
     def get_empty_tb_info():
         tb_info = {
-            "DSAC2/gmm_critic_avg_value iter": 0,
-            "DSAC2/gmm_critic_avg_std iter": 0,
-            "DSAC2/gmm_critic_avg_k1_weight iter": 0,
-            "DSAC2/gmm_critic_avg_k2_weight iter": 0,
-            "DSAC2/gmm_actor_avg_action iter": 0,
-            "DSAC2/gmm_actor_avg_std iter": 0,
-            "DSAC2/gmm_actor_avg_k1_weight iter": 0,
-            "DSAC2/gmm_actor_avg_k2_weight iter": 0,
-            "DSAC2/entropy-RL iter": 0,
-            "DSAC2/alpha-RL iter": 0,
+            "DSAC2_Vals/gmm_critic_avg_value iter": 0,
+            "DSAC2_CrDistr/gmm_critic_avg_std iter": 0,
+            "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": 0,
+            "DSAC2_CrDistr/gmm_critic_avg_k2_weight iter": 0,
+            "DSAC2_Vals/gmm_actor_avg_action iter": 0,
+            "DSAC2_ActDistr/gmm_actor_avg_std iter": 0,
+            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": 0,
+            "DSAC2_ActDistr/gmm_actor_avg_k2_weight iter": 0,
+            "DSAC2_ActDistr/entropy-RL iter": 0,
+            "DSAC2_Alpha/alpha-RL iter": 0,
             tb_tags["loss_actor"]: 0,
             tb_tags["loss_critic"]: 0,
             tb_tags["alg_time"]: 0,

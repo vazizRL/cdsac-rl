@@ -82,7 +82,8 @@ class Agent:
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels=n_kernels)
+                             auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels=n_kernels,
+                             device=device)
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
 

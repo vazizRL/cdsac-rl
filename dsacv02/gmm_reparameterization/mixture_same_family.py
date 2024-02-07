@@ -150,6 +150,7 @@ class MixtureSameFamilyMod(Distribution):
         x = self._pad(x)
         cdf_x = self.component_distribution.cdf(x)
         mix_prob = self.mixture_distribution.probs.to('cuda:0')
+        # mix_prob = self.mixture_distribution.probs.to('cpu')
 
         return torch.sum(cdf_x * mix_prob, dim=-1)
 

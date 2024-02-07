@@ -16,11 +16,11 @@ ACTION_DIM = 1
 OBSERVATION_DIM = 3
 N_KERNELS = 1
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 1e-4, 1e-4, 1e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 1e-5, 1e-5, 1e-5
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 1e-4, 1e-4, 1e-4  # 1e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 1e-4, 1e-4, 1e-5  # 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 0.5
+CR_MIN_STD, CR_MAX_STD = 0.01, 10
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
 # Hidden Layers
 CR_HL = (64, 64)
@@ -33,10 +33,10 @@ ACTION_LOW = -2.0
 ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 64
-T_MAX = 1000           # Old 20000
+T_MAX = 500           # Old 20000
 TAU = 1.0
-STATIC_ALPHA = 0        # Old 0.2
-REWARD_SCALE = 1        # Old 0.2
+STATIC_ALPHA = 1        # Old 0.2
+REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     n_tot_steps = 0
     n_games = 250
-    episode_end = 10000
+    episode_end = 500
     backup_info_interval = 100
 
     best_score = env.reward_range[0]
@@ -96,7 +96,7 @@ if __name__ == '__main__':
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > episode_end:
-                break
+                done = True
             if n_tot_steps % backup_info_interval == 0:
                 print(f'Reward for {backup_info_interval}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
