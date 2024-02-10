@@ -14,13 +14,13 @@ DEVICE = 'cuda:0'
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 3
-N_KERNELS = 2
+N_KERNELS = 1
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 1e-4  # 1e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5  # 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 2.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 0.1
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
 # Hidden Layers
 CR_HL = (64, 64)
@@ -34,7 +34,7 @@ ACTION_HIGH = 2.0
 # RL parameters
 BATCH_SIZE = 32
 T_MAX = 500           # Old 20000
-TAU = 1.0
+TAU = 0.01
 STATIC_ALPHA = 1        # Old 0.2
 REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99

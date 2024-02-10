@@ -389,7 +389,7 @@ class RealDSAC:
         gmm_mean.unsqueeze_(dim=1)
 
         policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
-        entropy = -log_ps_curr_pol.detach().mean()
+        entropy = -log_ps_curr_pol.mean().detach()
 
         return policy_loss, entropy
 

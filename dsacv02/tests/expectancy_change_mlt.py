@@ -5,7 +5,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
 main_dir = 'Learnable_Weights'
-dir_name = 'r18_mod3_G'
+dir_name = 'r19_mod3_H'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 
