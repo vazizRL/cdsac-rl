@@ -33,7 +33,7 @@ def energy_d(supports, p_target, p_curr, s_size):
     diff_t_t = np.abs(t_samples - t_samples_prime)
     diff_c_c = np.abs(samples - samples_prime)
     diff_t_c = np.abs(t_samples - samples)
-    e_distance = 2 * diff_t_c.mean_target() - diff_t_t.mean_target() - diff_c_c.mean_target()
+    e_distance = 2 * diff_t_c.mean() - diff_t_t.mean() - diff_c_c.mean()
 
     return e_distance
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     print(f"Energy Distance: {ed}")
 
     # m
-    S_SIZE = 1100
+    S_SIZE = 11000
     MIN_SUPPORT = -20
     MAX_SUPPORT = 20
     supports = np.arange(MIN_SUPPORT, MAX_SUPPORT, 0.02)
@@ -162,6 +162,7 @@ if __name__ == '__main__':
         print(f'Own implementation of energy distance: {l_i_own}, its square root: {l_i_own**0.5}')
         l_cramer_pdf, err = cramer_from_pdf(target_pdf_cont, pdfs_cont[idx], int_l=-50, int_u=50)
         print(f'Cramer distance from PDF: {l_cramer_pdf} with max. error: {err}')
+        print('----------------------------------------------------------')
 
     # Define a GMM in 1d with n Kernels in PyTorch
     means = torch.arange(-10.0, 11.0, 1.0)

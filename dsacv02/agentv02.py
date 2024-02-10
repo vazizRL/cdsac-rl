@@ -50,6 +50,7 @@ class Agent:
         :param memory_size: Max. replay buffer size
         :param device: Device on which networks are running
         """
+        self.n_kernels = n_kernels
         self.batch_size = batch_size
         self.t_max = t_max
         self.tau = tau
@@ -63,18 +64,18 @@ class Agent:
 
         self.q1: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
                                     value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights)
+                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
         self.q2: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
                                     value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights)
+                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
         self.q1_target: nn.Module = deepcopy(self.q1)
         self.q2_target: nn.Module = deepcopy(self.q2)
         self.policy: nn.Module = Actor(state_dim=obs_dim, action_dim=action_dim, hidden_layers=act_hl,
                                        activation=act_activ, action_min_std=act_min_std, action_max_std=act_max_std,
                                        action_low_lim=action_low, action_up_lim=action_up, device=device,
-                                       learnable_weights=learnable_kweights)
+                                       learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
         self.policy_target = deepcopy(self.policy)
-        self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float32, device=device))
+        self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
         self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
                              critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
@@ -180,7 +181,8 @@ class Agent:
             complete_tar_file
         )
         # Save training and algorithm data
-        agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale, self.gamma,
+        agent_meta_data = (self.batch_size, self.n_kernels, self.t_max, self.tau, self.static_alpha, self.reward_scale,
+                           self.gamma,
                            self.update_interval, self.auto_alpha)
         actor_meta_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()

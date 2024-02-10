@@ -138,14 +138,12 @@ if __name__ == '__main__':
     kweights_fix.to(device)
 
     # Train parameters
-    mb_size = 10
-    epochs_ref = 1
-    epochs_tar = 5
-    epochs_low_e = 1
-    epochs_high_e = 1
+    mb_size = 64
+    epochs_ref = 2
+    epochs_tar = 6
 
     # Initialize input
-    n_datapoints = 10000
+    n_datapoints = 64000
     n_mb = int(n_datapoints / mb_size)
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
@@ -157,7 +155,8 @@ if __name__ == '__main__':
     distr_ref = generate_gmm(locs=mean_ref, scales=std_ref, kweights=kweight_ref)
 
     # Target distribution
-    mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([5.0, 30.0], dtype=torch.float64)).to(device)
+    mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([5.0, 6.0], dtype=torch.float64)).to(device)
+    # mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([5.0, 50.0], dtype=torch.float64)).to(device)
     std_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
     kweight_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([0.5, 0.5], dtype=torch.float64)).to(device)
     distr_tar = generate_gmm(locs=mean_tar, scales=std_tar, kweights=kweight_tar)
@@ -210,7 +209,7 @@ if __name__ == '__main__':
     '''
     print('\n --------------------------- \n')
     gmm_tar = deepcopy(gmm_ref)
-    optimizer_tar = optim.Adam(gmm_tar.parameters(), lr=0.001)
+    optimizer_tar = optim.Adam(gmm_tar.parameters(), lr=0.01)
 
     for epoch in range(epochs_tar):
         for batch in batches:
@@ -230,7 +229,7 @@ if __name__ == '__main__':
             l_tar.detach_().item()
             u_tar.detach_().item()
             cramer_py_loss_tar_i = cramer_distance(pdf_target=distr_tar, pdf_curr=pred_gmm_tar_i, int_l=l_tar,
-                                                   int_u=u_tar, spacing=0.01, dev=device)
+                                                   int_u=u_tar, spacing=0.001, dev=device)
 
             # Loss in SGD for cramer_py_loss_i
             optimizer_tar.zero_grad()

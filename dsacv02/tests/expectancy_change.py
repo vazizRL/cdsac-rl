@@ -46,7 +46,9 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
 
     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
 
-    return cramer**0.5
+    # return cramer**0.5
+    return torch.log(cramer)
+    # return cramer
 
 
 def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tensor):
@@ -75,15 +77,15 @@ if __name__ == '__main__':
     distr_ref = generate_gmm(locs=mean_ref, scales=std_ref, kweights=kweight_ref)
 
     # High-entropy Distribution
-    mean_high_e = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
-    std_high_e = torch.tensor([5.0, 5.0], dtype=torch.float64).to(device)
-    kweight_high_e = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
+    mean_high_e = torch.tensor([2.0, 15.0], dtype=torch.float64).to(device)
+    std_high_e = torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
+    kweight_high_e = torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
     distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
 
     # Low-entropy Distribution
-    mean_low_e = torch.tensor([2.0, 8.0], dtype=torch.float64).to(device)
+    mean_low_e = torch.tensor([2.0, 15.0], dtype=torch.float64).to(device)
     std_low_e = torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
-    kweight_low_e = torch.tensor([0.2, 0.8], dtype=torch.float64).to(device)
+    kweight_low_e = torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
 
     # # Calculate Distances
@@ -99,12 +101,18 @@ if __name__ == '__main__':
     kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
     kweights_fix.to(device)
 
+    # Train parameters
+    learning_rates = 0.001
+    epochs = 4
+    epochs_low_e = 1
+    epochs_high_e = 1
+
     # Initialize network and optimizer
     if learnable_weights:
         gmm_approx = MLPGMMWeighted(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
     else:
         gmm_approx = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
-    optimizer_ref = optim.Adam(gmm_approx.parameters(), lr=0.001)
+    optimizer_ref = optim.Adam(gmm_approx.parameters(), lr=learning_rates)
 
     # Initialize input
     n_datapoints = 6000
@@ -112,11 +120,6 @@ if __name__ == '__main__':
     n_mb = int(n_datapoints / mb_size)
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
-
-    # Train parameters
-    epochs = 4
-    epochs_low_e = 1
-    epochs_high_e = 1
 
     # Fit gmm_approx to output normal distributio
     for epoch in range(epochs):
@@ -166,7 +169,7 @@ if __name__ == '__main__':
     Measure change for low entropy target distribution
     #
     '''
-    optimizer_low = optim.Adam(gmm_approx_low_e.parameters(), lr=0.001)
+    optimizer_low = optim.Adam(gmm_approx_low_e.parameters(), lr=learning_rates)
     means_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_e_target = torch.tensor([], dtype=torch.float64, device=device)
@@ -213,7 +216,7 @@ if __name__ == '__main__':
     '''
     Measure change for high entropy target distribution
     '''
-    optimizer_high = optim.Adam(gmm_approx_high_e.parameters(), lr=0.001)
+    optimizer_high = optim.Adam(gmm_approx_high_e.parameters(), lr=learning_rates)
     means_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_e_target = torch.tensor([], dtype=torch.float64, device=device)

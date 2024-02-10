@@ -5,7 +5,7 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_from_pdf, cramer_torch, approx_integral_bounds, get_double_q_selections, \
+from dsacv02.tools import cramer_torch, approx_integral_bounds, get_double_q_selections, \
      get_partial_double_q_selections
 
 
@@ -295,7 +295,7 @@ class RealDSAC:
                 self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
                                 exp=exp, sample=False, reparameterize=True)
 
-            means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights_selected_min, \
+            means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights, \
                 kweights_next_selected_min = get_double_q_selections(means1=means1, means2=means2,
                                                                      means1_next=means1_next,
                                                                      means2_next=means2_next, stds1=stds1, stds2=stds2,
@@ -305,7 +305,7 @@ class RealDSAC:
                                                                      kweights2_next=kweights2_next)
 
             # Calculate current distribution
-            zcal = self.generate_gmm_distr(means_min, stds_selected_min, kweights_selected_min)
+            zcal = self.generate_gmm_distr(means_min, stds_selected_min, kweights)
             z = zcal.rsample(sample_shape=batch.shape[0])
 
             # Calculate target distribution
@@ -325,7 +325,7 @@ class RealDSAC:
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
-            z, zcal, means, stds, kernel_weights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
+            z, zcal, means, stds, kweights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
                                                                    exp=exp, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
@@ -341,9 +341,9 @@ class RealDSAC:
 
         # Calculate loss with batch-sensitive Cràmer distance on PDFs
         q_loss = cramer_torch(pdf_target=zcal_next, pdf_curr=zcal, int_l=int_bound_low, int_u=int_bound_up,
-                              spacing=1e-3, dev=self.device)
+                              spacing=1e-2, dev=self.device)
 
-        return q_loss.mean(), means.mean(), stds.mean(), kernel_weights[:, 0].mean(), kernel_weights[:, 1].mean()
+        return q_loss.mean(), means.mean(), stds.mean(), kweights
 
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
@@ -383,8 +383,9 @@ class RealDSAC:
             stds_selected_min = stds_selected_min.detach()
             kweights_selected_min = kweights_selected_min.detach()
 
+        gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
+
         # Not calculated according to Z! If Z, reparameterization is needed
-        gmm_mean = means_min.mean(dim=1)
         gmm_mean.unsqueeze_(dim=1)
 
         policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
@@ -425,8 +426,8 @@ class RealDSAC:
         self.q2_optimizer.zero_grad()
 
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, mean_q, std_mean, k1_mean, k2_mean = self.compute_z_loss(batch=batch, double_q=False,
-                                                                         integral_bound_factor=5, exp=False)
+        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=False,
+                                                                    integral_bound_factor=4, exp=False)
         loss_q.backward()
 
         loss_policy, entropy = None, None
@@ -451,18 +452,18 @@ class RealDSAC:
         tb_info = {
             "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
             "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
-            "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": k1_mean.detach().item(),
-            "DSAC2_CrDistr/gmm_critic_avg_k2_weight iter": k2_mean.detach().item(),
             "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
-            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act[:, 0].mean().detach().item(),
-            "DSAC2_ActDistr/gmm_actor_avg_k2_weight iter": kweights_act[:, 1].mean().detach().item(),
             "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
             "DSAC2_Alpha/alpha-RL iter": self.get_alpha(requires_grad=False),
             tb_tags["loss_actor"]: loss_policy.detach().item(),
             tb_tags["loss_critic"]: loss_q.detach().item(),
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
         }
+
+        for i in range(self.n_kernels):
+            tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = kweights_act[:, i].mean().detach().item()
+            tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = kweights_cr[:, i].mean().detach().item()
 
         return tb_info
 
