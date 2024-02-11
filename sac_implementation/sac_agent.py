@@ -19,8 +19,11 @@ class Agent:
         self.batch_size = batch_size
         self.n_actions = n_actions
 
+        # self.actor = ActorNetwork(alpha, input_dims, n_actions=n_actions, name='actor',
+        #                           max_actions=env.action_space.high, fc1_dims=layer1_size, fc2_dims=layer2_size)
         self.actor = ActorNetwork(alpha, input_dims, n_actions=n_actions, name='actor',
-                                  max_actions=env.action_space.high, fc1_dims=layer1_size, fc2_dims=layer2_size)
+                                  max_actions=1, fc1_dims=layer1_size, fc2_dims=layer2_size)
+
         self.critic_1 = CriticNetwork(beta, input_dims, n_actions=n_actions, name='critic_1', fc1_dims=layer1_size,
                                       fc2_dims=layer2_size)
         self.critic_2 = CriticNetwork(beta, input_dims, n_actions=n_actions, name='critic_2', fc1_dims=layer1_size,
@@ -44,7 +47,7 @@ class Agent:
 
     def choose_action(self, observation):
         state = T.tensor([observation]).to(self.actor.device)
-        actions, _ , _ = self.actor.sample_normal(state, reparametrize=False)
+        actions, _, _ = self.actor.sample_normal(state, reparametrize=False)
 
         # Send it to CPU, detach from graph, turn into np.ndarray and take zeroth element
         return actions.cpu().detach().numpy()[0]

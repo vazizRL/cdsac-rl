@@ -45,7 +45,7 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
     cramer = cramer.sum(dim=0)
 
-    return cramer**0.5
+    return cramer
 
 
 def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor, stds_curr: torch.tensor,

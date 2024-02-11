@@ -18,10 +18,15 @@ if __name__ == '__main__':
     load_checkpoint = False
     render = False
     if load_checkpoint and render:
-        env = gym.make('Pendulum-v1', render_mode='human')
+        # env = gym.make('Pendulum-v1', render_mode='human')
+        env = gym.make('CartPole-v1', render_mode='human')
+
     else:
-        env = gym.make('Pendulum-v1')
-    agent = Agent(input_dims=env.observation_space.shape, env=env, n_actions=env.action_space.shape[0],
+        # env = gym.make('Pendulum-v1')
+        env = gym.make('CartPole-v1')
+    # agent = Agent(input_dims=env.observation_space.shape, env=env, n_actions=env.action_space.shape[0],
+    #               layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006)
+    agent = Agent(input_dims=(4,), env=env, n_actions=1,
                   layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006)
 
     iter_tot = 0
@@ -44,7 +49,8 @@ if __name__ == '__main__':
         interval_score = 0
         while not done:
             action = agent.choose_action(observation)
-            action = action.astype(np.float64)
+            action = np.asarray(0, dtype=np.int16) if action <= 0 else np.asarray(1, dtype=np.int16)
+            # action = action.astype(np.float64)
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.astype(np.float64)
             score += reward
@@ -61,10 +67,12 @@ if __name__ == '__main__':
                 env.render()
             if not load_checkpoint:
                 tb_info = agent.learn()
-                tb_writer.add_scalar('Reward', reward, iter_tot)
+                # tb_writer.add_scalar('Reward', reward, iter_tot)
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, iter_tot)
             observation = observation_
+        if not load_checkpoint:
+            tb_writer.add_scalar('Reward_per_Epsiode', score, iter_tot)
 
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])

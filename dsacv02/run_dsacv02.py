@@ -7,20 +7,21 @@ from datetime import datetime
 
 
 """ Environment constants"""
-gym_env = 'Pendulum-v1'
+# gym_env = 'Pendulum-v1'
+gym_env = 'CartPole-v1'
 DEVICE = 'cuda:0'
 
 """ Agent constants """
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
-OBSERVATION_DIM = 3
+OBSERVATION_DIM = 4
 N_KERNELS = 1
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 1e-4  # 1e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5  # 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 0.1
+CR_MIN_STD, CR_MAX_STD = 0.01, 10.0
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
 # Hidden Layers
 CR_HL = (64, 64)
@@ -29,8 +30,8 @@ ACT_HL = (64, 64)
 CR_ACTIV = ('gelu', 'gelu')
 ACT_ACTIV = ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -2.0
-ACTION_HIGH = 2.0
+ACTION_LOW = -1.0
+ACTION_HIGH = 1.0
 # RL parameters
 BATCH_SIZE = 32
 T_MAX = 500           # Old 20000
@@ -76,7 +77,7 @@ if __name__ == '__main__':
                   memory_size=MEM_SIZE, device=DEVICE)
 
     n_tot_steps = 0
-    n_games = 250
+    n_games = 250000
     episode_end = 500
     backup_info_interval = 100
 
@@ -92,11 +93,13 @@ if __name__ == '__main__':
         interval_reward = 0
         while not done:
             action, prob_action = agent.choose_action(observation)
+            action = 0 if action <= 0 else 1
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > episode_end:
-                done = True
+                # done = True
+                pass
             if n_tot_steps % backup_info_interval == 0:
                 print(f'Reward for {backup_info_interval}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
@@ -110,10 +113,13 @@ if __name__ == '__main__':
             episode_iter += 1
 
             tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=n_tot_steps)
-            tb_writer.add_scalar('Reward', reward, n_tot_steps)
+            # tb_writer.add_scalar('Reward', reward, n_tot_steps)
             for key, value in tb_info.items():
                 tb_writer.add_scalar(key, value, n_tot_steps)
             observation = observation_
+
+        tb_writer.add_scalar('Reward', score, n_tot_steps)
+
         print(f'@Iter: {n_tot_steps}')
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])
