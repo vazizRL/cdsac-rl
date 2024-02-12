@@ -2,7 +2,6 @@
 Testing effect of updating with high-entrpoy vs. low-entropy target
 """
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import torch.distributions as distr
 import os
@@ -46,10 +45,8 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
 
     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
 
-    # return cramer**0.5
-    # return torch.log(cramer)
-    # return cramer
-    return cramer**2
+    return cramer**0.5
+
 
 def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tensor):
     # Test mysterious symmetry
