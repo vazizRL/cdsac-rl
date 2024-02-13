@@ -120,7 +120,7 @@ if __name__ == '__main__':
     '''
     gmm_approx_tar = deepcopy(gmm_approx_ref)
     optimizer_tar = optim.Adam(gmm_approx_tar.parameters(), lr=0.001)
-    kl_loss = torch.tensor([], dtype=torch.float64, device=device)
+    kl_loss_tar = torch.tensor([], dtype=torch.float64, device=device)
     for i in range(episodes_tar):
         for batch in batches:
             gmm_means_tar, gmm_stds_tar, gmm_kweights_tar = gmm_approx_tar(batch)
@@ -136,7 +136,7 @@ if __name__ == '__main__':
             # Optimize
             optimizer_tar.zero_grad()
             loss_batch_tar_mean = loss_batch_tar.mean()
-            kl_loss = torch.cat((kl_loss, loss_batch_tar_mean.unsqueeze(dim=0)), dim=0)
+            kl_loss_tar = torch.cat((kl_loss_tar, loss_batch_tar_mean.unsqueeze(dim=0)), dim=0)
             loss_batch_tar_mean.backward()
             optimizer_tar.step()
         print(f'Episode tar: {i+1} finished')
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     torch.save(cdf_ref.detach(), save_path + '/' + 'cdf_ref')
     torch.save(cdf_tar.detach(), save_path + '/' + 'cdf_tar')
     torch.save(cdf_gmm_pred_tar.detach(), save_path + '/' + 'cdf_gmm_pred_tar')
-    torch.save(kl_loss.detach(), save_path + '/' + 'kl_loss')
+    torch.save(kl_loss_tar.detach(), save_path + '/' + 'kl_loss')
 
     # Save target approximator means, stds, kweights
     # torch.save()
