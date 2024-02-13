@@ -126,7 +126,7 @@ class ActorNetwork(nn.Module):
         sigma = self.sigma(prob)
 
         # Clamp std to prevent extreme values for actions
-        sigma = T.clamp(sigma, min=self.epsilon_stability, max=10)
+        sigma = T.clamp(sigma, min=self.epsilon_stability, max=1)
 
         return mu, sigma
 

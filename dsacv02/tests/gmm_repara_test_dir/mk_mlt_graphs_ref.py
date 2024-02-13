@@ -7,7 +7,7 @@ curr_path = os.getcwd()
 mod2 = True
 # sub_dir = '/Learnable_Weights'
 sub_dir = 'Gauss_Ref'
-dir_name = 'Test_GaussRef_mod1_max_std_10_B'
+dir_name = 'Test_GaussRef_mod1_maxstd_10_diff_std_B'
 loading_path = curr_path + '/' + sub_dir + '/' + dir_name
 
 '''

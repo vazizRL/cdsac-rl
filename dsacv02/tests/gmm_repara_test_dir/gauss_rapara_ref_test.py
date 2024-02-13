@@ -55,7 +55,7 @@ if __name__ == '__main__':
 
     # Train parameters
     episodes_ref = 4
-    episodes_tar = 9
+    episodes_tar = 15
 
     n_datapoints = 6000
     mb_size = 10
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     input_total = torch.randn(size=(n_datapoints, 1), dtype=torch.float64).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
 
-    gauss_approx_ref = ActorNetwork(alpha=0.001, input_dims=(1,), max_actions=20, fc1_dims=10, fc2_dims=10, n_actions=1,
+    gauss_approx_ref = ActorNetwork(alpha=0.001, input_dims=(1,), max_actions=30, fc1_dims=10, fc2_dims=10, n_actions=1,
                                     name='actor', checkpoint_dir='dummy_name')
 
     # Reference distribution
@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
     # Target distribution
     mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([6.0], dtype=torch.float64)).to(device)
-    std_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([3.0], dtype=torch.float64)).to(device)
+    std_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([2.0], dtype=torch.float64)).to(device)
     distr_tar = generate_gauss(locs=mean_tar, scales=std_tar)
 
     '''
