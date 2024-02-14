@@ -89,7 +89,7 @@ if __name__ == '__main__':
     distr_ref = generate_gmm(locs=mean_ref, scales=std_ref, kweights=kweight_ref)
 
     # Target distribution
-    mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([6.0, 6.0], dtype=torch.float64)).to(device)
+    mean_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([3.0, 10.0], dtype=torch.float64)).to(device)
     std_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([1.0, 1.0], dtype=torch.float64)).to(device)
     kweight_tar = (torch.ones(size=(mb_size, 1)) * torch.tensor([0.5, 0.5], dtype=torch.float64)).to(device)
     distr_tar = generate_gmm(locs=mean_tar, scales=std_tar, kweights=kweight_tar)
