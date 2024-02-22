@@ -6,7 +6,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 curr_path = os.getcwd()
 mod2 = True
 sub_dir = 'Tests'
-dir_name = 'VarStd_1.0-6.0_UltraDiff_Mod1_A'
+dir_name = 'VarStd_1.0-6.0_Mod1_NoisyQ_ini_r3'
 loading_path = curr_path + '/' + sub_dir + '/' + dir_name
 
 '''
