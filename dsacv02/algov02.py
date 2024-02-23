@@ -326,7 +326,7 @@ class RealDSAC:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
             z, zcal, means, stds, kweights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
-                                                                   exp=exp, sample=True, reparameterize=True)
+                                                             exp=exp, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
@@ -341,7 +341,7 @@ class RealDSAC:
 
         # Calculate loss with batch-sensitive Cràmer distance on PDFs
         q_loss = cramer_torch(pdf_target=zcal_next, pdf_curr=zcal, int_l=int_bound_low, int_u=int_bound_up,
-                              spacing=1e-2, dev=self.device)
+                              spacing=1e-3, dev=self.device)
 
         return q_loss.mean(), means.mean(), stds.mean(), kweights
 
@@ -379,8 +379,8 @@ class RealDSAC:
                 self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1, sample=False, exp=exp,
                                 reparameterize=False)
 
-            means_min = means_min.detach()
-            stds_selected_min = stds_selected_min.detach()
+            # means_min = means_min.detach()
+            means_min = means_min
             kweights_selected_min = kweights_selected_min.detach()
 
         gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
