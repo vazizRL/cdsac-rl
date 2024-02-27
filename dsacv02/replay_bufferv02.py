@@ -76,10 +76,13 @@ class ReplayBuffer:
     def save_experiences(self, path_name: str):
         """
         - Saves the current state of the replay buffer as a np.ndarray
+        - Expand rewards and dones by one axis for homogeneity
         :param path_name: Path + name of the .np file; Note: Must end with '.np'
         """
-        experiences = (self.state_memory, self.action_memory, self.reward_memory, self.new_state_memory,
-                       self.terminal_memory)
+        reward_expanded = np.expand_dims(self.reward_memory, axis=1)
+        terminal_expanded = np.expand_dims(self.terminal_memory, axis=1)
+        experiences = (self.state_memory, self.action_memory, reward_expanded, self.new_state_memory,
+                       terminal_expanded)
         experiences = np.asarray(experiences, dtype=np.float64)
         np.save(path_name, experiences)
 
@@ -109,7 +112,28 @@ class ReplayBuffer:
 
 
 if __name__ == '__main__':
-    replay = ReplayBuffer(100000, obs_shape=(2, 2), n_actions=3)
+    import os
+    curr_dir = os.getcwd()
+    file_name = 'Replay_Buffer_Test.npy'
+    replay = ReplayBuffer(max_size=100, obs_shape=(1,), n_actions=1)
+    states = np.array([0, 1])
+    actions = np.array([-0.5, 0.5])
+    rewards = np.array([-1, 0])
+    states_new = np.array([3, 3])
+    dones = np.array([0, 0])
+
+    # Must be stored individually
+    replay.store_transition(states[0], actions[0], rewards[0], states_new[0], dones[0])
+    replay.store_transition(states[1], actions[1], rewards[1], states_new[1], dones[1])
+
+    # Save replay
+    complete_path = curr_dir + '/' + file_name
+    replay.save_experiences(complete_path)
+
+    # Load replay
+    replay_new = ReplayBuffer(max_size=10, obs_shape=(1,), n_actions=1)
+    replay_new.load_experiences(complete_path)
+
     replay.__get_RAM__()
 
 
