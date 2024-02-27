@@ -85,11 +85,12 @@ class ReplayBuffer:
 
         return 0
 
-    def load_experiences(self, replay_experiences):
+    def load_experiences(self, replay_experiences_path):
         """
         - Load all (s,a,r,s',d)
-        :param replay_experiences: All tuples accumulated in one .npy file
+        :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
+        replay_experiences = np.load(replay_experiences_path)
         states, actions, rewards, states_, dones = replay_experiences
         self.mem_cntr = states.shape[0]
         self.state_memory = states

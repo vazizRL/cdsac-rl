@@ -58,6 +58,7 @@ class Agent:
         self.gamma = gamma
         self.update_interval = update_interval
         self.auto_alpha = auto_alpha
+        self.log_alpha_ini = log_alpha_ini
         self.static_alpha = static_alpha
         self.mem_size = memory_size
         self.device = device
@@ -149,17 +150,19 @@ class Agent:
 
         return actions_bounded.cpu().detach().numpy(), probs_bounded.cpu().detach().numpy()
 
-    def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str):
+    def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str):
         """
-        - Saves: Networks, optimizers and agent meta-parameters
+        - Saves: Networks, optimizers, agent meta-parameters and experiences in replay buffer
         :param iter_n: Global iteration number at which the saving is performed
         :param path: Directory in which checkpoint is saved
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
+        :param replay_txt_name: Name for numpy file storing experiences
         """
         print('Saving checkpoint...')
         complete_tar_file = path + tar_name
         complete_txt_file = path + txt_name
+        complete_npy_file = path + replay_txt_name
         # Save network and optimizer parameters
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
         torch.save({
@@ -185,7 +188,7 @@ class Agent:
         # Save non-Pytorch parameters
         agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale,
                            self.gamma,
-                           self.update_interval, self.auto_alpha, self.mem_size, self.device)
+                           self.update_interval, self.auto_alpha, self.log_alpha_ini, self.mem_size, self.device)
         actor_class_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()
         learning_rates = self.dsac.get_lr_info()
@@ -198,10 +201,23 @@ class Agent:
             file.write('\n')
             file.write(str(learning_rates))
 
-    def load_checkpoint(self, path, tar_name: str, txt_name: str):
+        # Save Replay Experiences
+        self.memory.save_experiences(complete_npy_file)
+
+    def load_checkpoint(self, path, tar_name: str, txt_name: str, replay_txt_name: str, load_experience: bool):
+        """
+        - Loads: Network, optimizers, agent meta-parameters and experiences in replay buffer
+        :param path: Directory containing files
+        :param tar_name: Checkpoint file name, saved as .tar
+        :param txt_name: Agent meta-parameters file name, saved as .txt
+        :param replay_txt_name: Name for numpy file storing experiences
+        :param load_experience: Whether experience from old replay buffer is used
+        :return:
+        """
         # Load files
         complete_checkpoint = path + tar_name
         complete_meta_data = path + txt_name
+        complete_npy_file = path + replay_txt_name
         checkpoint = torch.load(complete_checkpoint)
         labels = ('agent_params', 'actor_params', 'critic_params', 'learning_rates')
         data = dict()
@@ -216,23 +232,29 @@ class Agent:
         log_alpha_optim_state_dict = checkpoint['log_alpha_optim_state_dict']
 
         # Agent meta-parameters and update attributes
-        batch_size, t_max, tau, static_alpha, reward_scale, gamma, update_interval, auto_alpha = data['agent_params']
+        batch_size, t_max, tau, static_alpha, reward_scale, gamma, update_interval, auto_alpha, log_alpha_ini, \
+            mem_size, device = data['agent_params']
         # Actor meta-parameters
-        state_dim, action_dim, act_hl, act_activation, act_min_log_std, act_max_log_std, action_low, action_high \
-            = data['actor_params']
+        state_dim, action_dim, act_hl, act_n_kernels, act_activation, act_min_std, act_max_std, action_low,\
+            action_high, act_learnable_weights, device = data['actor_params']
         # Critic meta-parameters
-        state_dim, action_dim, cr_hl, cr_activation, cr_min_log_std, cr_max_log_std = data['critic_params']
+        state_dim, action_dim, cr_hl, cr_n_kernels, cr_activation, cr_min_std, cr_max_std, cr_learnable_weights, \
+            device = data['critic_params']
         # Learning rates
         cr_lr_ini, cr_lr_fin, act_lr_ini, act_lr_fin, alpha_lr_ini, alpha_lr_fin = data['learning_rates']
 
-        self.__init__(obs_dim=state_dim, action_dim=action_dim, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+        # Note actor and critic have same n_kernels, therefore, only the one for act is used
+        self.__init__(obs_dim=state_dim, action_dim=action_dim, n_kernels=act_n_kernels,
+                      learnable_kweights=act_learnable_weights,
+                      cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                       act_lr_ini=act_lr_ini, act_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
-                      alpha_lr_fin=alpha_lr_fin, cr_min_log_std=cr_min_log_std, cr_max_log_std=cr_max_log_std,
-                      cr_hl=cr_hl, cr_activ=cr_activation, act_min_log_std=act_min_log_std,
-                      act_max_log_std=act_max_log_std, act_hl=act_hl, act_activ=act_activation,
-                      action_low=action_low, action_up=action_high, batch_size=batch_size, t_max=t_max, tau=tau,
-                      alpha=static_alpha, reward_scale=reward_scale, gamma=gamma,
-                      update_interval=update_interval, auto_alpha=auto_alpha)
+                      alpha_lr_fin=alpha_lr_fin, value_min_std=cr_min_std, value_max_std=cr_max_std,
+                      cr_hl=cr_hl, cr_activ=cr_activation, act_min_std=act_min_std, act_max_std=act_max_std,
+                      act_hl=act_hl, act_activ=act_activation, action_low=action_low, action_up=action_high,
+                      batch_size=batch_size, t_max=t_max, tau=tau, static_alpha=static_alpha, reward_scale=reward_scale,
+                      gamma=gamma, update_interval=update_interval,
+                      auto_alpha=auto_alpha, log_alpha_ini=log_alpha_ini, memory_size=mem_size, device=device
+                      )
 
         # Load network, tensor params and learning rate schedule
         self.policy.load_state_dict(checkpoint['policy_state_dict'])
@@ -255,10 +277,10 @@ class Agent:
         self.dsac.policy_optimizer.load_state_dict(policy_optim_state_dict)
         self.dsac.alpha_optimizer.load_state_dict(log_alpha_optim_state_dict)
 
-        self.dsac.q1_lrs.load_state_dict(checkpoint['cr1_optim_state_dict'])
-        self.dsac.q2_lrs.load_state_dict(checkpoint['cr2_optim_state_dict'])
-        self.dsac.pol_lrs.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
-        self.dsac.alpha_lrs.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
+        self.dsac.q1_lr_schedule.load_state_dict(checkpoint['cr1_optim_state_dict'])
+        self.dsac.q2_lr_schedule.load_state_dict(checkpoint['cr2_optim_state_dict'])
+        self.dsac.pol_lr_schedule.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
+        self.dsac.alpha_lr_schedule.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
 
         self.dsac.log_alpha = self.log_alpha
 
