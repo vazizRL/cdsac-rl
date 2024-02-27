@@ -59,6 +59,8 @@ class Agent:
         self.update_interval = update_interval
         self.auto_alpha = auto_alpha
         self.static_alpha = static_alpha
+        self.mem_size = memory_size
+        self.device = device
         self.agent_params = (self.t_max, self.tau, self.reward_scale, self.gamma, self.update_interval,
                              self.auto_alpha, self.static_alpha)
 
@@ -180,17 +182,17 @@ class Agent:
             },
             complete_tar_file
         )
-        # Save training and algorithm data
-        agent_meta_data = (self.batch_size, self.n_kernels, self.t_max, self.tau, self.static_alpha, self.reward_scale,
+        # Save non-Pytorch parameters
+        agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale,
                            self.gamma,
-                           self.update_interval, self.auto_alpha)
-        actor_meta_params = self.policy.get_class_info()
+                           self.update_interval, self.auto_alpha, self.mem_size, self.device)
+        actor_class_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()
         learning_rates = self.dsac.get_lr_info()
         with open(complete_txt_file, 'w') as file:
             file.write(str(agent_meta_data))
             file.write('\n')
-            file.write(str(actor_meta_params))
+            file.write(str(actor_class_params))
             file.write('\n')
             file.write(str(critic_class_params))
             file.write('\n')

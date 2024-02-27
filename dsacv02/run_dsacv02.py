@@ -6,12 +6,12 @@ from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 
-""" Environment constants"""
+''' Environment constants '''
 # gym_env = 'Pendulum-v1'
 gym_env = 'CartPole-v1'
 DEVICE = 'cuda:0'
 
-""" Agent constants """
+''' Agent constants '''
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
@@ -35,7 +35,7 @@ ACTION_HIGH = 1.0
 # RL parameters
 BATCH_SIZE = 32
 T_MAX = 500           # Old 20000
-TAU = 0.01
+TAU = 0.1
 STATIC_ALPHA = 1        # Old 0.2
 REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
@@ -51,10 +51,21 @@ if EXPONENTIATE:
     CR_MIN_STD, CR_MAX_STD = e ** CR_MIN_STD, e ** CR_MAX_STD
     ACT_MIN_STD, ACT_MAX_STD = e ** ACT_MIN_STD, e ** ACT_MAX_STD
 
-# Saving options
+'''
+Saving options
+'''
 curr_dir = os.getcwd() + '/'
 ckpt_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
+
+'''
+Training Parameters
+'''
+N_TOT_STEPS = 0
+MAX_ITER = 15000
+N_GAMES = 250000
+EPISODE_END = 500
+BACKUP_INFO_INTERVAL = 100
 
 # Instantiate tb
 dt = datetime.now()
@@ -76,15 +87,10 @@ if __name__ == '__main__':
                   update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA,
                   memory_size=MEM_SIZE, device=DEVICE)
 
-    n_tot_steps = 0
-    n_games = 250000
-    episode_end = 500
-    backup_info_interval = 100
-
     best_score = env.reward_range[0]
     score_history = []
 
-    for i in range(n_games):
+    for i in range(N_GAMES):
         episode_iter = 0
         observation, _ = env.reset()
         observation = np.expand_dims(observation, axis=0)
@@ -97,11 +103,11 @@ if __name__ == '__main__':
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
-            if episode_iter > episode_end:
+            if episode_iter > EPISODE_END:
                 # done = True
                 pass
-            if n_tot_steps % backup_info_interval == 0:
-                print(f'Reward for {backup_info_interval}-interval: {interval_reward}; with action: {action};' + \
+            if N_TOT_STEPS % BACKUP_INFO_INTERVAL == 0:
+                print(f'Reward for {BACKUP_INFO_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
                 interval_reward = 0
             interval_reward += reward
@@ -109,18 +115,17 @@ if __name__ == '__main__':
             reward = np.asarray(reward)
             done = np.asarray(done)
             agent.save_experience_tupel(observation, action, reward, observation_, done)
-            n_tot_steps += 1
+            N_TOT_STEPS += 1
             episode_iter += 1
 
-            tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=n_tot_steps)
+            tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
             # tb_writer.add_scalar('Reward', reward, n_tot_steps)
             for key, value in tb_info.items():
-                tb_writer.add_scalar(key, value, n_tot_steps)
+                tb_writer.add_scalar(key, value, N_TOT_STEPS)
             observation = observation_
 
-        tb_writer.add_scalar('Reward', score, n_tot_steps)
-
-        print(f'@Iter: {n_tot_steps}')
+        tb_writer.add_scalar('Reward', score, N_TOT_STEPS)
+        print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])
 
@@ -128,6 +133,12 @@ if __name__ == '__main__':
         best_score = avg_score
 
         print('episode', i, ', score %.1f' % score, ', avg_score %.1f' % avg_score)
+
+        if N_TOT_STEPS >= MAX_ITER:
+            break
+
+
+
 
 
 
