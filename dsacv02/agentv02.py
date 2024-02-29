@@ -160,9 +160,9 @@ class Agent:
         :param replay_txt_name: Name for numpy file storing experiences
         """
         print('Saving checkpoint...')
-        complete_tar_file = path + tar_name
-        complete_txt_file = path + txt_name
-        complete_npy_file = path + replay_txt_name
+        complete_tar_file = path + '/' + tar_name
+        complete_txt_file = path + '/' + txt_name
+        complete_npy_file = path + '/' + replay_txt_name
         # Save network and optimizer parameters
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
         torch.save({

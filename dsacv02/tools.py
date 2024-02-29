@@ -2,7 +2,9 @@
 Collections of tools to be sused in Z-DSAC
 """
 import torch
+import numpy as np
 from scipy import integrate
+from typing import List
 
 
 def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100)):
@@ -170,6 +172,48 @@ def calc_size_co_matrix(n_actions: int):
     """
     n_actions = torch.as_tensor(n_actions)
     return n_actions + torch.floor(0.5 * (n_actions ** 2 - n_actions))
+
+
+def smoothing(scalars, weight, last=0, iter=0):
+    """
+    EMA implementation according to tensorboard
+    https://github.com/tensorflow/tensorboard/blob/34877f15153e1a2087316b9952c931807a122aa7/tensorboard/components/
+    vz_line_chart2/line-chart.ts#L699
+    """
+    smoothed = []
+    for next_val in scalars:
+        last = last * weight + (np.array(1, dtype=np.float64) - weight) * next_val
+        iter += 1
+        # de-bias
+        debias_weight = np.array(1.0, dtype=np.float64)
+        if weight != 1:
+            debias_weight = 1 - np.power(weight, iter)
+        smoothed_val = last / debias_weight
+        smoothed.append(smoothed_val)
+
+    return smoothed, iter, last
+
+
+def smooth_ref(scalars, weight):
+    """
+    EMA implementation according to tensorboard
+    https://github.com/tensorflow/tensorboard/blob/34877f15153e1a2087316b9952c931807a122aa7/tensorboard/components/
+    vz_line_chart2/line-chart.ts#L699
+    """
+    last = 0
+    smoothed = []
+    num_acc = 0
+    for next_val in scalars:
+        last = last * weight + (np.array(1, dtype=np.float64) - weight) * next_val
+        num_acc += 1
+        # de-bias
+        debias_weight = np.array(1.0, dtype=np.float64)
+        if weight != 1:
+            debias_weight = 1 - np.power(weight, num_acc)
+        smoothed_val = last / debias_weight
+        smoothed.append(smoothed_val)
+
+    return smoothed
 
 
 if __name__ == '__main__':

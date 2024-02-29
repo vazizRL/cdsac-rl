@@ -4,6 +4,7 @@ import os
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from tools import smoothing
 
 
 ''' Environment constants '''
@@ -17,8 +18,8 @@ ACTION_DIM = 1
 OBSERVATION_DIM = 4
 N_KERNELS = 1
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 1e-4  # 1e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5  # 1e-5
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 1e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 10.0
@@ -55,8 +56,9 @@ if EXPONENTIATE:
 Saving options
 '''
 curr_dir = os.getcwd() + '/'
-ckpt_name = 'best_performance.tar'
+tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
+replay_name = 'replay_buffer.npy'
 
 '''
 Training Parameters
@@ -65,7 +67,7 @@ N_TOT_STEPS = 0
 MAX_ITER = 15000
 N_GAMES = 250000
 EPISODE_END = 500
-BACKUP_INFO_INTERVAL = 100
+CHK_PROGRESS_INTERVAL = 100
 
 # Instantiate tb
 dt = datetime.now()
@@ -90,12 +92,18 @@ if __name__ == '__main__':
     best_score = env.reward_range[0]
     score_history = []
 
+    # Reward smoothing variables
+    smoothing_weight = 0.85
+    smooth_reward_last = 0
+    smooth_reward_iter_n = 0
+    smoothed_total = list()
+
     for i in range(N_GAMES):
         episode_iter = 0
         observation, _ = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
-        score = 0
+        reward_episode = 0
         interval_reward = 0
         while not done:
             action, prob_action = agent.choose_action(observation)
@@ -106,12 +114,12 @@ if __name__ == '__main__':
             if episode_iter > EPISODE_END:
                 # done = True
                 pass
-            if N_TOT_STEPS % BACKUP_INFO_INTERVAL == 0:
-                print(f'Reward for {BACKUP_INFO_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
+            if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
+                print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
                 interval_reward = 0
             interval_reward += reward
-            score += reward
+            reward_episode += reward
             reward = np.asarray(reward)
             done = np.asarray(done)
             agent.save_experience_tupel(observation, action, reward, observation_, done)
@@ -119,20 +127,26 @@ if __name__ == '__main__':
             episode_iter += 1
 
             tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
-            # tb_writer.add_scalar('Reward', reward, n_tot_steps)
             for key, value in tb_info.items():
                 tb_writer.add_scalar(key, value, N_TOT_STEPS)
             observation = observation_
 
-        tb_writer.add_scalar('Reward', score, N_TOT_STEPS)
+        tb_writer.add_scalar('Reward', reward_episode, N_TOT_STEPS)
         print(f'@Iter: {N_TOT_STEPS}')
-        score_history.append(score)
-        avg_score = np.mean(score_history[-3:])
+        score_history.append(reward_episode)
 
-        # if avg_score > best_score:
-        best_score = avg_score
+        batch_sm, smooth_reward_iter_n, smooth_reward_last = \
+            smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
+                      last=smooth_reward_last)
+        smoothed_total.append(batch_sm)
 
-        print('episode', i, ', score %.1f' % score, ', avg_score %.1f' % avg_score)
+        smoothed_last_epi = smoothed_total[-1][-1]
+        if smoothed_last_epi > best_score:
+            best_score = smoothed_last_epi
+            agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
+                                  replay_txt_name=replay_name)
+
+        print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f' % best_score)
 
         if N_TOT_STEPS >= MAX_ITER:
             break
