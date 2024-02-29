@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 import sys
 
 
@@ -77,14 +78,12 @@ class ReplayBuffer:
         """
         - Saves the current state of the replay buffer as a np.ndarray
         - Expand rewards and dones by one axis for homogeneity
-        :param path_name: Path + name of the .np file; Note: Must end with '.np'
+        :param path_name: Path + name of the .np file; Note: Must end with '.pkl'?
         """
-        reward_expanded = np.expand_dims(self.reward_memory, axis=1)
-        terminal_expanded = np.expand_dims(self.terminal_memory, axis=1)
-        experiences = (self.state_memory, self.action_memory, reward_expanded, self.new_state_memory,
-                       terminal_expanded)
-        experiences = np.asarray(experiences, dtype=np.float64)
-        np.save(path_name, experiences)
+        experiences = (self.state_memory, self.action_memory, self.reward_memory, self.new_state_memory,
+                       self.terminal_memory)
+        with open(path_name, mode='wb') as file:
+            pickle.dump(experiences, file)
 
         return 0
 
@@ -93,9 +92,10 @@ class ReplayBuffer:
         - Load all (s,a,r,s',d)
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
-        replay_experiences = np.load(replay_experiences_path)
-        states, actions, rewards, states_, dones = replay_experiences
-        self.mem_cntr = states.shape[0]
+        with open(replay_experiences_path, mode='rb') as file:
+            experiences = pickle.load(file)
+        states, actions, rewards, states_, dones = experiences
+        self.mem_cntr = int(states.shape[0] / 2)
         self.state_memory = states
         self.action_memory = actions
         self.reward_memory = rewards

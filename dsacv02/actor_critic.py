@@ -106,7 +106,8 @@ class Actor(nn.Module):
 
     def get_class_info(self):
         return self.state_dim, self.action_dim, self.hidden_layers, self.n_kernels, self.activation, \
-               self.min_std, self.max_std, self.action_low_lim, self.action_up_lim, self.learnable_weights, self.device
+               self.min_std, self.max_std, self.action_low_lim.item(), self.action_up_lim.item(), \
+               self.learnable_weights, self.device
 
     def forward(self, obs, exp=False):
         """

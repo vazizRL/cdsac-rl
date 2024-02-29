@@ -36,7 +36,7 @@ ACTION_HIGH = 1.0
 # RL parameters
 BATCH_SIZE = 32
 T_MAX = 500           # Old 20000
-TAU = 0.1
+TAU = 1.0
 STATIC_ALPHA = 1        # Old 0.2
 REWARD_SCALE = 2        # Old 0.2
 GAMMA = 0.99
@@ -45,6 +45,15 @@ AUTO_ALPHA = False
 ALPHA_INI = 0.1      # Old 1
 MEM_SIZE = 1e5         # 1e5
 N_POL_UPDATE_INTERVAL = 1
+
+'''
+Training Parameters
+'''
+N_TOT_STEPS = 0
+MAX_TOTAL_ITER = 15000
+N_GAMES = 250000
+MAX_EPISODE_ITER = 500
+CHK_PROGRESS_INTERVAL = 100
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:
@@ -58,16 +67,7 @@ Saving options
 curr_dir = os.getcwd() + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
-replay_name = 'replay_buffer.npy'
-
-'''
-Training Parameters
-'''
-N_TOT_STEPS = 0
-MAX_ITER = 15000
-N_GAMES = 250000
-EPISODE_END = 500
-CHK_PROGRESS_INTERVAL = 100
+replay_name = 'replay_buffer.pkl'
 
 # Instantiate tb
 dt = datetime.now()
@@ -111,7 +111,7 @@ if __name__ == '__main__':
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
-            if episode_iter > EPISODE_END:
+            if episode_iter > MAX_EPISODE_ITER:
                 # done = True
                 pass
             if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
@@ -146,9 +146,9 @@ if __name__ == '__main__':
             agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                   replay_txt_name=replay_name)
 
-        print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f' % best_score)
+        print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f' % smoothed_last_epi)
 
-        if N_TOT_STEPS >= MAX_ITER:
+        if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
 
 
