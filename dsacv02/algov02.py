@@ -13,7 +13,8 @@ class RealDSAC:
     def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
                  static_alpha=0.2,
-                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels=1,
+                 reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels_act=1,
+                 n_kernels_cr=1,
                  device='cuda:0'):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
@@ -53,7 +54,8 @@ class RealDSAC:
         self.policy: nn.Module = policy
         self.policy_target: nn.Module = policy_target
 
-        self.n_kernels = n_kernels
+        self.n_kernels_act = n_kernels_act
+        self.n_kernels_cr = n_kernels_cr
 
         # Do not track gradients for target networks
         self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
@@ -190,7 +192,7 @@ class RealDSAC:
         stds.abs_()
         if kernel_weights is None:
             mb_size = actions.shape[0]
-            kernel_weights = torch.ones(mb_size, self.n_kernels) / self.n_kernels
+            kernel_weights = torch.ones(mb_size, self.n_kernels_cr) / self.n_kernels_cr
         gmm = self.generate_gmm_distr(means=means, stds=stds, kweights=kernel_weights, multivar=False)
 
         gmm_sample = None
@@ -380,8 +382,8 @@ class RealDSAC:
                                 reparameterize=False)
 
             # means_min = means_min.detach()
-            means_min = means_min
-            kweights_selected_min = kweights_selected_min.detach()
+            # means_min = means_min
+            # kweights_selected_min = kweights_selected_min.detach()
 
         gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
 
@@ -453,6 +455,7 @@ class RealDSAC:
             "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
             "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
             "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
+            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
             "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
             "DSAC2_Alpha/alpha-RL iter": self.get_alpha(requires_grad=False),
@@ -461,8 +464,10 @@ class RealDSAC:
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
         }
 
-        for i in range(self.n_kernels):
+        for i in range(self.n_kernels_act):
             tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = kweights_act[:, i].mean().detach().item()
+
+        for i in range(self.n_kernels_cr):
             tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = kweights_cr[:, i].mean().detach().item()
 
         return tb_info
@@ -520,23 +525,24 @@ class RealDSAC:
     def get_remote_update_info(self):
         raise NotImplementedError('The method "get_remote_update_info" is not implemented')
 
-    @staticmethod
-    def get_empty_tb_info():
+    def get_empty_tb_info(self):
         tb_info = {
             "DSAC2_Vals/gmm_critic_avg_value iter": 0,
             "DSAC2_CrDistr/gmm_critic_avg_std iter": 0,
-            "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": 0,
-            "DSAC2_CrDistr/gmm_critic_avg_k2_weight iter": 0,
             "DSAC2_Vals/gmm_actor_avg_action iter": 0,
             "DSAC2_ActDistr/gmm_actor_avg_std iter": 0,
-            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": 0,
-            "DSAC2_ActDistr/gmm_actor_avg_k2_weight iter": 0,
             "DSAC2_ActDistr/entropy-RL iter": 0,
             "DSAC2_Alpha/alpha-RL iter": 0,
             tb_tags["loss_actor"]: 0,
             tb_tags["loss_critic"]: 0,
             tb_tags["alg_time"]: 0,
         }
+
+        for i in range(self.n_kernels_act):
+            tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = 0
+
+        for i in range(self.n_kernels_cr):
+            tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = 0
 
         return tb_info
 

@@ -7,7 +7,7 @@ from copy import deepcopy
 
 
 class Agent:
-    def __init__(self, obs_dim, action_dim, n_kernels, learnable_kweights=True, cr_lr_ini=8e-5, cr_lr_fin=1e-6,
+    def __init__(self, obs_dim, action_dim, n_kernels_act, n_kernels_cr, learnable_kweights=True, cr_lr_ini=8e-5, cr_lr_fin=1e-6,
                  act_lr_ini=5e-5, act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
                  value_min_std=0, value_max_std=5,
                  cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
@@ -21,7 +21,8 @@ class Agent:
         :param obs_dim: Observation dimension
         :param action_dim: Vector with length |A|
         :param cr_lr_ini: Initial critic learning rate
-        :param n_kernels: Number of kernels in GMM
+        :param n_kernels_act: Number of kernels in GMM policy approximator
+        :param n_kernels_cr: Number of kernels in GMM critic approximator
         :param learnable_kweights: Whether the networks for value and policy have learnable kernel weights
         :param cr_lr_fin: Final critic learning rate after applying learning rate scheduler
         :param act_lr_ini: Initial Actor learning rate
@@ -50,7 +51,8 @@ class Agent:
         :param memory_size: Max. replay buffer size
         :param device: Device on which networks are running
         """
-        self.n_kernels = n_kernels
+        self.n_kernels_act = n_kernels_act
+        self.n_kernels_cr = n_kernels_cr
         self.batch_size = batch_size
         self.t_max = t_max
         self.tau = tau
@@ -67,16 +69,16 @@ class Agent:
 
         self.q1: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
                                     value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
+                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels_cr)
         self.q2: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
                                     value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
+                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels_cr)
         self.q1_target: nn.Module = deepcopy(self.q1)
         self.q2_target: nn.Module = deepcopy(self.q2)
         self.policy: nn.Module = Actor(state_dim=obs_dim, action_dim=action_dim, hidden_layers=act_hl,
                                        activation=act_activ, action_min_std=act_min_std, action_max_std=act_max_std,
                                        action_low_lim=action_low, action_up_lim=action_up, device=device,
-                                       learnable_weights=learnable_kweights, n_kernels=self.n_kernels)
+                                       learnable_weights=learnable_kweights, n_kernels=n_kernels_act)
         self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
@@ -86,7 +88,8 @@ class Agent:
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels=n_kernels,
+                             auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels_act=n_kernels_act,
+                             n_kernels_cr=n_kernels_cr,
                              device=device)
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
@@ -235,16 +238,16 @@ class Agent:
         batch_size, t_max, tau, static_alpha, reward_scale, gamma, update_interval, auto_alpha, log_alpha_ini, \
             mem_size, device = data['agent_params']
         # Actor meta-parameters
-        state_dim, action_dim, act_hl, act_n_kernels, act_activation, act_min_std, act_max_std, action_low,\
+        state_dim, action_dim, act_hl, n_kernels_act, act_activation, act_min_std, act_max_std, action_low,\
             action_high, act_learnable_weights, device = data['actor_params']
         # Critic meta-parameters
-        state_dim, action_dim, cr_hl, cr_n_kernels, cr_activation, cr_min_std, cr_max_std, cr_learnable_weights, \
+        state_dim, action_dim, cr_hl, n_kernels_cr, cr_activation, cr_min_std, cr_max_std, cr_learnable_weights, \
             device = data['critic_params']
         # Learning rates
         cr_lr_ini, cr_lr_fin, act_lr_ini, act_lr_fin, alpha_lr_ini, alpha_lr_fin = data['learning_rates']
 
         # Note actor and critic have same n_kernels, therefore, only the one for act is used
-        self.__init__(obs_dim=state_dim, action_dim=action_dim, n_kernels=act_n_kernels,
+        self.__init__(obs_dim=state_dim, action_dim=action_dim, n_kernels_act=n_kernels_act, n_kernels_cr=n_kernels_cr,
                       learnable_kweights=act_learnable_weights,
                       cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                       act_lr_ini=act_lr_ini, act_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
