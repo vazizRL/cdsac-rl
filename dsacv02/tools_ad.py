@@ -28,7 +28,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
     graph_names = ['DSAC2_ActDistr/entropy-RL iter', *kernel_names_act, 'DSAC2_ActDistr/gmm_actor_avg_std iter',
                    'DSAC2_Alpha/alpha-RL iter', *kernel_names_cr, 'DSAC2_CrDistr/gmm_critic_avg_std iter',
                    'DSAC2_Vals/gmm_actor_avg_action iter', 'DSAC2_Vals/gmm_critic_avg_value iter',
-                   'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Reward_per_episode', 'Time/Algorithm time [ms]-RL iter'
+                   'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Reward', 'Time/Algorithm time [ms]-RL iter'
                    ]
     file_save_names = ['Actor_Loss.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
                        *kernel_names_cr_output, 'Critic_Std.png', 'Actor_Val.png', 'Critic_Val.png', 'Actor_Loss.png',
@@ -68,11 +68,11 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 
 if __name__ == '__main__':
     N_KERNELS_ACT = 1
-    N_KERNELS_CR = 2
+    N_KERNELS_CR = 1
     curr_dir = os.getcwd() + '/'
     plt.rcParams['figure.figsize'] = (20, 8)
     # Example usage:
-    event_file_name = 'event_1709341422.093682'
+    event_file_name = 'Relu_Activation_Higher_LR_B'
     logdir = curr_dir + event_file_name
     output_dir = "C:/Users/vanya/OneDrive/Desktop/PhD_RL/RL_Framework/dsacv02/images"
     save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)

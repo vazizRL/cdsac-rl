@@ -27,7 +27,7 @@ CHK_PROGRESS_INTERVAL = 100
 Loading Parameters
 '''
 env_name = 'CartPole-v1'
-event_name = 'event_1709219133.432873'
+event_name = 'HL_(128,128)'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         mode = None
     env = gym.make(gym_env, render_mode=mode)
     # Highly reduced agent instantiation, since all parameters might be replaced
-    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels=N_KERNELS,  device=DEVICE)
+    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1)
     agent.load_checkpoint(path=loading_path, tar_name=tar_name, txt_name=meta_name, replay_npy_name=replay_name,
                           load_experience=True)
 

@@ -4,13 +4,11 @@ import os
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from tools import smoothing
 
 
 ''' Environment constants '''
 # gym_env = 'Pendulum-v1'
 gym_env = 'CartPole-v1'
-# gym_env = 'Hopper-v4'
 DEVICE = 'cuda:0'
 
 ''' Agent constants '''
