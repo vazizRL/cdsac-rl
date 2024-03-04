@@ -297,31 +297,33 @@ class RealDSAC:
                 self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
                                 exp=exp, sample=False, reparameterize=True)
 
-            means_min, means_next_min, stds_selected_min, stds_next_selected_min, kweights, \
-                kweights_next_selected_min = get_double_q_selections(means1=means1, means2=means2,
-                                                                     means1_next=means1_next,
-                                                                     means2_next=means2_next, stds1=stds1, stds2=stds2,
-                                                                     stds1_next=stds1_next, stds2_next=stds2_next,
-                                                                     kweights1=kweights1, kweights2=kweights2,
-                                                                     kweights1_next=kweights1_next,
-                                                                     kweights2_next=kweights2_next)
+            # The values for the least Q-value are choosen here
+            means, means_next, stds, stds_next, kweights, kweights_next = \
+                get_double_q_selections(means1=means1, means2=means2,
+                                        means1_next=means1_next,
+                                        means2_next=means2_next, stds1=stds1, stds2=stds2,
+                                        stds1_next=stds1_next, stds2_next=stds2_next,
+                                        kweights1=kweights1, kweights2=kweights2,
+                                        kweights1_next=kweights1_next,
+                                        kweights2_next=kweights2_next)
 
             # Calculate current distribution
-            zcal = self.generate_gmm_distr(means_min, stds_selected_min, kweights)
-            z = zcal.rsample(sample_shape=batch.shape[0])
+            zcal = self.generate_gmm_distr(means, stds, kweights)
+            # z = zcal.rsample(sample_shape=batch[0].shape[0])
+            z = zcal.rsample()
 
             # Calculate target distribution
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
-                                                                 q_means_next=means_next_min,
-                                                                 stds_next=stds_next_selected_min,
-                                                                 kernel_weights=kweights_next_selected_min,
+                                                                 q_means_next=means_next,
+                                                                 stds_next=stds_next,
+                                                                 kernel_weights=kweights_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
 
             # Calculate integral bounds
-            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means_min,
-                                                                 means_target=means_next_min,
-                                                                 stds_curr=stds_selected_min,
-                                                                 stds_target=stds_next_selected_min,
+            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means,
+                                                                 means_target=means_next,
+                                                                 stds_curr=stds,
+                                                                 stds_target=stds_next,
                                                                  factor=integral_bound_factor,
                                                                  mean_std=True)
         else:
@@ -369,9 +371,9 @@ class RealDSAC:
                                                                sample=False, exp=exp, reparameterize=False)
             _, _, q_means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q2,
                                                                sample=False, exp=exp, reparameterize=False)
-            # Detach from Q-networks [Inplace Operation] !
-            q_means1.detach_(), q_means2.detach_(), stds1.detach_(), kweights1.detach_(), stds2.detach_(),
-            kweights2.detach_()
+            # DO NOT detach, otherwise, actor will not be calculated according to Q!
+            # q_means1.detach_(), q_means2.detach_(), stds1.detach_(), kweights1.detach_(), stds2.detach_(),
+            # kweights2.detach_()
 
             means_min, stds_selected_min, kweights_selected_min = \
                 get_partial_double_q_selections(means1=q_means1, means2=q_means2, stds1=stds1, stds2=stds2,
@@ -400,7 +402,7 @@ class RealDSAC:
 
         return loss_alpha
 
-    def compute_gradient(self, batch: tuple, iteration: int, exp=False):
+    def compute_gradient(self, batch: tuple, iteration: int, exp=False, double_q=False):
         start_time = time.time()
 
         # Unpack batch
@@ -428,7 +430,7 @@ class RealDSAC:
         self.q2_optimizer.zero_grad()
 
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=False,
+        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q,
                                                                     integral_bound_factor=4, exp=False)
         loss_q.backward()
 
@@ -441,7 +443,7 @@ class RealDSAC:
             self.switch_autograd_logging(require_grad=False, models=models)
             self.policy_optimizer.zero_grad()
             loss_policy, entropy = self.compute_policy_loss(states=states, actions_curr_pol=action_bounded_curr,
-                                                            log_ps_curr_pol=prob_bounded_curr, double_q=False)
+                                                            log_ps_curr_pol=prob_bounded_curr, double_q=double_q)
             loss_policy.backward()
             # Switch back on autograd after calculation of policy
             self.switch_autograd_logging(require_grad=True, models=models)
@@ -491,15 +493,16 @@ class RealDSAC:
         return self.q_lr_ini, self.q_lr_fin, self.policy_lr_ini, self.policy_lr_fin, self.alpha_lr_ini, \
             self.alpha_lr_fin
 
-    def update(self, batch: tuple, iteration: int):
+    def update(self, batch: tuple, iteration: int, double_q=False):
         """
         - Wrapper; Calculate gradient and perform network optimization step
         - Perform lr scheduler step
         :param batch: Mini-batch
         :param iteration: Iteration number, necessary to determine update-interval
+        :param double_q: Whether two Q networks
         :return: Dict containing quantities for logging in tensorboard
         """
-        tb_info = self.compute_gradient(batch=batch, iteration=iteration)
+        tb_info = self.compute_gradient(batch=batch, iteration=iteration, double_q=double_q)
         self.update_networks(iteration)
         self.update_lrs()
 

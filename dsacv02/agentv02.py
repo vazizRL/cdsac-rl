@@ -7,7 +7,8 @@ from copy import deepcopy
 
 
 class Agent:
-    def __init__(self, obs_dim, action_dim, n_kernels_act, n_kernels_cr, learnable_kweights=True, cr_lr_ini=8e-5, cr_lr_fin=1e-6,
+    def __init__(self, obs_dim, action_dim, n_kernels_act, n_kernels_cr, learnable_kweights=True,
+                 cr_lr_ini=8e-5, cr_lr_fin=1e-6,
                  act_lr_ini=5e-5, act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
                  value_min_std=0, value_max_std=5,
                  cr_hl=(256, 256, 256, 256, 256), cr_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
@@ -15,7 +16,7 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, static_alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
-                 auto_alpha=True, log_alpha_ini=1, memory_size=int(5e5), device='cuda:0'
+                 auto_alpha=True, log_alpha_ini=1, double_q=False, memory_size=int(5e5), device='cuda:0'
                  ):
         """
         :param obs_dim: Observation dimension
@@ -48,6 +49,7 @@ class Agent:
         :param update_interval: Interval for updating target networks
         :param auto_alpha: Whether alpha is a learnable parameter or static
         :param log_alpha_ini: Initial log value of alpha
+        :param double_q: Whether Multiple Q networks are used
         :param memory_size: Max. replay buffer size
         :param device: Device on which networks are running
         """
@@ -61,6 +63,7 @@ class Agent:
         self.update_interval = update_interval
         self.auto_alpha = auto_alpha
         self.log_alpha_ini = log_alpha_ini
+        self.double_q = double_q
         self.static_alpha = static_alpha
         self.mem_size = memory_size
         self.device = device
@@ -125,7 +128,7 @@ class Agent:
         else:
             for learning_iter_i in range(n_learning_iter):
                 batch_i = self.memory.sample_buffer(batch_size=self.batch_size)
-                tb_info = self.dsac.update(batch=batch_i, iteration=step_number)
+                tb_info = self.dsac.update(batch=batch_i, iteration=step_number, double_q=self.double_q)
 
         return tb_info
 
@@ -191,7 +194,8 @@ class Agent:
         # Save non-Pytorch parameters
         agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale,
                            self.gamma,
-                           self.update_interval, self.auto_alpha, self.log_alpha_ini, self.mem_size, self.device)
+                           self.update_interval, self.auto_alpha, self.log_alpha_ini, self.double_q, self.mem_size,
+                           self.device)
         actor_class_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()
         learning_rates = self.dsac.get_lr_info()
@@ -236,7 +240,7 @@ class Agent:
 
         # Agent meta-parameters and update attributes
         batch_size, t_max, tau, static_alpha, reward_scale, gamma, update_interval, auto_alpha, log_alpha_ini, \
-            mem_size, device = data['agent_params']
+            double_q, mem_size, device = data['agent_params']
         # Actor meta-parameters
         state_dim, action_dim, act_hl, n_kernels_act, act_activation, act_min_std, act_max_std, action_low,\
             action_high, act_learnable_weights, device = data['actor_params']
@@ -256,7 +260,7 @@ class Agent:
                       act_hl=act_hl, act_activ=act_activation, action_low=action_low, action_up=action_high,
                       batch_size=batch_size, t_max=t_max, tau=tau, static_alpha=static_alpha, reward_scale=reward_scale,
                       gamma=gamma, update_interval=update_interval,
-                      auto_alpha=auto_alpha, log_alpha_ini=log_alpha_ini, memory_size=mem_size, device=device
+                      auto_alpha=auto_alpha, log_alpha_ini=log_alpha_ini, double_q=double_q, memory_size=mem_size, device=device
                       )
 
         # Load network, tensor params and learning rate schedule

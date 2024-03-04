@@ -18,7 +18,7 @@ DEVICE = 'cuda:0'
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
 N_KERNELS_ACT = 1
-N_KERNELS_CR = 1
+N_KERNELS_CR = 2
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5
@@ -36,6 +36,7 @@ ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
 # RL parameters
+DOUBLE_Q = True
 BATCH_SIZE = 32
 T_MAX = 500           # Old 20000
 TAU = 0.01
@@ -90,7 +91,7 @@ if __name__ == '__main__':
                   batch_size=BATCH_SIZE,
                   t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                   reward_scale=REWARD_SCALE, gamma=GAMMA,
-                  update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA,
+                  update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
                   memory_size=MEM_SIZE, device=DEVICE)
 
     best_score = env.reward_range[0]
