@@ -152,8 +152,8 @@ if __name__ == '__main__':
             loss_batch_tar = cramer_distance(pdf_curr=gmm_preds_tar, pdf_target=distr_tar, int_l=-15, int_u=45,
                                              spacing=0.001, dev=device)
             loss_batch_mean_tar = loss_batch_tar.mean()
-            cramer_loss_history_tar = torch.cat((cramer_loss_history_tar, loss_batch_mean_tar.unsqueeze(dim=0).unsqueeze(dim=1)),
-                                                dim=0)
+            cramer_loss_history_tar = torch.cat((cramer_loss_history_tar,
+                                                 loss_batch_mean_tar.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
 
             optimizer_tar.zero_grad()
             loss_batch_mean_tar.backward()

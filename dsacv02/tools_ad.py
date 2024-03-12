@@ -72,7 +72,7 @@ if __name__ == '__main__':
     curr_dir = os.getcwd() + '/'
     plt.rcParams['figure.figsize'] = (20, 8)
     # Example usage:
-    event_file_name = 'Relu_Activation_Higher_LR_B'
+    event_file_name = 'event_1709569075.911902'
     logdir = curr_dir + event_file_name
     output_dir = "C:/Users/vanya/OneDrive/Desktop/PhD_RL/RL_Framework/dsacv02/images"
     save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)

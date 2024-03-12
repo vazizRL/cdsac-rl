@@ -27,7 +27,7 @@ CHK_PROGRESS_INTERVAL = 100
 Loading Parameters
 '''
 env_name = 'CartPole-v1'
-event_name = 'HL_(128,128)'
+event_name = 'Double_Q_Act1_Cr2_D'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'

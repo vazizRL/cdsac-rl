@@ -5,7 +5,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
 main_dir = '/Learnable_Weights'
-dir_name = 'r19_mod3_H'
+dir_name = 'r24_mod3_I'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 
@@ -103,8 +103,8 @@ plt.show(block=False)
 Change in cramer loss per iteration
 '''
 plt.figure()
-plt.plot(dc_history_low, label='dc_low')
-plt.plot(dc_history_high, label='dc_high')
+plt.plot(dc_history_low.squeeze(), label='dc_low')
+plt.plot(dc_history_high.squeeze(), label='dc_high')
 
 # Add labels and legend
 plt.xlabel('Train iterations')
@@ -184,7 +184,7 @@ plt.title('CDF Retro-Fitted on High-H Target')
 plt.legend()
 
 # Show the plot
-plt.show()
+plt.show(block=True)
 
 
 

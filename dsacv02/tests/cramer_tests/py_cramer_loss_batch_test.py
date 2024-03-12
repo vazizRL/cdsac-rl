@@ -93,7 +93,6 @@ if __name__ == '__main__':
     distr_target = generate_gmm(locs=mean_target, scales=std_target, kweights=kweight_target)
 
     # Train parameters
-    # episodes = 10
     episodes = 5
 
     # # Put target distribtuion in batch format
