@@ -342,8 +342,8 @@ if __name__ == '__main__':
             means_history_high_low = torch.cat((means_history_high_low, means_history_batch_high_low), dim=0)
             stds_history_high_low = torch.cat((stds_history_high_low, stds_history_batch_high_low), dim=0)
             kweights_history_high_low = torch.cat((kweights_history_high_low, kweights_history_batch_high_low),
-                                                 dim=0)
-            dc_history_low_low = torch.cat((dc_history_low_low, dc_history_batch_high_low), dim=0)
+                                                  dim=0)
+            dc_history_high_low = torch.cat((dc_history_high_low, dc_history_batch_high_low), dim=0)
         print(f'Finished episode high-low: {epoch + 1}')
 
     '''
@@ -466,16 +466,27 @@ if __name__ == '__main__':
     save_path = curr_path + '/' + str(ts)
     os.mkdir(save_path)
 
-    # Save the logged tensor
-    torch.save(means_history_low_low, save_path + '/' + 'means_history_low')
-    torch.save(stds_history_low_low, save_path + '/' + 'stds_history_low')
-    torch.save(kweights_history_low_low, save_path + '/' + 'kweights_history_low')
-    torch.save(dc_history_low_low, save_path + '/' + 'dc_history_low')
+    # Save logs from low-to-low
+    torch.save(means_history_low_low, save_path + '/' + 'means_history_low_low')
+    torch.save(stds_history_low_low, save_path + '/' + 'stds_history_low_low')
+    torch.save(kweights_history_low_low, save_path + '/' + 'kweights_history_low_low')
+    torch.save(dc_history_low_low, save_path + '/' + 'dc_history_low_low')
+    # Save logs from high-to-low
+    torch.save(means_history_high_low, save_path + '/' + 'means_history_high_low')
+    torch.save(stds_history_high_low, save_path + '/' + 'stds_history_high_low')
+    torch.save(kweights_history_high_low, save_path + '/' + 'kweights_history_high_low')
+    torch.save(dc_history_high_low, save_path + '/' + 'dc_history_high_low')
 
-    torch.save(means_history_high_high, save_path + '/' + 'means_history_high')
-    torch.save(stds_history_high_high, save_path + '/' + 'stds_history_high')
-    torch.save(kweights_history_high_high, save_path + '/' + 'kweights_history_high')
-    torch.save(dc_history_high_high, save_path + '/' + 'dc_history_high')
+    # Save logs from low-to-high
+    torch.save(means_history_low_high, save_path + '/' + 'means_history_low_high')
+    torch.save(stds_history_low_high, save_path + '/' + 'stds_history_low_high')
+    torch.save(kweights_history_low_high, save_path + '/' + 'kweights_history_low_high')
+    torch.save(dc_history_low_high, save_path + '/' + 'dc_history_low_high')
+    # Save logs from high-to-high
+    torch.save(means_history_high_high, save_path + '/' + 'means_history_high_high')
+    torch.save(stds_history_high_high, save_path + '/' + 'stds_history_high_high')
+    torch.save(kweights_history_high_high, save_path + '/' + 'kweights_history_high_high')
+    torch.save(dc_history_high_high, save_path + '/' + 'dc_history_high_high')
 
     # Save Ref CDFs
     torch.save(cdf_ref_low_e, save_path + '/' + 'cdf_ref_low')
