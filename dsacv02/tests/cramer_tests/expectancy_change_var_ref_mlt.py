@@ -5,7 +5,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
 main_dir = '/VAR_REF'
-dir_name = 'r2_mod1_A'
+dir_name = 'r6_mod1_DIFF_B'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 
@@ -63,6 +63,7 @@ plt.ylabel('Kernel Means')
 plt.title('Change in Expectancy - From Low-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Means_From_L.png')
 plt.show(block=False)
 
 '''
@@ -85,6 +86,7 @@ plt.ylabel('Kernel Means')
 plt.title('Change in Expectancy - From High-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Means_From_H.png')
 plt.show(block=False)
 
 '''
@@ -107,6 +109,7 @@ plt.ylabel('Kernel Stds')
 plt.title('Change in Stds - From Low-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'STDs_From_L.png')
 plt.show(block=False)
 
 '''
@@ -129,6 +132,7 @@ plt.ylabel('Kernel Stds')
 plt.title('Change in Stds - From High-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'STDs_From_H.png')
 plt.show(block=False)
 
 '''
@@ -151,6 +155,7 @@ plt.ylabel('Kernel Weights')
 plt.title('Change in Kweights - From Low-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Kweights_From_L.png')
 plt.show(block=False)
 
 '''
@@ -170,9 +175,10 @@ plt.plot(kweights_high_high_k2, label='high_high_k2')
 # Add labels and legend
 plt.xlabel('Train Iterations')
 plt.ylabel('Kernel Weights')
-plt.title('Change in Kweights - From High-E Ref.')
+plt.title('Change in Kweights - From High-E Ref')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Kweights_From_H.png')
 plt.show(block=False)
 
 '''
@@ -188,6 +194,7 @@ plt.ylabel('Cramer loss')
 plt.title('Change in Cramer Loss - From Low-E Ref.')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Loss_From_L.png')
 plt.show(block=False)
 
 '''
@@ -200,9 +207,10 @@ plt.plot(dc_history_high_high.squeeze(), label='dc_high_high')
 # Add labels and legend
 plt.xlabel('Train iterations')
 plt.ylabel('Cramer loss')
-plt.title('Change in Cramer Loss - From High-E Ref.')
+plt.title('Change in Cramer Loss - From High-E Ref')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Loss_From_H.png')
 plt.show(block=False)
 
 '''
@@ -220,6 +228,7 @@ plt.ylabel('Kernel Means')
 plt.title('Change in Expectancy - From L/H to L-Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Means_LH_to_L.png')
 plt.show(block=False)
 
 '''
@@ -237,6 +246,8 @@ plt.ylabel('Kernel Means')
 plt.title('Change in Expectancy - From L/H to H-Target')
 plt.legend()
 # Show the plot
+# Show the plot
+plt.savefig(loading_path + '/' + 'Means_LH_to_H.png')
 plt.show(block=False)
 
 '''
@@ -254,6 +265,8 @@ plt.ylabel('Kernel Stds')
 plt.title('Change in Stds - From L/H to L-Target')
 plt.legend()
 # Show the plot
+# Show the plot
+plt.savefig(loading_path + '/' + 'STDs_LH_to_L.png')
 plt.show(block=False)
 
 '''
@@ -271,6 +284,7 @@ plt.ylabel('Kernel Stds')
 plt.title('Change in Stds - From L/H to H-Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'STDs_LH_to_H.png')
 plt.show(block=False)
 
 '''
@@ -288,6 +302,7 @@ plt.ylabel('Kernel Weights')
 plt.title('Change in Kweights - From L/H to L-Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Kweights_LH_to_L.png')
 plt.show(block=False)
 
 '''
@@ -305,6 +320,7 @@ plt.ylabel('Kernel Weights')
 plt.title('Change in Kweights - From L/H to H-Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'Kweights_LH_to_H.png')
 plt.show(block=False)
 
 
@@ -323,6 +339,7 @@ plt.ylabel('Cum. Probability')
 plt.title('CDF: Reference with Targets - After Ref. Fitting')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'CDFPre.png')
 plt.show(block=False)
 
 '''
@@ -339,6 +356,7 @@ plt.ylabel('Probability')
 plt.title('CDF - From L/H Ref to Low Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'CDFPost_LH_to_L.png')
 plt.show(block=False)
 
 '''
@@ -354,6 +372,7 @@ plt.ylabel('Probability')
 plt.title('CDF - From L/H Ref to High Target')
 plt.legend()
 # Show the plot
+plt.savefig(loading_path + '/' + 'CDFPost_LH_to_H.png')
 plt.show(block=True)
 
 

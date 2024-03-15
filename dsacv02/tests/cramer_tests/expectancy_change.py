@@ -11,6 +11,8 @@ from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMi
 from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
 from copy import deepcopy
 
+torch.autograd.set_detect_anomaly(True)
+
 
 def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100),
                     dev='cuda:0'):
@@ -70,8 +72,9 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
         batch_size = 1
     dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
     dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing)
+    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-35
     cramer_re.sqrt_()
+    # cramer_re = cramer_re.sqrt() + 1e-5
     cramer_re = cramer_re.mean()
 
     return cramer_re
@@ -103,16 +106,18 @@ if __name__ == '__main__':
     epochs = 7
     epochs_low_e = 10
     epochs_high_e = 10
-    mb_size = 5
+    mb_size = 20
     spacing = 0.01
 
     # Boundaries
     int_ref_l = -12
     int_ref_u = 12
+    #
     int_low_l = -10
-    int_low_u = 25
+    int_low_u = 26
+    #
     int_high_l = -10
-    int_high_u = 25
+    int_high_u = 26
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
