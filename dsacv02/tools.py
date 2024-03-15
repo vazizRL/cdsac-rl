@@ -26,7 +26,7 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
     return distance, error_est
 
 
-def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+def cramer_torch_deactivated(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
     - Batch-wise implementation
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
@@ -48,6 +48,33 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     cramer = cramer.sum(dim=0)
 
     return cramer**0.5
+
+
+def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+    """
+    - The integration limits should NOT be too far off form the lowest and highest point of the function!
+    - Optional: Define an interval to focus on, in case of rapid
+    - Implementation:
+        1. Define the supports
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Discretize for numerical integration
+    steps = int((int_u - int_l) / spacing)
+    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
+    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
+
+    if pdf_curr.batch_shape.__len__():
+        batch_size = pdf_curr.batch_shape[0]
+    else:
+        batch_size = 1
+    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
 
 
 def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor, stds_curr: torch.tensor,
