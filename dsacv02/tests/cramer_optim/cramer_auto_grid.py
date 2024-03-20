@@ -24,61 +24,21 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
     dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
 
-    dy_curr_cdf = pdf_curr.cdf(dx)
-    dy_target_cdf = pdf_target.cdf(dx)
-
-    cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
-    cramer = cramer.sum(dim=0)
-
-    return cramer**0.5
-
-
-def cramer_py_test_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
-    """
-    - The integration limits should NOT be too far off form the lowest and highest point of the function!
-    - Optional: Define an interval to focus on, in case of rapid
-    - Implementation:
-        1. Define the supports
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Discretize for numerical integration
-    steps = int((int_u - int_l) / spacing)
-    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
-
-    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(20, 1, 22000)
-    dy_target_cdf_re = pdf_target.cdf(dx).reshape(20, 1, 22000)
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing)
+    if pdf_curr.batch_shape.__len__():
+        batch_size = pdf_curr.batch_shape[0]
+    else:
+        batch_size = 1
+    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
     cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
     return cramer_re
 
 
-# def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
-#     """
-#     - The integration limits should NOT be too far off form the lowest and highest point of the function!
-#     - Optional: Define an interval to focus on, in case of rapid
-#     - Implementation:
-#         1. Define the supports
-#         2. Calculate the difference squared
-#         3. Integrate over all dx
-#     """
-#     # Discretize for numerical integration
-#     steps = int((int_u - int_l) / spacing)
-#     dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-#     dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
-#
-#     dy_curr_cdf = pdf_curr.cdf(dx)
-#     dy_target_cdf = pdf_target.cdf(dx)
-#
-#     cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing, dim=0)
-#     cramer.sqrt_()
-#     cramer = cramer.mean()
-#
-#     return cramer
-
+def cramer_opt(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+    pass
 
 # def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
 #     """
@@ -165,8 +125,8 @@ if __name__ == '__main__':
         gmm_approx_std = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
     optimizer_std = optim.Adam(gmm_approx_std.parameters(), lr=0.001)
 
-    gmm_approx_imp = deepcopy(gmm_approx_std)
-    optimizer_imp = optim.Adam(gmm_approx_imp.parameters(), lr=0.001)
+    gmm_approx_opt = deepcopy(gmm_approx_std)
+    optimizer_opt = optim.Adam(gmm_approx_opt.parameters(), lr=0.001)
 
     # Define Inputs, uniformly sampled from [-1,1]
     N_DATAPOINTS = 6000
@@ -186,6 +146,69 @@ if __name__ == '__main__':
     distr_target = generate_gmm(locs=mean_target, scales=std_target, kweights=kweight_target)
 
     '''
+    Improved Cramer Calculation with Time Logging
+    '''
+    # Value Logging
+    means_history_opt = torch.tensor([[0, 0]], dtype=torch.float64, device=device)
+    stds_history_opt = torch.tensor([[0, 0]], dtype=torch.float64, device=device)
+    kweights_history_opt = torch.tensor([[0, 0]], dtype=torch.float64, device=device)
+    cramer_loss_history_opt = torch.tensor([], dtype=torch.float64, device=device)
+    # Time Logging
+    time_epi_history_opt = torch.tensor([], dtype=torch.float64, device=device)
+    time_cramer_history_opt = torch.tensor([], dtype=torch.float64, device=device)
+    time_grad_history_opt = torch.tensor([], dtype=torch.float64, device=device)
+    time_step_history_opt = torch.tensor([], dtype=torch.float64, device=device)
+    for i in range(EPISODES_STD):
+        time_epi_opt_start = time.perf_counter()
+        for batch in batches:
+            means_opt, stds_opt, kweights_opt = gmm_approx_opt(batch)
+            stds_opt.abs_()
+            means_opt.squeeze_(dim=2)
+            stds_opt.squeeze_(dim=2)
+            # Log Means, Stds and Kweights
+            means_history_opt = torch.cat((means_history_opt, means_opt.mean(dim=0).unsqueeze(dim=0)), dim=0)
+            stds_history_opt = torch.cat((stds_history_opt, stds_opt.mean(dim=0).unsqueeze(dim=0)), dim=0)
+            kweights_history_opt = torch.cat((kweights_history_opt, kweights_opt.mean(dim=0).unsqueeze(dim=0)), dim=0)
+
+            gmm_preds_opt = generate_gmm(locs=means_opt, scales=stds_opt, kweights=kweights_opt)
+
+            time_cramer_opt_start = time.perf_counter()
+            loss_batch_opt = cramer_py_test(pdf_curr=gmm_preds_opt, pdf_target=distr_target, int_l=INT_L, int_u=INT_U,
+                                            spacing=0.001, dev=device)
+            time_cramer_opt_end = time.perf_counter()
+            # Log Cramer Loss Calculation Time
+            time_cramer_opt = \
+                torch.asarray(time_cramer_opt_end - time_cramer_opt_start).unsqueeze(dim=0).unsqueeze(dim=1).to(device)
+            time_cramer_history_opt = torch.cat((time_cramer_history_opt, time_cramer_opt), dim=0)
+            # Log Cramer Loss
+            cramer_loss_history_opt = torch.cat((cramer_loss_history_opt,
+                                                 loss_batch_opt.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
+
+            optimizer_opt.zero_grad()
+
+            time_grad_opt_start = time.perf_counter()
+            loss_batch_opt.mean().backward()
+            time_grad_opt_end = time.perf_counter()
+            # Log Gradient Calculation Time
+            time_grad_opt = \
+                torch.asarray(time_grad_opt_end - time_grad_opt_start).unsqueeze(dim=0).unsqueeze(dim=1).to(device)
+            time_grad_history_opt = torch.cat((time_grad_history_opt, time_grad_opt), dim=0)
+
+            time_step_opt_start = time.perf_counter()
+            optimizer_std.step()
+            time_step_opt_end = time.perf_counter()
+            # Log Optimization Step Time
+            time_step_opt = \
+                torch.asarray(time_step_opt_end - time_step_opt_start).unsqueeze(dim=0).unsqueeze(dim=1).to(device)
+            time_step_history_opt = torch.cat((time_step_history_opt, time_step_opt), dim=0)
+        time_epi_opt_end = time.perf_counter()
+        # Log Episode Time
+        time_epi_opt = \
+            torch.asarray(time_epi_opt_end - time_epi_opt_start).unsqueeze(dim=0).unsqueeze(dim=1).to(device)
+        time_epi_history_opt = torch.cat((time_epi_history_opt, time_epi_opt), dim=0)
+        print(f'Episode {i} OPT finished')
+
+    '''
     Standard Cramer Calculation
     '''
     # Logging array initialization
@@ -199,7 +222,6 @@ if __name__ == '__main__':
             stds_std.abs_()
             means_std.squeeze_(dim=2)
             stds_std.squeeze_(dim=2)
-
             # Log Means, Stds and Kweights
             means_history_std = torch.cat((means_history_std, means_std.mean(dim=0).unsqueeze(dim=0)), dim=0)
             stds_history_std = torch.cat((stds_history_std, stds_std.mean(dim=0).unsqueeze(dim=0)), dim=0)
@@ -222,11 +244,6 @@ if __name__ == '__main__':
 
             optimizer_std.step()
         print(f'Episode {i} finished')
-
-    '''
-    Improved Cramer Calculation
-    '''
-    pass
 
     '''
     Save data
