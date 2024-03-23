@@ -18,7 +18,7 @@ N_CELLS = 10
 Loading Parameters
 '''
 env_name = 'LinearEnv'
-event_name = 'OneQ_SmallAlpha_5'
+event_name = 'NoTargetSigma_SmallAlpha_2'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'

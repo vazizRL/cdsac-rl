@@ -244,8 +244,8 @@ class RealDSAC:
         rewards.unsqueeze_(dim=1)
         dones.unsqueeze_(dim=1)
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
-        stds_next = (1-dones) * stds_next + torch.tensor(1e-40, dtype=torch.float64)
-        # stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
+        # stds_next = (1-dones) * stds_next + torch.tensor(1e-40, dtype=torch.float64)
+        stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
 
         cat_distr = distr.Categorical(probs=kernel_weights)
         comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
