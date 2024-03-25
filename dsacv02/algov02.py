@@ -5,7 +5,7 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_torch, approx_integral_bounds, get_double_q_selections, \
+from dsacv02.tools import cramer_torch, cramer_optim, approx_integral_bounds, get_double_q_selections, \
      get_partial_double_q_selections
 
 

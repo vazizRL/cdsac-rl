@@ -147,7 +147,7 @@ class MixtureSameFamilyMod(Distribution):
         return mean_cond_var + var_cond_mean
 
     def cdf(self, x):
-        x = self._pad(x)
+        # x = self._pad(x)
         cdf_x = self.component_distribution.cdf(x)
         mix_prob = self.mixture_distribution.probs.to('cuda:0')
         # mix_prob = self.mixture_distribution.probs.to('cpu')

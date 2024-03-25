@@ -29,7 +29,7 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
     return distance**0.5, error_est
 
 
-def cramer_py_test_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+def cramer_py_test_sum(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
     - Optional: Define an interval to focus on, in case of rapid
@@ -58,6 +58,34 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     - Optional: Define an interval to focus on, in case of rapid
     - Implementation:
         1. Define the supports
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Discretize for numerical integration
+    steps = int((int_u - int_l) / spacing)
+    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
+    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
+
+    if pdf_curr.batch_shape.__len__():
+        batch_size = pdf_curr.batch_shape[0]
+    else:
+        batch_size = 1
+    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
+    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
+def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+    """
+    - Batch-wise
+    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
         2. Calculate the difference squared
         3. Integrate over all dx
     """

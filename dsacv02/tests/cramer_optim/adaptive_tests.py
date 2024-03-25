@@ -13,7 +13,7 @@ def my_function_(x):
 
 
 def gauss_pdf(x):
-    sigma = 1
+    sigma = 2
     mu = 0
     pdf = (1/sigma * np.sqrt(2 * np.pi)) * np.e**(-0.5 * ((x - mu)/sigma)**2)
     return pdf
@@ -31,7 +31,8 @@ def sci_integration(func, a, b, num_support_points):
     return result, supporting_points_x, supporting_points_y
 
 
-def py_integration(func, x):
+def py_integration(func, int_l, int_u, n_points):
+    x = torch.linspace(start=int_l, end=int_u, steps=n_points)
     y = func(x)
     cdf = torch.trapz(y, x) + 1e-55
 
@@ -41,15 +42,22 @@ def py_integration(func, x):
 if __name__ == '__main__':
     plot = False
     # Integration interval
-    a = -3.1
-    b = 3.1
+    # a = -3.1
+    # b = 3.1
+    a = -6.2
+    b = 6.2
 
     # Number of supporting points
-    num_support_points = 11
+    num_support_points = 51
 
     # Perform adaptive integration and get supporting points
     integral, supporting_points_x, supporting_points_y = sci_integration(gauss_pdf, a, b, num_support_points)
     print(f'Integral for bounds {a} and {b} is: {integral}')
+
+    integral_lim = py_integration(func=gauss_pdf, int_l=a, int_u=b, n_points=num_support_points)
+    print(f'Integral for bounds {a} and {b} for {num_support_points} is: {integral_lim}')
+
+    print(f'Difference between SciPy and Own: {torch.abs(integral_lim - integral)}')
 
     if plot:
         # Plot the original function and supporting points

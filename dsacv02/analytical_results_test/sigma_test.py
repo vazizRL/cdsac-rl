@@ -13,21 +13,27 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
         3. Integrate over all dx
     """
     # Discretize for numerical integration
+    int_l[0] = -2
+    int_u[0] = 2
     diff = torch.abs(int_u - int_l)
-    n_steps = (diff / 0.01).to(torch.int32)
+    n_steps = torch.tensor(51, device=dev)
     delta_mb = diff / n_steps
 
-    dx = torch.linspace(int_l, int_u, steps=n_steps).to(dev)
+    steps_idx = torch.arange(start=1, end=n_steps+1, step=1).to(dev)
+    steps_tensor = steps_idx * delta_mb
 
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
+    # Calculate Supports with correct stepsizes
+    dx_mb = torch.ones((1, n_steps), device=dev) * int_l + steps_tensor
+
+    dx_mb.unsqueeze_(dim=1).unsqueeze_(dim=2)
 
     if pdf_curr.batch_shape.__len__():
         batch_size = pdf_curr.batch_shape[0]
     else:
         batch_size = 1
-    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
+    dy_curr_mb = pdf_curr.cdf(dx_mb)
+    dy_target_mb = pdf_target.cdf(dx_mb)
+    cramer_re = torch.trapz((dy_target_mb - dy_curr_mb)**2, dx=spacing) + 1e-55
     cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
@@ -62,7 +68,7 @@ def pCps(pdf_curr: torch.tensor, pdf_tar: torch.tensor, m: torch.tensor, s: torc
 
 if __name__ == '__main__':
     # Mini batch size
-    mb_size = 50
+    mb_size = 10
     device = 'cuda:0'
 
     '''
