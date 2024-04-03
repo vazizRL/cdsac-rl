@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     # Train parameters
     learning_rate = 0.001
-    spacing = 0.001
+    spacing = 0.01
     epochs = 7
     epochs_low_e = 10
     epochs_high_e = 10
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     Fit Low Entropy Reference
     '''
     # Fit gmm_approx to ref low_e
-    start = time.perf_counter()
+    start_ref_low = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
             pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = gmm_approx_ref_low_e(batch)
@@ -198,8 +198,9 @@ if __name__ == '__main__':
             cramer_py_loss_ref_low_e.backward()
             optimizer_ref_low_e.step()
         print(f'Finished episode for ref low_e: {epoch + 1}')
-    end = time.perf_counter()
-    print(f'Time Standard: {end - start}')
+    end_ref_low = time.perf_counter()
+    time_ref_low = end_ref_low - start_ref_low
+    print(f'Time Ref Low: {time_ref_low}')
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
     preds_means_all, preds_stds_all, _ = gmm_approx_ref_low_e(input_total)
     print(f'Avg. Ref preds means for low_e: {preds_means_all.mean(dim=0)}')
@@ -211,6 +212,7 @@ if __name__ == '__main__':
     Fit High Entropy Reference
     '''
     # Fit gmm_approx to ref high_e
+    start_ref_high = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
             pred_means_ref_high_e, pred_stds_ref_high_e, kweights_ref_high_e = gmm_approx_ref_high_e(batch)
@@ -234,6 +236,9 @@ if __name__ == '__main__':
             cramer_py_loss_ref_high_e.backward()
             optimizer_ref_high_e.step()
         print(f'Finished episode for ref high_e: {epoch + 1}')
+    end_ref_high = time.perf_counter()
+    time_ref_high = end_ref_high - start_ref_high
+    print(f'Time Ref High: {time_ref_high}')
 
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
     preds_means_high_all, preds_stds_high_all, _ = gmm_approx_ref_high_e(input_total)
@@ -262,6 +267,7 @@ if __name__ == '__main__':
     stds_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
+    start_low_low = time.perf_counter()
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_low_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -302,7 +308,9 @@ if __name__ == '__main__':
                                                  dim=0)
             dc_history_low_low = torch.cat((dc_history_low_low, dc_history_batch_low_low), dim=0)
         print(f'Finished episode low-low: {epoch + 1}')
-
+    end_low_low = time.perf_counter()
+    time_low_low = end_low_low - start_low_low
+    print(f'Time Low Low: {time_low_low}')
     '''
     Measure change from high-to-low
     '''
@@ -311,6 +319,7 @@ if __name__ == '__main__':
     stds_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
+    start_high_low = time.perf_counter()
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_high_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -353,7 +362,9 @@ if __name__ == '__main__':
                                                   dim=0)
             dc_history_high_low = torch.cat((dc_history_high_low, dc_history_batch_high_low), dim=0)
         print(f'Finished episode high-low: {epoch + 1}')
-
+    end_high_low = time.perf_counter()
+    time_high_low = end_high_low - start_high_low
+    print(f'Time High Low: {time_high_low}')
     '''
     Measure change for from low-to-high
     '''
@@ -362,6 +373,7 @@ if __name__ == '__main__':
     stds_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
+    start_low_high = time.perf_counter()
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_low_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -404,7 +416,9 @@ if __name__ == '__main__':
             kweights_history_low_high = torch.cat((kweights_history_low_high, kweights_history_batch_low_high),
                                                   dim=0)
         print(f'Finished episode low-high: {epoch + 1}')
-
+    end_low_high = time.perf_counter()
+    time_low_high = end_low_high - start_low_high
+    print(f'Time Low High: {time_low_high}')
     '''
     Measure change from high-to-high
     '''
@@ -413,6 +427,7 @@ if __name__ == '__main__':
     stds_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
+    start_high_high = time.perf_counter()
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_high_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -455,17 +470,19 @@ if __name__ == '__main__':
             kweights_history_high_high = torch.cat((kweights_history_high_high, kweights_history_batch_high_high),
                                                    dim=0)
         print(f'Finished episode high-high: {epoch + 1}')
-
+    end_high_high = time.perf_counter()
+    time_high_high = end_high_high - start_high_high
+    print(f'Time HIgh High: {time_high_high}')
     '''
     Calculate CDFs: Retro-Fitted GMM for low and high entropy
     '''
-    cdf_low_low_post = calculate_cdf(pred_gmm_low_low, supp_l=int_low_l, supp_u=int_low_u, spacing=n_eval_points, dev=device)
+    cdf_low_low_post = calculate_cdf(pred_gmm_low_low, supp_l=int_low_l, supp_u=int_low_u, spacing=spacing, dev=device)
     cdf_high_low_post = calculate_cdf(pred_gmm_high_low, supp_l=int_low_l, supp_u=int_low_u,
-                                      spacing=n_eval_points, dev=device)
+                                      spacing=spacing, dev=device)
     cdf_low_high_post = calculate_cdf(pred_gmm_low_high, supp_l=int_low_l, supp_u=int_low_u,
-                                      spacing=n_eval_points, dev=device)
+                                      spacing=spacing, dev=device)
     cdf_high_high_post = calculate_cdf(pred_gmm_high_high, supp_l=int_high_l, supp_u=int_high_u,
-                                       spacing=n_eval_points, dev=device)
+                                       spacing=spacing, dev=device)
 
     '''
     Save Data
@@ -509,6 +526,21 @@ if __name__ == '__main__':
     torch.save(cdf_low_high_post, save_path + '/' + 'cdf_low_high_post')
     torch.save(cdf_high_low_post, save_path + '/' + 'cdf_high_low_post')
     torch.save(cdf_high_high_post, save_path + '/' + 'cdf_high_high_post')
+
+
+    # Save Times
+    with open(save_path + '/' + 'Times.txt', 'w') as file:
+        file.write('Time Ref Low:     ' + str(time_ref_low))
+        file.write('\n')
+        file.write('Time Ref High:     ' + str(time_ref_high))
+        file.write('\n')
+        file.write('Time Low Low:     ' + str(time_low_low))
+        file.write('\n')
+        file.write('Time High Low:     ' + str(time_high_low))
+        file.write('\n')
+        file.write('Time Low HIgh:     ' + str(time_low_high))
+        file.write('\n')
+        file.write('Time High High:     ' + str(time_high_high))
 
 
 

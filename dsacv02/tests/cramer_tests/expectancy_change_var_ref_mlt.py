@@ -5,7 +5,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 curr_path = os.getcwd()
 main_dir = '/VAR_REF'
-dir_name = 'r13_mod1_Stable_DA'
+dir_name = 'r15_mod1_TIME_E'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 

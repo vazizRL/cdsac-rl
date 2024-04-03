@@ -12,92 +12,8 @@ from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
 from dsacv02.gmm_reparameterization.normal_stable import NormalStable
 from copy import deepcopy
 
-# torch.autograd.set_detect_anomaly(True)
 
-
-def get_boundaries(means, stds):
-    pass
-
-
-def cramer_standard(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
-    """
-    - Reshape Version
-    - Batch-wise
-    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
-    - Implementation:
-        1. Define the supports
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Discretize for numerical integration
-    steps = int((int_u - int_l) / spacing)
-    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
-
-    if pdf_curr.batch_shape.__len__():
-        batch_size = pdf_curr.batch_shape[0]
-    else:
-        batch_size = 1
-    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
-
-    return cramer_re
-
-
-# def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
-#     """
-#     - Dynamic Supports
-#     - Batch-wise
-#     - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
-#     - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
-#     - Implementation:
-#         1. Define the supports with constant n_steps
-#         2. Calculate the difference squared
-#         3. Integrate over all dx
-#     """
-#     # Meta parameters
-#     steps_idx = torch.arange(start=1, end=n_supp+1, step=1).to(dev)
-#     n_supp = torch.tensor(n_supp, device=dev)
-#     # Dynamically Determine Supports for Current + Target
-#     int_l_curr = pdf_curr.component_distribution.loc - 10*pdf_curr.component_distribution.scale
-#     int_u_curr = pdf_curr.component_distribution.loc + 10*pdf_curr.component_distribution.scale
-#     int_l_tar = pdf_target.component_distribution.loc - 10*pdf_target.component_distribution.scale
-#     int_u_tar = pdf_target.component_distribution.loc + 10*pdf_target.component_distribution.scale
-#
-#     # Diff Current + Target
-#     diff_curr = torch.abs(int_u_curr - int_l_curr)
-#     delta_mb_curr = diff_curr / n_supp
-#     delta_mb_curr.unsqueeze_(dim=2)
-#     diff_tar = torch.abs(int_u_tar - int_l_tar)
-#     delta_mb_tar = diff_tar / n_supp
-#     delta_mb_tar.unsqueeze_(dim=2)
-#
-#     # Calculate \Delta x for all supports
-#     dx_mb_diff_curr = steps_idx * delta_mb_curr
-#     dx_mb_diff_tar = steps_idx * delta_mb_tar
-#
-#     # Calculate Supports for Current + Target and Concatenate
-#     dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
-#     dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
-#     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
-#
-#     dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
-#
-#     dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
-#
-#     dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
-#     dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
-#     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
-#     cramer_re.sqrt_()
-#     cramer_re = cramer_re.mean()
-#
-#     return cramer_re
-
-
-def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+def cramer_py_test_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
     - Dynamic Supports
     - Batch-wise
@@ -147,25 +63,62 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev
     return cramer_re
 
 
+def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+    """
+    - Dynamic Supports
+    - Batch-wise
+    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Meta parameters
+    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
+    n_supp = torch.tensor(n_supp, device=dev)
+    # Dynamically Determine Supports for Current + Target
+    int_l_curr = pdf_curr.component_distribution.loc - 10 * pdf_curr.component_distribution.scale
+    int_u_curr = pdf_curr.component_distribution.loc + 10 * pdf_curr.component_distribution.scale
+    int_l_tar = pdf_target.component_distribution.loc - 10 * pdf_target.component_distribution.scale
+    int_u_tar = pdf_target.component_distribution.loc + 10 * pdf_target.component_distribution.scale
+
+    # Diff Current + Target
+    diff_curr = torch.abs(int_u_curr - int_l_curr)
+    delta_mb_curr = diff_curr / n_supp
+    delta_mb_curr.unsqueeze_(dim=2)
+    diff_tar = torch.abs(int_u_tar - int_l_tar)
+    delta_mb_tar = diff_tar / n_supp
+    delta_mb_tar.unsqueeze_(dim=2)
+
+    # Calculate \Delta x for all supports
+    dx_mb_diff_curr = steps_idx * delta_mb_curr
+    dx_mb_diff_tar = steps_idx * delta_mb_tar
+
+    # Calculate Supports for Current + Target and Concatenate
+    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
+    dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
+
+    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
 def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tensor):
     # Test mysterious symmetry
     gmm = RMM(distr.Categorical(probs=kweights), distr.Normal(locs, scales))
     # gmm = RMM(distr.Categorical(probs=kweights), NormalStable(locs, scales))
 
     return gmm
-
-
-# def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, n_supp, dev='cpu'):
-#     diff = torch.abs(supp_l - supp_u)
-#     n_supp = torch.tensor(n_supp, device=dev)
-#     delta_mb = diff / n_supp
-#     steps_idx = torch.arange(start=1, end=n_supp+1, step=1).to(dev)
-#     steps_tensor = steps_idx * delta_mb
-#     # Calculate Supports with correct stepsizes
-#     dx_mb = torch.ones((1, n_supp), device=dev) * supp_l + steps_tensor
-#     cdf_curve = pdf.cdf(dx_mb).mean(dim=2)
-#
-#    return cdf_curve
 
 
 def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, spacing, dev='cpu'):
@@ -184,35 +137,13 @@ if __name__ == '__main__':
 
     # Train parameters
     learning_rate = 0.001
-    epochs = 1                  # Old: 7
+    epochs = 7                  # Old: 7
     epochs_low_e = 10
     epochs_high_e = 10
     mb_size = 5
     # Number of Supports per Kernel
-    n_eval_points = 25
+    n_eval_points = 30
     graph_spacing = 0.01
-
-    # Boundaries Ref High
-    int_ref_high_l_k1 = torch.ones((mb_size, 1), device=device) * -30
-    int_ref_high_u_k1 = torch.ones((mb_size, 1), device=device) * 30
-    int_ref_high_l_k2 = torch.ones((mb_size, 1), device=device) * -29
-    int_ref_high_u_k2 = torch.ones((mb_size, 1), device=device) * 31
-    int_ref_high_l = torch.cat((int_ref_high_l_k1, int_ref_high_l_k2), dim=1)
-    int_ref_high_u = torch.cat((int_ref_high_u_k1, int_ref_high_u_k2), dim=1)
-    # Boundaries Low Target
-    int_tar_low_l_k1 = torch.ones((mb_size, 1), device=device) * -8
-    int_tar_low_u_k1 = torch.ones((mb_size, 1), device=device) * 12
-    int_tar_low_l_k2 = torch.ones((mb_size, 1), device=device) * 5
-    int_tar_low_u_k2 = torch.ones((mb_size, 1), device=device) * 25
-    int_tar_low_l = torch.cat((int_tar_low_l_k1, int_tar_low_l_k2), dim=1)
-    int_tar_low_u = torch.cat((int_tar_low_u_k1, int_tar_low_u_k2), dim=1)
-    # Boundaries High Target
-    int_tar_high_l_k1 = torch.ones((mb_size, 1), device=device) * -28
-    int_tar_high_u_k1 = torch.ones((mb_size, 1), device=device) * 32
-    int_tar_high_l_k2 = torch.ones((mb_size, 1), device=device) * 45
-    int_tar_high_u_k2 = torch.ones((mb_size, 1), device=device) * -15
-    int_tar_high_l = torch.cat((int_tar_high_l_k1, int_tar_high_l_k2), dim=1)
-    int_tar_high_u = torch.cat((int_tar_high_u_k1, int_tar_high_u_k2), dim=1)
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
@@ -239,8 +170,8 @@ if __name__ == '__main__':
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
 
     # Network parameters
-    arch = (1, 64, 64, 1)
-    activ = ('gelu', 'gelu')
+    arch = (1, 10, 1)
+    activ = ('gelu',)
     n_kernels = 2
     multivar = True
     learnable_weights = True
@@ -265,11 +196,10 @@ if __name__ == '__main__':
     batches = input_total.view(n_mb, mb_size, 1)
 
     '''
-    Fit Low Entropy Reference - Optimized Cramer
+    Fit Low Entropy Reference 
     '''
     # Fit gmm_approx to ref low_e
-    start_optim = time.perf_counter()
-    sort_tot = 0
+    start_ref_low = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
             pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = gmm_approx_ref_low_e(batch)
@@ -294,8 +224,9 @@ if __name__ == '__main__':
             cramer_py_loss_ref_low_e.backward()
             optimizer_ref_low_e.step()
         print(f'Finished episode for ref low_e: {epoch + 1}')
-    end_optim = time.perf_counter()
-    print(f'Optimized Time: {end_optim - start_optim}')
+    end_ref_low = time.perf_counter()
+    time_ref_low = end_ref_low - start_ref_low
+    print(f'Optimized Time Ref Low.: {time_ref_low}')
 
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
     preds_means_all, preds_stds_all, _ = gmm_approx_ref_low_e(input_total)
@@ -310,6 +241,7 @@ if __name__ == '__main__':
     Fit High Entropy Reference
     '''
     # Fit gmm_approx to ref high_e
+    start_ref_high = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
             pred_means_ref_high_e, pred_stds_ref_high_e, kweights_ref_high_e = gmm_approx_ref_high_e(batch)
@@ -333,19 +265,19 @@ if __name__ == '__main__':
             cramer_py_loss_ref_high_e.backward()
             optimizer_ref_high_e.step()
         print(f'Finished episode for ref high_e: {epoch + 1}')
+    end_ref_high = time.perf_counter()
+    time_ref_high = end_ref_high - start_ref_high
+    print(f'Optimized Time Ref High: {time_ref_high}')
 
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
     preds_means_high_all, preds_stds_high_all, _ = gmm_approx_ref_high_e(input_total)
     print(f'Avg. Ref preds means for low_e: {preds_means_high_all.mean(dim=0)}')
     print(f'Avg. Ref preds stds for low_e: {preds_stds_high_all.mean(dim=0)}')
     # Evaluate CDFs for: Ref, Low_H, High_H
-    cdf_ref_high_e = calculate_cdf(pred_gmm_ref_high_e, supp_l=-12, supp_u=13,
-                                   spacing=graph_spacing, dev=device)
+    cdf_ref_high_e = calculate_cdf(pred_gmm_ref_high_e, supp_l=-12, supp_u=13, spacing=graph_spacing, dev=device)
 
-    cdf_low_target = calculate_cdf(distr_low_e, supp_l=-12, supp_u=13, spacing=graph_spacing,
-                                   dev=device)
-    cdf_high_target = calculate_cdf(distr_high_e, supp_l=-12, supp_u=13, spacing=graph_spacing,
-                                    dev=device)
+    cdf_low_target = calculate_cdf(distr_low_e, supp_l=-12, supp_u=13, spacing=graph_spacing, dev=device)
+    cdf_high_target = calculate_cdf(distr_high_e, supp_l=-8, supp_u=25, spacing=graph_spacing, dev=device)
 
     '''
     Deep copy the trained network (trained for means=[1.0, 0.0], stds=[1.0, 1.0])
@@ -364,6 +296,7 @@ if __name__ == '__main__':
     stds_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
+    start_low_low = time.perf_counter()
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_low_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -405,6 +338,9 @@ if __name__ == '__main__':
                                                  dim=0)
             dc_history_low_low = torch.cat((dc_history_low_low, dc_history_batch_low_low), dim=0)
         print(f'Finished episode low-low: {epoch + 1}')
+    end_low_low = time.perf_counter()
+    time_low_low = end_low_low - start_low_low
+    print(f'Optimized Time Low-Low: {time_low_low}')
 
     '''
     Measure change from high-to-low
@@ -414,6 +350,7 @@ if __name__ == '__main__':
     stds_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
+    start_high_low = time.perf_counter()
     for epoch in range(epochs_low_e):
         for batch in batches:
             means_history_batch_high_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -457,6 +394,9 @@ if __name__ == '__main__':
                                                   dim=0)
             dc_history_high_low = torch.cat((dc_history_high_low, dc_history_batch_high_low), dim=0)
         print(f'Finished episode high-low: {epoch + 1}')
+    end_high_low = time.perf_counter()
+    time_high_low = end_high_low - start_high_low
+    print(f'Optimized High Low: {time_high_low}')
 
     '''
     Measure change for from low-to-high
@@ -466,6 +406,7 @@ if __name__ == '__main__':
     stds_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
+    start_low_high = time.perf_counter()
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_low_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -509,6 +450,9 @@ if __name__ == '__main__':
             kweights_history_low_high = torch.cat((kweights_history_low_high, kweights_history_batch_low_high),
                                                   dim=0)
         print(f'Finished episode low-high: {epoch + 1}')
+    end_low_high = time.perf_counter()
+    time_low_high = end_low_high - start_low_high
+    print(f'Time Low High: {time_low_high}')
 
     '''
     Measure change from high-to-high
@@ -518,6 +462,7 @@ if __name__ == '__main__':
     stds_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     kweights_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
+    start_high_high = time.perf_counter()
     for epoch in range(epochs_high_e):
         for batch in batches:
             means_history_batch_high_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -562,6 +507,9 @@ if __name__ == '__main__':
             kweights_history_high_high = torch.cat((kweights_history_high_high, kweights_history_batch_high_high),
                                                    dim=0)
         print(f'Finished episode high-high: {epoch + 1}')
+    end_high_high = time.perf_counter()
+    time_high_high = end_high_high - start_high_high
+    print(f'Time High High: {time_high_high}')
 
     '''
     Calculate CDFs: Retro-Fitted GMM for low and high entropy
@@ -614,5 +562,18 @@ if __name__ == '__main__':
     torch.save(cdf_high_low_post, save_path + '/' + 'cdf_high_low_post')
     torch.save(cdf_high_high_post, save_path + '/' + 'cdf_high_high_post')
 
+    # Save Times
+    with open(save_path + '/' + 'Times.txt', 'w') as file:
+        file.write('Time Ref Low:     ' + str(time_ref_low))
+        file.write('\n')
+        file.write('Time Ref High:     ' + str(time_ref_high))
+        file.write('\n')
+        file.write('Time Low Low:     ' + str(time_low_low))
+        file.write('\n')
+        file.write('Time High Low:     ' + str(time_high_low))
+        file.write('\n')
+        file.write('Time Low High:     ' + str(time_low_high))
+        file.write('\n')
+        file.write('Time High High:     ' + str(time_high_high))
 
 
