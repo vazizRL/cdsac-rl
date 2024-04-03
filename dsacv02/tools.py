@@ -9,6 +9,7 @@ from typing import List
 
 def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100)):
     """
+    - Only for testing purposes
     - Calculates the
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
     :param pdf_target: Probability density function of target distribution
@@ -28,6 +29,7 @@ def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int
 
 def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
+    - WARNING: DEPRECATED
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
     - Optional: Define an interval to focus on, in case of rapid
     - Implementation:
@@ -53,8 +55,9 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     return cramer_re
 
 
-def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
+    - Dynamic Supports
     - Batch-wise
     - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
     - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
@@ -63,36 +66,49 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
         2. Calculate the difference squared
         3. Integrate over all dx
     """
-    # Discretize for numerical integration
-    diff = torch.abs(int_u - int_l)
-    n_steps = torch.tensor(51, device=dev)
-    delta_mb = diff / n_steps
+    # Meta parameters
+    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
+    n_supp = torch.tensor(n_supp, device=dev)
+    # Dynamically Determine Supports for Current + Target
+    int_l_curr = pdf_curr.component_distribution.loc - 10 * pdf_curr.component_distribution.scale
+    int_u_curr = pdf_curr.component_distribution.loc + 10 * pdf_curr.component_distribution.scale
+    int_l_tar = pdf_target.component_distribution.loc - 10 * pdf_target.component_distribution.scale
+    int_u_tar = pdf_target.component_distribution.loc + 10 * pdf_target.component_distribution.scale
 
-    steps_idx = torch.arange(start=1, end=n_steps+1, step=1).to(dev)
-    steps_tensor = steps_idx * delta_mb
+    # Diff Current + Target
+    diff_curr = torch.abs(int_u_curr - int_l_curr)
+    delta_mb_curr = diff_curr / n_supp
+    delta_mb_curr.unsqueeze_(dim=2)
+    diff_tar = torch.abs(int_u_tar - int_l_tar)
+    delta_mb_tar = diff_tar / n_supp
+    delta_mb_tar.unsqueeze_(dim=2)
 
-    # Calculate Supports with correct stepsizes
-    dx_mb = torch.ones((1, n_steps), device=dev) * int_l + steps_tensor
+    # Calculate \Delta x for all supports
+    dx_mb_diff_curr = steps_idx * delta_mb_curr
+    dx_mb_diff_tar = steps_idx * delta_mb_tar
 
-    dx_mb.unsqueeze_(dim=1).unsqueeze_(dim=2)
+    # Calculate Supports for Current + Target and Concatenate
+    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
+    dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
 
-    if pdf_curr.batch_shape.__len__():
-        batch_size = pdf_curr.batch_shape[0]
-    else:
-        batch_size = 1
-    dy_curr_mb = pdf_curr.cdf(dx_mb)
-    dy_target_mb = pdf_target.cdf(dx_mb)
-    cramer_re = torch.trapz((dy_target_mb - dy_curr_mb)**2, dx=spacing) + 1e-55
+    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-55
     cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
     return cramer_re
 
 
-
 def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor, stds_curr: torch.tensor,
                            stds_target: torch.tensor, factor, mean_std=False):
     """
+    - WARNING: DEPRECATED
     - Approximates numerically relevant integration bounds when given current and target GMM meta-parameters
     :param means_curr: Means of the current GMM
     :param means_target: Means of the target GMM

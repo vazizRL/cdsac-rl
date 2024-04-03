@@ -13,56 +13,6 @@ from dsacv02.gmm_reparameterization.normal_stable import NormalStable
 from copy import deepcopy
 
 
-def cramer_py_test_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
-    """
-    - Dynamic Supports
-    - Batch-wise
-    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
-    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
-    - Implementation:
-        1. Define the supports with constant n_steps
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Meta parameters
-    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
-    n_supp = torch.tensor(n_supp, device=dev)
-    # Dynamically Determine Supports for Current + Target
-    int_l_curr = pdf_curr.component_distribution.loc - 10 * pdf_curr.component_distribution.scale
-    int_u_curr = pdf_curr.component_distribution.loc + 10 * pdf_curr.component_distribution.scale
-    int_l_tar = pdf_target.component_distribution.loc - 10 * pdf_target.component_distribution.scale
-    int_u_tar = pdf_target.component_distribution.loc + 10 * pdf_target.component_distribution.scale
-
-    # Diff Current + Target
-    diff_curr = torch.abs(int_u_curr - int_l_curr)
-    delta_mb_curr = diff_curr / n_supp
-    delta_mb_curr.unsqueeze_(dim=2)
-    diff_tar = torch.abs(int_u_tar - int_l_tar)
-    delta_mb_tar = diff_tar / n_supp
-    delta_mb_tar.unsqueeze_(dim=2)
-
-    # Calculate \Delta x for all supports
-    dx_mb_diff_curr = steps_idx * delta_mb_curr
-    dx_mb_diff_tar = steps_idx * delta_mb_tar
-
-    # Calculate Supports for Current + Target and Concatenate
-    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
-    dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
-    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
-
-    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
-    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
-
-    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
-    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
-
-    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
-
-    return cramer_re
-
-
 def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
     - Dynamic Supports
