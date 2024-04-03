@@ -147,12 +147,25 @@ class MixtureSameFamilyMod(Distribution):
         return mean_cond_var + var_cond_mean
 
     def cdf(self, x):
-        # x = self._pad(x)
+        x = self._pad(x)
         cdf_x = self.component_distribution.cdf(x)
+        # mix_prob = self.mixture_distribution.probs.to('cpu')
+        mix_prob = self.mixture_distribution.probs.to('cuda:0')
+
+        return torch.sum(cdf_x * mix_prob, dim=-1)
+
+    def cdf_mod(self, x):
+        """
+        - Modified CDF-Method to handle individual supports in a batch
+        :param x:
+        :return:
+        """
+        # x = self._pad(x)
+        cdf_x = self.component_distribution.cdf_mod(x)
         mix_prob = self.mixture_distribution.probs.to('cuda:0')
         # mix_prob = self.mixture_distribution.probs.to('cpu')
 
-        return torch.sum(cdf_x * mix_prob, dim=-1)
+        return torch.sum(cdf_x * mix_prob.unsqueeze(dim=2), dim=-2)
 
     def log_prob(self, x):
         if self._validate_args:

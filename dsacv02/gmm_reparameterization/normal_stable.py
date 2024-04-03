@@ -9,10 +9,19 @@ class NormalStable(Normal):
     """
 
     # Override default
+    # def cdf(self, value):
+    #     if self._validate_args:
+    #         self._validate_sample(value)
+    #     return ndtr(self._standardise(value))
+
+    # def _standardise(self, x):
+    #     return (x - self.loc) * self.scale.reciprocal()
+
     def cdf(self, value):
-        if self._validate_args:
-            self._validate_sample(value)
         return ndtr(self._standardise(value))
+
+    def _standardise(self, x):
+        return (x - self.loc.unsqueeze(dim=2)) * self.scale.unsqueeze(dim=2).reciprocal()
 
     # NOTE: This is not necessary for implicit reparam.
     def _log_cdf(self, value):
@@ -20,14 +29,12 @@ class NormalStable(Normal):
             self._validate_sample(value)
         return log_ndtr(self._standardise(value))
 
-    def _standardise(self, x):
-        return (x - self.loc) * self.scale.reciprocal()
-
 
 #
 # Below are based on the investigation in https://github.com/pytorch/pytorch/issues/52973#issuecomment-787587188
 # and implementations in SciPy and Tensorflow Probability
 #
+
 
 def ndtr(value: torch.Tensor):
     """

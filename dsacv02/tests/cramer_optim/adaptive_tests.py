@@ -44,11 +44,11 @@ if __name__ == '__main__':
     # Integration interval
     # a = -3.1
     # b = 3.1
-    a = -6.2
-    b = 6.2
+    a = -10
+    b = 10
 
     # Number of supporting points
-    num_support_points = 51
+    num_support_points = 30
 
     # Perform adaptive integration and get supporting points
     integral, supporting_points_x, supporting_points_y = sci_integration(gauss_pdf, a, b, num_support_points)

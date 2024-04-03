@@ -9,50 +9,17 @@ import time
 from scipy import integrate
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
+from dsacv02.gmm_reparameterization.normal_stable import NormalStable
 from copy import deepcopy
 
 # torch.autograd.set_detect_anomaly(True)
 
 
-def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100),
-                    dev='cuda:0'):
-    """
-    - The integration limits should NOT be too far off form the lowest and highest point of the function!
-    """
-    c: tuple = integrate.quad(
-        lambda x: (pdf_target.cdf(torch.tensor([x]).to(dev)) - pdf_curr.cdf(torch.tensor([x]).to(dev))) ** 2,
-        int_l, int_u, points=points
-    )
-
-    distance, error_est = c
-
-    return distance**0.5, error_est
+def get_boundaries(means, stds):
+    pass
 
 
-def cramer_py_test_sum(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
-    """
-    - The integration limits should NOT be too far off form the lowest and highest point of the function!
-    - Optional: Define an interval to focus on, in case of rapid
-    - Implementation:
-        1. Define the supports
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Discretize for numerical integration
-    steps = int((int_u - int_l) / spacing)
-    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
-
-    dy_curr_cdf = pdf_curr.cdf(dx)
-    dy_target_cdf = pdf_target.cdf(dx)
-
-    cramer = torch.trapz((dy_target_cdf - dy_curr_cdf)**2, dx=spacing)
-    cramer = cramer.sum(dim=0)
-
-    return cramer**0.5
-
-
-def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+def cramer_standard(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
     - Reshape Version
     - Batch-wise
@@ -80,11 +47,125 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_
     return cramer_re
 
 
+# def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+#     """
+#     - Dynamic Supports
+#     - Batch-wise
+#     - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+#     - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+#     - Implementation:
+#         1. Define the supports with constant n_steps
+#         2. Calculate the difference squared
+#         3. Integrate over all dx
+#     """
+#     # Meta parameters
+#     steps_idx = torch.arange(start=1, end=n_supp+1, step=1).to(dev)
+#     n_supp = torch.tensor(n_supp, device=dev)
+#     # Dynamically Determine Supports for Current + Target
+#     int_l_curr = pdf_curr.component_distribution.loc - 10*pdf_curr.component_distribution.scale
+#     int_u_curr = pdf_curr.component_distribution.loc + 10*pdf_curr.component_distribution.scale
+#     int_l_tar = pdf_target.component_distribution.loc - 10*pdf_target.component_distribution.scale
+#     int_u_tar = pdf_target.component_distribution.loc + 10*pdf_target.component_distribution.scale
+#
+#     # Diff Current + Target
+#     diff_curr = torch.abs(int_u_curr - int_l_curr)
+#     delta_mb_curr = diff_curr / n_supp
+#     delta_mb_curr.unsqueeze_(dim=2)
+#     diff_tar = torch.abs(int_u_tar - int_l_tar)
+#     delta_mb_tar = diff_tar / n_supp
+#     delta_mb_tar.unsqueeze_(dim=2)
+#
+#     # Calculate \Delta x for all supports
+#     dx_mb_diff_curr = steps_idx * delta_mb_curr
+#     dx_mb_diff_tar = steps_idx * delta_mb_tar
+#
+#     # Calculate Supports for Current + Target and Concatenate
+#     dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
+#     dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
+#     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
+#
+#     dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+#
+#     dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+#
+#     dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
+#     dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
+#     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
+#     cramer_re.sqrt_()
+#     cramer_re = cramer_re.mean()
+#
+#     return cramer_re
+
+
+def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+    """
+    - Dynamic Supports
+    - Batch-wise
+    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Meta parameters
+    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
+    n_supp = torch.tensor(n_supp, device=dev)
+    # Dynamically Determine Supports for Current + Target
+    int_l_curr = pdf_curr.component_distribution.loc - 10 * pdf_curr.component_distribution.scale
+    int_u_curr = pdf_curr.component_distribution.loc + 10 * pdf_curr.component_distribution.scale
+    int_l_tar = pdf_target.component_distribution.loc - 10 * pdf_target.component_distribution.scale
+    int_u_tar = pdf_target.component_distribution.loc + 10 * pdf_target.component_distribution.scale
+
+    # Diff Current + Target
+    diff_curr = torch.abs(int_u_curr - int_l_curr)
+    delta_mb_curr = diff_curr / n_supp
+    delta_mb_curr.unsqueeze_(dim=2)
+    diff_tar = torch.abs(int_u_tar - int_l_tar)
+    delta_mb_tar = diff_tar / n_supp
+    delta_mb_tar.unsqueeze_(dim=2)
+
+    # Calculate \Delta x for all supports
+    dx_mb_diff_curr = steps_idx * delta_mb_curr
+    dx_mb_diff_tar = steps_idx * delta_mb_tar
+
+    # Calculate Supports for Current + Target and Concatenate
+    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
+    dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
+
+    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
 def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tensor):
     # Test mysterious symmetry
     gmm = RMM(distr.Categorical(probs=kweights), distr.Normal(locs, scales))
+    # gmm = RMM(distr.Categorical(probs=kweights), NormalStable(locs, scales))
 
     return gmm
+
+
+# def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, n_supp, dev='cpu'):
+#     diff = torch.abs(supp_l - supp_u)
+#     n_supp = torch.tensor(n_supp, device=dev)
+#     delta_mb = diff / n_supp
+#     steps_idx = torch.arange(start=1, end=n_supp+1, step=1).to(dev)
+#     steps_tensor = steps_idx * delta_mb
+#     # Calculate Supports with correct stepsizes
+#     dx_mb = torch.ones((1, n_supp), device=dev) * supp_l + steps_tensor
+#     cdf_curve = pdf.cdf(dx_mb).mean(dim=2)
+#
+#    return cdf_curve
 
 
 def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, spacing, dev='cpu'):
@@ -103,22 +184,35 @@ if __name__ == '__main__':
 
     # Train parameters
     learning_rate = 0.001
-    spacing = 0.001
-    epochs = 7
+    epochs = 1                  # Old: 7
     epochs_low_e = 10
     epochs_high_e = 10
     mb_size = 5
+    # Number of Supports per Kernel
+    n_eval_points = 25
+    graph_spacing = 0.01
 
-    # Boundaries
-    int_ref_l = -12
-    int_ref_u = 13
-
-    #
-    int_low_l = -10
-    int_low_u = 25
-    #
-    int_high_l = -10
-    int_high_u = 25
+    # Boundaries Ref High
+    int_ref_high_l_k1 = torch.ones((mb_size, 1), device=device) * -30
+    int_ref_high_u_k1 = torch.ones((mb_size, 1), device=device) * 30
+    int_ref_high_l_k2 = torch.ones((mb_size, 1), device=device) * -29
+    int_ref_high_u_k2 = torch.ones((mb_size, 1), device=device) * 31
+    int_ref_high_l = torch.cat((int_ref_high_l_k1, int_ref_high_l_k2), dim=1)
+    int_ref_high_u = torch.cat((int_ref_high_u_k1, int_ref_high_u_k2), dim=1)
+    # Boundaries Low Target
+    int_tar_low_l_k1 = torch.ones((mb_size, 1), device=device) * -8
+    int_tar_low_u_k1 = torch.ones((mb_size, 1), device=device) * 12
+    int_tar_low_l_k2 = torch.ones((mb_size, 1), device=device) * 5
+    int_tar_low_u_k2 = torch.ones((mb_size, 1), device=device) * 25
+    int_tar_low_l = torch.cat((int_tar_low_l_k1, int_tar_low_l_k2), dim=1)
+    int_tar_low_u = torch.cat((int_tar_low_u_k1, int_tar_low_u_k2), dim=1)
+    # Boundaries High Target
+    int_tar_high_l_k1 = torch.ones((mb_size, 1), device=device) * -28
+    int_tar_high_u_k1 = torch.ones((mb_size, 1), device=device) * 32
+    int_tar_high_l_k2 = torch.ones((mb_size, 1), device=device) * 45
+    int_tar_high_u_k2 = torch.ones((mb_size, 1), device=device) * -15
+    int_tar_high_l = torch.cat((int_tar_high_l_k1, int_tar_high_l_k2), dim=1)
+    int_tar_high_u = torch.cat((int_tar_high_u_k1, int_tar_high_u_k2), dim=1)
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
@@ -145,8 +239,8 @@ if __name__ == '__main__':
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
 
     # Network parameters
-    arch = (1, 10, 1)
-    activ = ('gelu',)
+    arch = (1, 64, 64, 1)
+    activ = ('gelu', 'gelu')
     n_kernels = 2
     multivar = True
     learnable_weights = True
@@ -171,10 +265,11 @@ if __name__ == '__main__':
     batches = input_total.view(n_mb, mb_size, 1)
 
     '''
-    Fit Low Entropy Reference
+    Fit Low Entropy Reference - Optimized Cramer
     '''
     # Fit gmm_approx to ref low_e
-    start = time.perf_counter()
+    start_optim = time.perf_counter()
+    sort_tot = 0
     for epoch in range(epochs):
         for batch in batches:
             pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = gmm_approx_ref_low_e(batch)
@@ -190,22 +285,26 @@ if __name__ == '__main__':
                                                   scales=pred_stds_ref_low_e.squeeze(),
                                                   kweights=kweights_fix)
             # Loss batch_i
-            cramer_py_loss_ref_low_e = cramer_py_test(pdf_target=distr_ref_low_e, pdf_curr=pred_gmm_ref_low_e,
-                                                      int_l=int_ref_l, int_u=int_ref_u, spacing=spacing, dev=device)
+            cramer_py_loss_ref_low_e = cramer_py_test(pdf_target=distr_ref_low_e,
+                                                      pdf_curr=pred_gmm_ref_low_e,
+                                                      n_supp=n_eval_points, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_low_e.zero_grad()
             cramer_py_loss_ref_low_e.backward()
             optimizer_ref_low_e.step()
         print(f'Finished episode for ref low_e: {epoch + 1}')
-    end = time.perf_counter()
-    print(f'Time Standard: {end - start}')
+    end_optim = time.perf_counter()
+    print(f'Optimized Time: {end_optim - start_optim}')
+
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
     preds_means_all, preds_stds_all, _ = gmm_approx_ref_low_e(input_total)
     print(f'Avg. Ref preds means for low_e: {preds_means_all.mean(dim=0)}')
     print(f'Avg. Ref preds stds for low_e: {preds_stds_all.mean(dim=0)}')
-    # Evaluate CDFs for: Ref, Low_H, High_H
-    cdf_ref_low_e = calculate_cdf(pred_gmm_ref_low_e, supp_l=int_ref_l, supp_u=int_ref_u, spacing=spacing, dev=device)
+
+    # Evaluate CDFs for: Ref_Low
+    cdf_ref_low_e = calculate_cdf(pred_gmm_ref_low_e, supp_l=-12, supp_u=13, spacing=graph_spacing,
+                                  dev=device)
 
     ''' 
     Fit High Entropy Reference
@@ -227,7 +326,7 @@ if __name__ == '__main__':
                                                    kweights=kweights_fix)
             # Loss batch_i
             cramer_py_loss_ref_high_e = cramer_py_test(pdf_target=distr_ref_high_e, pdf_curr=pred_gmm_ref_high_e,
-                                                       int_l=int_ref_l, int_u=int_ref_u, spacing=spacing, dev=device)
+                                                       n_supp=n_eval_points, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_high_e.zero_grad()
@@ -240,10 +339,13 @@ if __name__ == '__main__':
     print(f'Avg. Ref preds means for low_e: {preds_means_high_all.mean(dim=0)}')
     print(f'Avg. Ref preds stds for low_e: {preds_stds_high_all.mean(dim=0)}')
     # Evaluate CDFs for: Ref, Low_H, High_H
-    cdf_ref_high_e = calculate_cdf(pred_gmm_ref_high_e, supp_l=int_ref_l, supp_u=int_ref_u, spacing=spacing, dev=device)
+    cdf_ref_high_e = calculate_cdf(pred_gmm_ref_high_e, supp_l=-12, supp_u=13,
+                                   spacing=graph_spacing, dev=device)
 
-    cdf_low_target = calculate_cdf(distr_low_e, supp_l=int_low_l, supp_u=int_low_u, spacing=spacing, dev=device)
-    cdf_high_target = calculate_cdf(distr_high_e, supp_l=int_high_l, supp_u=int_high_u, spacing=spacing, dev=device)
+    cdf_low_target = calculate_cdf(distr_low_e, supp_l=-12, supp_u=13, spacing=graph_spacing,
+                                   dev=device)
+    cdf_high_target = calculate_cdf(distr_high_e, supp_l=-12, supp_u=13, spacing=graph_spacing,
+                                    dev=device)
 
     '''
     Deep copy the trained network (trained for means=[1.0, 0.0], stds=[1.0, 1.0])
@@ -285,8 +387,9 @@ if __name__ == '__main__':
             else:
                 pred_gmm_low_low = generate_gmm(locs=pred_means_low_low.squeeze(), scales=pred_stds_low_low.squeeze(),
                                                 kweights=kweights_fix)
-            cramer_py_loss_low_low = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_low, int_l=int_low_l,
-                                                    int_u=int_low_u, spacing=spacing, dev=device)
+            # MB Cramer Loss
+            cramer_py_loss_low_low = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_low,
+                                                    n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_low_low = torch.cat((dc_history_batch_low_low,
                                                   cramer_py_loss_low_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -336,8 +439,9 @@ if __name__ == '__main__':
                 pred_gmm_high_low = generate_gmm(locs=pred_means_high_low.squeeze(),
                                                  scales=pred_stds_high_low.squeeze(),
                                                  kweights=kweights_fix)
+            # MB Cramer Loss
             cramer_py_loss_high_low = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_high_low,
-                                                     int_l=int_low_l, int_u=int_low_u, spacing=spacing, dev=device)
+                                                     n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_high_low = torch.cat((dc_history_batch_high_low,
                                                   cramer_py_loss_high_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -387,8 +491,9 @@ if __name__ == '__main__':
                                                  scales=pred_stds_low_high.squeeze(),
                                                  kweights=kweights_fix)
 
+            # MB Cramer Loss
             cramer_py_loss_low_high = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_low_high,
-                                                     int_l=int_high_l, int_u=int_high_u, spacing=spacing, dev=device)
+                                                     n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_low_high = torch.cat((dc_history_batch_low_high,
                                                    cramer_py_loss_low_high.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -438,8 +543,10 @@ if __name__ == '__main__':
                                                   scales=pred_stds_high_high.squeeze(),
                                                   kweights=kweights_fix)
 
+            # Cramer MB Loss
             cramer_py_loss_high_high = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_high,
-                                                      int_l=int_high_l, int_u=int_high_u, spacing=spacing, dev=device)
+                                                      n_supp=n_eval_points, dev=device)
+
             # Log loss
             dc_history_batch_high_high = torch.cat((dc_history_batch_high_high,
                                                     cramer_py_loss_high_high.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -459,13 +566,10 @@ if __name__ == '__main__':
     '''
     Calculate CDFs: Retro-Fitted GMM for low and high entropy
     '''
-    cdf_low_low_post = calculate_cdf(pred_gmm_low_low, supp_l=int_low_l, supp_u=int_low_u, spacing=n_eval_points, dev=device)
-    cdf_high_low_post = calculate_cdf(pred_gmm_high_low, supp_l=int_low_l, supp_u=int_low_u,
-                                      spacing=n_eval_points, dev=device)
-    cdf_low_high_post = calculate_cdf(pred_gmm_low_high, supp_l=int_low_l, supp_u=int_low_u,
-                                      spacing=n_eval_points, dev=device)
-    cdf_high_high_post = calculate_cdf(pred_gmm_high_high, supp_l=int_high_l, supp_u=int_high_u,
-                                       spacing=n_eval_points, dev=device)
+    cdf_low_low_post = calculate_cdf(pred_gmm_low_low, supp_l=-12, supp_u=13, spacing=graph_spacing, dev=device)
+    cdf_high_low_post = calculate_cdf(pred_gmm_high_low, supp_l=-12, supp_u=13, spacing=graph_spacing, dev=device)
+    cdf_low_high_post = calculate_cdf(pred_gmm_low_high, supp_l=-8, supp_u=25, spacing=graph_spacing, dev=device)
+    cdf_high_high_post = calculate_cdf(pred_gmm_high_high, supp_l=-8, supp_u=25, spacing=graph_spacing, dev=device)
 
     '''
     Save Data

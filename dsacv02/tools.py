@@ -64,17 +64,25 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
         3. Integrate over all dx
     """
     # Discretize for numerical integration
-    steps = int((int_u - int_l) / spacing)
-    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
+    diff = torch.abs(int_u - int_l)
+    n_steps = torch.tensor(51, device=dev)
+    delta_mb = diff / n_steps
+
+    steps_idx = torch.arange(start=1, end=n_steps+1, step=1).to(dev)
+    steps_tensor = steps_idx * delta_mb
+
+    # Calculate Supports with correct stepsizes
+    dx_mb = torch.ones((1, n_steps), device=dev) * int_l + steps_tensor
+
+    dx_mb.unsqueeze_(dim=1).unsqueeze_(dim=2)
 
     if pdf_curr.batch_shape.__len__():
         batch_size = pdf_curr.batch_shape[0]
     else:
         batch_size = 1
-    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
+    dy_curr_mb = pdf_curr.cdf(dx_mb)
+    dy_target_mb = pdf_target.cdf(dx_mb)
+    cramer_re = torch.trapz((dy_target_mb - dy_curr_mb)**2, dx=spacing) + 1e-55
     cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
@@ -248,5 +256,11 @@ def smooth_ref(scalars, weight):
     return smoothed
 
 
+def get_supports(mb, means, sigmas):
+    pass
+
+
 if __name__ == '__main__':
     print(f'The action dim required for one action is: {calc_size_co_matrix(2)}')
+    means = torch.randn(10)
+    sigmas = torch.randn(10)

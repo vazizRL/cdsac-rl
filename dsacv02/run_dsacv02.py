@@ -38,15 +38,15 @@ ACTION_HIGH = 1.0
 # RL parameters
 DOUBLE_Q = True
 BATCH_SIZE = 32
-T_MAX = 500           # Old 20000
+T_MAX = 500                 # Old 20000
 TAU = 0.01
-STATIC_ALPHA = 1        # Old 0.2
-REWARD_SCALE = 2        # Old 0.2
+STATIC_ALPHA = 1            # Old 0.2
+REWARD_SCALE = 2            # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
-ALPHA_INI = 0.1      # Old 1
-MEM_SIZE = 1e5         # 1e5
+ALPHA_INI = 0.1             # Old 1
+MEM_SIZE = 1e5              # 1e5
 N_POL_UPDATE_INTERVAL = 1
 
 '''
