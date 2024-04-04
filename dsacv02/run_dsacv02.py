@@ -57,6 +57,7 @@ MAX_TOTAL_ITER = 15000
 N_GAMES = 250000
 MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
+N_SUPPORTS = 30
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:
@@ -92,7 +93,7 @@ if __name__ == '__main__':
                   t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                   reward_scale=REWARD_SCALE, gamma=GAMMA,
                   update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                  memory_size=MEM_SIZE, device=DEVICE)
+                  memory_size=MEM_SIZE, n_supports=N_SUPPORTS, device=DEVICE)
 
     best_score = env.reward_range[0]
     score_history = []

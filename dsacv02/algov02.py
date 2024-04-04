@@ -14,8 +14,7 @@ class RealDSAC:
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
                  static_alpha=0.2,
                  reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels_act=1,
-                 n_kernels_cr=1,
-                 device='cuda:0'):
+                 n_kernels_cr=1,  n_supports=30, device='cuda:0'):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
         :param critic1: First q-network in the double-Q setting
@@ -39,8 +38,9 @@ class RealDSAC:
         :param gamma: Discount factor
         :param update_interval: Determines data-generation to updating ratio
         :param auto_alpha: Whether alpha is updated automatically
-        :param n_kernels: Number of Gaussian kernels in the GMM
-        :param kwargs:
+        :param n_kernels_act: Number of Gaussian kernels in the GMM for Actor
+        :param n_kernels_cr: Number of Gaussian kernels in the GMM for Critic
+        :param n_supports: Number of supports
         """
 
         # Initialize device
@@ -92,6 +92,9 @@ class RealDSAC:
         self.static_alpha = torch.tensor(static_alpha).to(self.device)
         self.auto_alpha = auto_alpha
         self.update_interval = update_interval
+
+        # Train parameters
+        self.n_supports = n_supports
 
     @staticmethod
     def switch_autograd_logging(require_grad, models: list):
@@ -320,13 +323,6 @@ class RealDSAC:
                                                                  kernel_weights=kweights_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
 
-            # Calculate integral bounds
-            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means,
-                                                                 means_target=means_next,
-                                                                 stds_curr=stds,
-                                                                 stds_target=stds_next,
-                                                                 factor=integral_bound_factor,
-                                                                 mean_std=True)
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
@@ -335,18 +331,10 @@ class RealDSAC:
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
                                                                  stds_next=stds1_next, kernel_weights=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
-            # Calculate integral bounds
-            int_bound_low, int_bound_up = approx_integral_bounds(means_curr=means, means_target=means1_next,
-                                                                 stds_curr=stds, stds_target=stds1_next,
-                                                                 factor=integral_bound_factor,
-                                                                 mean_std=True)
 
-        # Detach integral bounds from graph
-        int_bound_low.detach_(), int_bound_up.detach_()
-
-        # Calculate loss with batch-sensitive Cràmer distance on PDFs
-        q_loss = cramer_torch(pdf_target=zcal_next, pdf_curr=zcal, int_l=int_bound_low, int_u=int_bound_up,
-                              spacing=1e-3, dev=self.device)
+        # Batch-wise, dynamically supported Cràmer distance between two PDFs
+        q_loss = cramer_optim(pdf_target=zcal_next, pdf_curr=zcal, n_supp=self.n_supports,
+                              integral_bound_factor=10, dev=self.device)
 
         return q_loss.mean(), means.mean(), stds.mean(), kweights
 
@@ -432,7 +420,7 @@ class RealDSAC:
 
         # Compute Z-Loss, NOTE: Check exponentiation
         loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q,
-                                                                    integral_bound_factor=4, exp=False)
+                                                                    integral_bound_factor=10, exp=False)
         loss_q.backward()
 
         loss_policy, entropy = None, None

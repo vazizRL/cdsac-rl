@@ -55,7 +55,7 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     return cramer_re
 
 
-def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, integral_bound_factor=10, dev='cpu'):
     """
     - Dynamic Supports
     - Batch-wise
@@ -70,10 +70,10 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='
     steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
     n_supp = torch.tensor(n_supp, device=dev)
     # Dynamically Determine Supports for Current + Target
-    int_l_curr = pdf_curr.component_distribution.loc - 10 * pdf_curr.component_distribution.scale
-    int_u_curr = pdf_curr.component_distribution.loc + 10 * pdf_curr.component_distribution.scale
-    int_l_tar = pdf_target.component_distribution.loc - 10 * pdf_target.component_distribution.scale
-    int_u_tar = pdf_target.component_distribution.loc + 10 * pdf_target.component_distribution.scale
+    int_l_curr = pdf_curr.component_distribution.loc - integral_bound_factor * pdf_curr.component_distribution.scale
+    int_u_curr = pdf_curr.component_distribution.loc + integral_bound_factor * pdf_curr.component_distribution.scale
+    int_l_tar = pdf_target.component_distribution.loc - integral_bound_factor * pdf_target.component_distribution.scale
+    int_u_tar = pdf_target.component_distribution.loc + integral_bound_factor * pdf_target.component_distribution.scale
 
     # Diff Current + Target
     diff_curr = torch.abs(int_u_curr - int_l_curr)
