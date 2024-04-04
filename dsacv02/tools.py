@@ -55,7 +55,8 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     return cramer_re
 
 
-def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, integral_bound_factor=10, dev='cpu'):
+def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_kernels, integral_bound_factor=10,
+                 dev='cpu'):
     """
     - Dynamic Supports
     - Batch-wise
@@ -65,6 +66,13 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, integ
         1. Define the supports with constant n_steps
         2. Calculate the difference squared
         3. Integrate over all dx
+        :param pdf_target: Target probability density function
+        :param pdf_curr:  Current probability density function
+        :param n_supp: Number of supports to approximate each kernel
+        :param n_kernels: Number of kernels in PDF
+        :param integral_bound_factor: bounds = \mu +/- ibf*\sigma
+        :param dev: device to run on
+        :return: Returns Cramer loss calculated by dynamic supports
     """
     # Meta parameters
     steps_idx = torch.arange(start=1, end=n_supp + 1, step=1).to(dev)
@@ -93,16 +101,16 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, integ
     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
 
     dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
-    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+    dx_mb_multi = dx_singular_flat * torch.ones(n_kernels, device=dev).unsqueeze(dim=1)
 
-    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_double)
-    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_multi)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
 
-    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-55
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
+    cramer_optim_ret = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-55
+    cramer_optim_ret.sqrt_()
+    cramer_optim_ret = cramer_optim_ret.mean()
 
-    return cramer_re
+    return cramer_optim_ret
 
 
 def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor, stds_curr: torch.tensor,

@@ -13,7 +13,7 @@ from dsacv02.gmm_reparameterization.normal_stable import NormalStable
 from copy import deepcopy
 
 
-def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_kernels, dev='cpu'):
+def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
     - Dynamic Supports
     - Batch-wise
@@ -36,7 +36,7 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_k
     # Diff Current + Target
     diff_curr = torch.abs(int_u_curr - int_l_curr)
     delta_mb_curr = diff_curr / n_supp
-    delta_mb_curr.unsqueeze_(dim=2)
+    delta_mb_curr.unsqueeze_(dim=1).unsqueeze_(dim=2)
     diff_tar = torch.abs(int_u_tar - int_l_tar)
     delta_mb_tar = diff_tar / n_supp
     delta_mb_tar.unsqueeze_(dim=2)
@@ -46,16 +46,15 @@ def cramer_py_test(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_k
     dx_mb_diff_tar = steps_idx * delta_mb_tar
 
     # Calculate Supports for Current + Target and Concatenate
-    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=2) + dx_mb_diff_curr
+    dx_mb_curr = torch.ones((1, n_supp), device=dev) * int_l_curr.unsqueeze(dim=1).unsqueeze(dim=2) + dx_mb_diff_curr
     dx_mb_tar = torch.ones((1, n_supp), device=dev) * int_l_tar.unsqueeze(dim=2) + dx_mb_diff_tar
     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
 
     dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
-    # dx_mb_multi = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
-    dx_mb_multi = dx_singular_flat * torch.ones(n_kernels, device=dev).unsqueeze(dim=1)
+    dx_mb_double = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
 
-    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_multi)
-    dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
+    dy_curr_mb = pdf_curr.cdf(dx_mb_double)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_double)
 
     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-55
     cramer_re.sqrt_()
@@ -88,10 +87,10 @@ if __name__ == '__main__':
 
     # Train parameters
     learning_rate = 0.001
-    epochs = 14                  # Old: 7
-    epochs_low_e = 20           # Old: 10
-    epochs_high_e = 20          # Old: 10
-    mb_size = 50
+    epochs = 7                  # Old: 7
+    epochs_low_e = 10
+    epochs_high_e = 10
+    mb_size = 5
     # Number of Supports per Kernel
     n_eval_points = 30
     graph_spacing = 0.01
@@ -99,33 +98,33 @@ if __name__ == '__main__':
     graph_u = 25
 
     # Reference distribution - Low E
-    mean_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
-    std_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
-    kweight_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
+    mean_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
+    std_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
+    kweight_ref_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_ref_low_e = generate_gmm(locs=mean_ref_low_e, scales=std_ref_low_e, kweights=kweight_ref_low_e)
 
     # Reference distribution - High E
-    mean_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0, 1.0], dtype=torch.float64).to(device)
-    std_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
-    kweight_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
+    mean_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
+    std_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
+    kweight_ref_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_ref_high_e = generate_gmm(locs=mean_ref_high_e, scales=std_ref_high_e, kweights=kweight_ref_high_e)
 
     # High-entropy Distribution Target, Standard: [2.0, 15.0] with 3 STD
-    mean_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([2.0, 15.0], dtype=torch.float64).to(device)
-    std_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([3.0, 3.0], dtype=torch.float64).to(device)
-    kweight_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
+    mean_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)
+    std_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
+    kweight_high_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
 
     # Low-entropy Distribution, Standard: [2.0, 15.0] with 1 STD
-    mean_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([2.0, 15.0], dtype=torch.float64).to(device)
-    std_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0, 1.0], dtype=torch.float64).to(device)
-    kweight_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([0.5, 0.5], dtype=torch.float64).to(device)
+    mean_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)  / 10
+    std_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
+    kweight_low_e = torch.ones(size=(mb_size, 1)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
 
     # Network parameters
-    arch = (1, 10, 1)
-    activ = ('gelu',)
-    n_kernels = 2
+    arch = (1, 256, 256, 1)
+    activ = ('gelu', 'gelu')
+    n_kernels = 1
     multivar = True
     learnable_weights = True
     kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
@@ -170,7 +169,6 @@ if __name__ == '__main__':
             # Loss batch_i
             cramer_py_loss_ref_low_e = cramer_py_test(pdf_target=distr_ref_low_e,
                                                       pdf_curr=pred_gmm_ref_low_e,
-                                                      n_kernels=n_kernels,
                                                       n_supp=n_eval_points, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
@@ -212,7 +210,7 @@ if __name__ == '__main__':
                                                    kweights=kweights_fix)
             # Loss batch_i
             cramer_py_loss_ref_high_e = cramer_py_test(pdf_target=distr_ref_high_e, pdf_curr=pred_gmm_ref_high_e,
-                                                       n_supp=n_eval_points, n_kernels=n_kernels, dev=device)
+                                                       n_supp=n_eval_points, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_high_e.zero_grad()
@@ -276,7 +274,7 @@ if __name__ == '__main__':
                                                 kweights=kweights_fix)
             # MB Cramer Loss
             cramer_py_loss_low_low = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_low,
-                                                    n_supp=n_eval_points, n_kernels=n_kernels, dev=device)
+                                                    n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_low_low = torch.cat((dc_history_batch_low_low,
                                                   cramer_py_loss_low_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -332,7 +330,7 @@ if __name__ == '__main__':
                                                  kweights=kweights_fix)
             # MB Cramer Loss
             cramer_py_loss_high_low = cramer_py_test(pdf_target=distr_low_e, pdf_curr=pred_gmm_high_low,
-                                                     n_supp=n_eval_points, n_kernels=n_kernels, dev=device)
+                                                     n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_high_low = torch.cat((dc_history_batch_high_low,
                                                   cramer_py_loss_high_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -388,7 +386,7 @@ if __name__ == '__main__':
 
             # MB Cramer Loss
             cramer_py_loss_low_high = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_low_high,
-                                                     n_supp=n_eval_points, n_kernels=n_kernels, dev=device)
+                                                     n_supp=n_eval_points, dev=device)
             # Log loss
             dc_history_batch_low_high = torch.cat((dc_history_batch_low_high,
                                                    cramer_py_loss_low_high.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -444,7 +442,7 @@ if __name__ == '__main__':
 
             # Cramer MB Loss
             cramer_py_loss_high_high = cramer_py_test(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_high,
-                                                      n_supp=n_eval_points, n_kernels=n_kernels, dev=device)
+                                                      n_supp=n_eval_points, dev=device)
 
             # Log loss
             dc_history_batch_high_high = torch.cat((dc_history_batch_high_high,
