@@ -1,6 +1,0 @@
-Time Ref Low:     42.347453300000005
-Time Ref High:     41.520084499999996
-Time Low Low:     65.1146386
-Time High Low:     64.7700816
-Time Low High:     66.6741135
-Time High High:     64.64933350000001

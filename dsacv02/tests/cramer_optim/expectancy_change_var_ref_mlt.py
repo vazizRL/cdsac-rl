@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+one_kernel = True
 curr_path = os.getcwd()
 main_dir = '/VAR_REF_OPTI'
-dir_name = 'r17_MBSize_EPI_E'
+dir_name = '1712363174.4160469'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 
@@ -48,14 +49,18 @@ cdf_high_high = torch.load(loading_path + '/' + 'cdf_high_high_post').cpu().deta
 Changes in means for l-l and l-h
 '''
 mean_low_low_k1 = means_history_low_low[:, 0]
-mean_low_low_k2 = means_history_low_low[:, 1]
 mean_low_high_k1 = means_history_low_high[:, 0]
-mean_low_high_k2 = means_history_low_high[:, 1]
 
-plt.plot(mean_low_low_k1, label='low_low_k1')
-plt.plot(mean_low_low_k2, label='low_low_k2')
-plt.plot(mean_low_high_k1, label='low_high_k1')
-plt.plot(mean_low_high_k2, label='low_high_k2')
+if one_kernel:
+    plt.plot(mean_low_low_k1, label='low_low_k1')
+    plt.plot(mean_low_high_k1, label='low_high_k1', alpha=0.8)
+else:
+    mean_low_high_k2 = means_history_low_high[:, 1]
+    mean_low_low_k2 = means_history_low_low[:, 1]
+    plt.plot(mean_low_low_k1, label='low_low_k1')
+    plt.plot(mean_low_high_k1, label='low_high_k1')
+    plt.plot(mean_low_low_k2, label='low_low_k2')
+    plt.plot(mean_low_high_k2, label='low_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -71,14 +76,18 @@ Changes in Means for h-l and h-h
 '''
 plt.figure()
 mean_high_low_k1 = means_history_high_low[:, 0]
-mean_high_low_k2 = means_history_high_low[:, 1]
 mean_high_high_k1 = means_history_high_high[:, 0]
-mean_high_high_k2 = means_history_high_high[:, 1]
 
-plt.plot(mean_high_low_k1, label='high_low_k1')
-plt.plot(mean_high_low_k2, label='high_low_k2')
-plt.plot(mean_high_high_k1, label='high_high_k1')
-plt.plot(mean_high_high_k2, label='high_high_k2')
+if one_kernel:
+    plt.plot(mean_high_low_k1, label='high_low_k1')
+    plt.plot(mean_high_high_k1, label='high_high_k1', alpha=0.8)
+else:
+    mean_high_low_k2 = means_history_high_low[:, 1]
+    mean_high_high_k2 = means_history_high_high[:, 1]
+    plt.plot(mean_high_low_k1, label='high_low_k1')
+    plt.plot(mean_high_high_k1, label='high_high_k1')
+    plt.plot(mean_high_low_k2, label='high_low_k2')
+    plt.plot(mean_high_high_k2, label='high_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -94,14 +103,18 @@ Changes Stds for l-l and l-h
 '''
 plt.figure()
 stds_low_low_k1 = stds_history_low_low[:, 0]
-stds_low_low_k2 = stds_history_low_low[:, 1]
 stds_low_high_k1 = stds_history_low_high[:, 0]
-stds_low_high_k2 = stds_history_low_high[:, 1]
 
-plt.plot(stds_low_low_k1, label='low_low_k1')
-plt.plot(stds_low_low_k2, label='low_low_k2')
-plt.plot(stds_low_high_k1, label='low_high_k1')
-plt.plot(stds_low_high_k2, label='low_high_k2')
+if one_kernel:
+    plt.plot(stds_low_low_k1, label='low_low_k1')
+    plt.plot(stds_low_high_k1, label='low_high_k1', alpha=0.8)
+else:
+    stds_low_low_k2 = stds_history_low_low[:, 1]
+    stds_low_high_k2 = stds_history_low_high[:, 1]
+    plt.plot(stds_low_low_k1, label='low_low_k1')
+    plt.plot(stds_low_low_k2, label='low_low_k2')
+    plt.plot(stds_low_high_k1, label='low_high_k1')
+    plt.plot(stds_low_high_k2, label='low_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -117,14 +130,18 @@ Changes Stds for h-l and h-h
 '''
 plt.figure()
 stds_high_low_k1 = stds_history_high_low[:, 0]
-stds_high_low_k2 = stds_history_high_low[:, 1]
 stds_high_high_k1 = stds_history_high_high[:, 0]
-stds_high_high_k2 = stds_history_high_high[:, 1]
 
-plt.plot(stds_high_low_k1, label='high_low_k1')
-plt.plot(stds_high_low_k2, label='high_low_k2')
-plt.plot(stds_high_high_k1, label='high_high_k1')
-plt.plot(stds_high_high_k2, label='high_high_k2')
+if one_kernel:
+    plt.plot(stds_high_low_k1, label='high_low_k1')
+    plt.plot(stds_high_high_k1, label='high_high_k1', alpha=0.8)
+else:
+    stds_high_low_k2 = stds_history_high_low[:, 1]
+    stds_high_high_k2 = stds_history_high_high[:, 1]
+    plt.plot(stds_high_low_k1, label='high_low_k1')
+    plt.plot(stds_high_low_k2, label='high_low_k2')
+    plt.plot(stds_high_high_k1, label='high_high_k1')
+    plt.plot(stds_high_high_k2, label='high_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -138,55 +155,53 @@ plt.show(block=False)
 '''
 Changes Kweights for l-l and l-h
 '''
-plt.figure()
-kweights_low_low_k1 = kweights_history_low_low[:, 0]
-kweights_low_low_k2 = kweights_history_low_low[:, 1]
-kweights_low_high_k1 = kweights_history_low_high[:, 0]
-kweights_low_high_k2 = kweights_history_low_high[:, 1]
-
-plt.plot(kweights_low_low_k1, label='low_low_k1')
-plt.plot(kweights_low_low_k2, label='low_low_k2')
-plt.plot(kweights_low_high_k1, label='low_high_k1')
-plt.plot(kweights_low_high_k2, label='low_high_k2')
-
-# Add labels and legend
-plt.xlabel('Train Iterations')
-plt.ylabel('Kernel Weights')
-plt.title('Change in Kweights - From Low-E Ref.')
-plt.legend()
-# Show the plot
-plt.savefig(loading_path + '/' + 'Kweights_From_L.png')
-plt.show(block=False)
+if not one_kernel:
+    plt.figure()
+    kweights_low_low_k1 = kweights_history_low_low[:, 0]
+    kweights_low_high_k1 = kweights_history_low_high[:, 0]
+    kweights_low_low_k2 = kweights_history_low_low[:, 1]
+    kweights_low_high_k2 = kweights_history_low_high[:, 1]
+    plt.plot(kweights_low_low_k1, label='low_low_k1')
+    plt.plot(kweights_low_high_k1, label='low_high_k1')
+    plt.plot(kweights_low_low_k2, label='low_low_k2')
+    plt.plot(kweights_low_high_k2, label='low_high_k2')
+    # Add labels and legend
+    plt.xlabel('Train Iterations')
+    plt.ylabel('Kernel Weights')
+    plt.title('Change in Kweights - From Low-E Ref.')
+    plt.legend()
+    # Show the plot
+    plt.savefig(loading_path + '/' + 'Kweights_From_L.png')
+    plt.show(block=False)
 
 '''
 Changes Kweights for h-l and h-h
 '''
-plt.figure()
-kweights_high_low_k1 = kweights_history_high_low[:, 0]
-kweights_high_low_k2 = kweights_history_high_low[:, 1]
-kweights_high_high_k1 = kweights_history_high_high[:, 0]
-kweights_high_high_k2 = kweights_history_high_high[:, 1]
-
-plt.plot(kweights_high_low_k1, label='high_low_k1')
-plt.plot(kweights_high_low_k2, label='high_low_k2')
-plt.plot(kweights_high_high_k1, label='high_high_k1')
-plt.plot(kweights_high_high_k2, label='high_high_k2')
-
-# Add labels and legend
-plt.xlabel('Train Iterations')
-plt.ylabel('Kernel Weights')
-plt.title('Change in Kweights - From High-E Ref')
-plt.legend()
-# Show the plot
-plt.savefig(loading_path + '/' + 'Kweights_From_H.png')
-plt.show(block=False)
+if not one_kernel:
+    plt.figure()
+    kweights_high_low_k1 = kweights_history_high_low[:, 0]
+    kweights_high_high_k1 = kweights_history_high_high[:, 0]
+    kweights_high_low_k2 = kweights_history_high_low[:, 1]
+    kweights_high_high_k2 = kweights_history_high_high[:, 1]
+    plt.plot(kweights_high_low_k1, label='high_low_k1')
+    plt.plot(kweights_high_high_k1, label='high_high_k1')
+    plt.plot(kweights_high_low_k2, label='high_low_k2')
+    plt.plot(kweights_high_high_k2, label='high_high_k2')
+    # Add labels and legend
+    plt.xlabel('Train Iterations')
+    plt.ylabel('Kernel Weights')
+    plt.title('Change in Kweights - From High-E Ref')
+    plt.legend()
+    # Show the plot
+    plt.savefig(loading_path + '/' + 'Kweights_From_H.png')
+    plt.show(block=False)
 
 '''
 Changes Losses for l-l and l-h
 '''
 plt.figure()
 plt.plot(dc_history_low_low.squeeze(), label='dc_low_low')
-plt.plot(dc_history_low_high.squeeze(), label='dc_low_high')
+plt.plot(dc_history_low_high.squeeze(), label='dc_low_high', alpha=0.8)
 
 # Add labels and legend
 plt.xlabel('Train iterations')
@@ -202,7 +217,7 @@ Changes Losses for h-l and h-h
 '''
 plt.figure()
 plt.plot(dc_history_high_low.squeeze(), label='dc_high_low')
-plt.plot(dc_history_high_high.squeeze(), label='dc_high_high')
+plt.plot(dc_history_high_high.squeeze(), label='dc_high_high', alpha=0.8)
 
 # Add labels and legend
 plt.xlabel('Train iterations')
@@ -217,10 +232,14 @@ plt.show(block=False)
 Changes in Means for l-l and h-l
 '''
 plt.figure()
-plt.plot(mean_low_low_k1, label='low_low_k1')
-plt.plot(mean_low_low_k2, label='low_low_k2')
-plt.plot(mean_high_low_k1, label='high_low_k1')
-plt.plot(mean_high_low_k2, label='high_low_k2')
+if one_kernel:
+    plt.plot(mean_low_low_k1, label='low_low_k1')
+    plt.plot(mean_high_low_k1, label='high_low_k1', alpha=0.8)
+else:
+    plt.plot(mean_low_low_k1, label='low_low_k1')
+    plt.plot(mean_high_low_k1, label='high_low_k1')
+    plt.plot(mean_low_low_k2, label='low_low_k2')
+    plt.plot(mean_high_low_k2, label='high_low_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -235,10 +254,14 @@ plt.show(block=False)
 Changes in Means for l-h and h-h
 '''
 plt.figure()
-plt.plot(mean_low_high_k1, label='low_high_k1')
-plt.plot(mean_low_high_k2, label='low_high_k2')
-plt.plot(mean_high_high_k1, label='high_high_k1')
-plt.plot(mean_high_high_k2, label='high_high_k2')
+if one_kernel:
+    plt.plot(mean_low_high_k1, label='low_high_k1')
+    plt.plot(mean_high_high_k1, label='high_high_k1', alpha=0.8)
+else:
+    plt.plot(mean_low_high_k1, label='low_high_k1')
+    plt.plot(mean_high_high_k1, label='high_high_k1')
+    plt.plot(mean_low_high_k2, label='low_high_k2')
+    plt.plot(mean_high_high_k2, label='high_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -254,10 +277,14 @@ plt.show(block=False)
 Changes in Stds for l-l and h-l
 '''
 plt.figure()
-plt.plot(stds_low_low_k1, label='low_low_k1')
-plt.plot(stds_low_low_k2, label='low_low_k2')
-plt.plot(stds_high_low_k1, label='high_low_k1')
-plt.plot(stds_high_low_k2, label='high_low_k2')
+if one_kernel:
+    plt.plot(stds_low_low_k1, label='low_low_k1')
+    plt.plot(stds_high_low_k1, label='high_low_k1', alpha=0.8)
+else:
+    plt.plot(stds_low_low_k1, label='low_low_k1')
+    plt.plot(stds_high_low_k1, label='high_low_k1')
+    plt.plot(stds_low_low_k2, label='low_low_k2')
+    plt.plot(stds_high_low_k2, label='high_low_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -273,10 +300,14 @@ plt.show(block=False)
 Changes in Stds for l-h and h-h
 '''
 plt.figure()
-plt.plot(stds_low_high_k1, label='low_high_k1')
-plt.plot(stds_low_high_k2, label='low_high_k2')
-plt.plot(stds_high_high_k1, label='high_high_k1')
-plt.plot(stds_high_high_k2, label='high_high_k2')
+if one_kernel:
+    plt.plot(stds_low_high_k1, label='low_high_k1')
+    plt.plot(stds_high_high_k1, label='high_high_k1', alpha=0.8)
+else:
+    plt.plot(stds_low_high_k1, label='low_high_k1')
+    plt.plot(stds_high_high_k1, label='high_high_k1')
+    plt.plot(stds_low_high_k2, label='low_high_k2')
+    plt.plot(stds_high_high_k2, label='high_high_k2')
 
 # Add labels and legend
 plt.xlabel('Train Iterations')
@@ -290,38 +321,40 @@ plt.show(block=False)
 '''
 Changes in Kweights for l-l and h-l
 '''
-plt.figure()
-plt.plot(kweights_low_low_k1, label='low_low_k1')
-plt.plot(kweights_low_low_k2, label='low_low_k2')
-plt.plot(kweights_high_low_k1, label='high_low_k1')
-plt.plot(kweights_high_low_k2, label='high_low_k2')
+if not one_kernel:
+    plt.figure()
+    plt.plot(kweights_low_low_k1, label='low_low_k1')
+    plt.plot(kweights_high_low_k1, label='high_low_k1')
+    plt.plot(kweights_low_low_k2, label='low_low_k2')
+    plt.plot(kweights_high_low_k2, label='high_low_k2')
 
-# Add labels and legend
-plt.xlabel('Train Iterations')
-plt.ylabel('Kernel Weights')
-plt.title('Change in Kweights - From L/H to L-Target')
-plt.legend()
-# Show the plot
-plt.savefig(loading_path + '/' + 'Kweights_LH_to_L.png')
-plt.show(block=False)
+    # Add labels and legend
+    plt.xlabel('Train Iterations')
+    plt.ylabel('Kernel Weights')
+    plt.title('Change in Kweights - From L/H to L-Target')
+    plt.legend()
+    # Show the plot
+    plt.savefig(loading_path + '/' + 'Kweights_LH_to_L.png')
+    plt.show(block=False)
 
 '''
 Changes in Kweights for l-h and h-h
 '''
-plt.figure()
-plt.plot(kweights_low_high_k1, label='low_high_k1')
-plt.plot(kweights_low_high_k2, label='low_high_k2')
-plt.plot(kweights_high_high_k1, label='high_high_k1')
-plt.plot(kweights_high_high_k2, label='high_high_k2')
+if not one_kernel:
+    plt.figure()
+    plt.plot(kweights_low_high_k1, label='low_high_k1')
+    plt.plot(kweights_high_high_k1, label='high_high_k1')
+    plt.plot(kweights_low_high_k2, label='low_high_k2')
+    plt.plot(kweights_high_high_k2, label='high_high_k2')
 
-# Add labels and legend
-plt.xlabel('Train Iterations')
-plt.ylabel('Kernel Weights')
-plt.title('Change in Kweights - From L/H to H-Target')
-plt.legend()
-# Show the plot
-plt.savefig(loading_path + '/' + 'Kweights_LH_to_H.png')
-plt.show(block=False)
+    # Add labels and legend
+    plt.xlabel('Train Iterations')
+    plt.ylabel('Kernel Weights')
+    plt.title('Change in Kweights - From L/H to H-Target')
+    plt.legend()
+    # Show the plot
+    plt.savefig(loading_path + '/' + 'Kweights_LH_to_H.png')
+    plt.show(block=False)
 
 
 '''
