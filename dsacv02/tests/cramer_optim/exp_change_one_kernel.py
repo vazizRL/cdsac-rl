@@ -15,6 +15,43 @@ from copy import deepcopy
 # torch.autograd.set_detect_anomaly(True)
 
 
+def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bound_factor=10, dev='cuda:0'):
+    """
+    - Calculates all Supports in a Linear Fashion for Normal Gaussian Distribution
+    :param batch_size: Number of MBs
+    :param n_kernels: NUmber of Kernels in GMM
+    :param n_supp: Number of Supports desired
+    :param dev: GPU/CPU
+    :return: Supports for Normal Gaussian; equidistant
+    """
+    ones = [1] * n_kernels
+
+    normal_means = torch.ones(size=(batch_size, 1), dtype=torch.float64) * torch.zeros(n_kernels, dtype=torch.float64)
+    normal_stds = torch.ones(size=(batch_size, 1), dtype=torch.float64) * torch.tensor(ones, dtype=torch.float64)
+
+    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1, dtype=torch.float64)
+    n_supp = torch.tensor(n_supp)
+    int_l_normal = normal_means - integral_bound_factor * normal_stds
+    int_u_normal = normal_means + integral_bound_factor * normal_stds
+
+    # Diff Current + Target
+    diff_normal = torch.abs(int_u_normal - int_l_normal)
+    delta_mb_normal = diff_normal / n_supp
+    delta_mb_normal.unsqueeze_(dim=2)
+
+    # Calculate \Delta x for all supports
+    dx_mb_diff_normal = steps_idx * delta_mb_normal
+
+    # Calculate All Supports for Normal Gaussian
+    dx_mb_normal = torch.ones((1, n_supp)) * int_l_normal.unsqueeze(dim=2) + dx_mb_diff_normal
+    dx_mb_normal = dx_mb_normal.to(dev)
+
+    if n_kernels == 1:
+        dx_mb_normal.squeeze_(dim=1)
+
+    return dx_mb_normal
+
+
 def MSE_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
     - Test Method calculating the MSE
@@ -28,9 +65,9 @@ def MSE_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     return mse
 
 
-def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
+def cramer_1k_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu'):
     """
-    - Dynamic Supports Cramer For 1 Kernel
+    -
     - Batch-wise
     - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
     - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
@@ -75,6 +112,36 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev='cpu
     # cramer_re = cramer_re.sqrt()
     cramer_re = cramer_re.mean()
 
+    return cramer_re, dx_mb_singular
+
+
+def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp=None, dev='cpu'):
+    """
+    - Dynamic Supports for 1-Kernel
+    - Batch-wise
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Meta parameters
+    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
+                    pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
+                    pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1)
+
+    dx_singular_sorted, _ = dx_mb_singular.sort()
+
+    dy_curr_mb = pdf_curr.cdf(dx_singular_sorted)
+    dy_target_mb = pdf_target.cdf(dx_singular_sorted)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
     return cramer_re
 
 
@@ -100,15 +167,26 @@ if __name__ == '__main__':
 
     # Train parameters
     learning_rate = 0.001
-    epochs = 10                  # Old: 7
-    epochs_low_e = 12
-    epochs_high_e = 12
-    mb_size = 20
+    epochs = 7                  # Old: 7
+    epochs_low_e = 5           # Old: 10
+    epochs_high_e = 5          # Old: 10
+    mb_size = 5
+    # Network parameters
+    arch = (1, 10, 1)
+    activ = ('gelu',)
+    n_kernels = 1
+    multivar = True
+    learnable_weights = True
+    kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
+    kweights_fix.to(device)
     # Number of Supports per Kernel
     n_eval_points = 30
+    ibf = 10
+    standard_supports = get_normal_supports(batch_size=mb_size, n_kernels=n_kernels, n_supp=n_eval_points,
+                                            integral_bound_factor=ibf, dev=device)
     graph_spacing = 0.01
-    graph_l = -60
-    graph_u = 75
+    graph_l = -13
+    graph_u = 58
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
@@ -118,30 +196,21 @@ if __name__ == '__main__':
 
     # Reference distribution - High E
     mean_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
-    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([15.0], dtype=torch.float64).to(device)
+    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
     kweight_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_ref_high_e = generate_gmm(locs=mean_ref_high_e, scales=std_ref_high_e, kweights=kweight_ref_high_e)
 
     # High-entropy Distribution Target, Standard: [2.0, 15.0] with 3 STD
-    mean_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([15.0], dtype=torch.float64).to(device)
-    std_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([15.0], dtype=torch.float64).to(device)
+    mean_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)
+    std_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
     kweight_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
 
     # Low-entropy Distribution, Standard: [2.0, 15.0] with 1 STD
-    mean_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([15.0], dtype=torch.float64).to(device)
+    mean_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)
     std_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     kweight_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
     distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
-
-    # Network parameters
-    arch = (1, 256, 256, 1)
-    activ = ('gelu', 'gelu')
-    n_kernels = 1
-    multivar = True
-    learnable_weights = True
-    kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
-    kweights_fix.to(device)
 
     # Initialize network and optimizer
     if learnable_weights:
@@ -180,9 +249,8 @@ if __name__ == '__main__':
                                                   scales=pred_stds_ref_low_e.squeeze(),
                                                   kweights=kweights_fix)
             # Loss batch_i
-            cramer_py_loss_ref_low_e = cramer_1k(pdf_target=distr_ref_low_e,
-                                                 pdf_curr=pred_gmm_ref_low_e,
-                                                 n_supp=n_eval_points, dev=device)
+            cramer_py_loss_ref_low_e = cramer_1k(pdf_target=distr_ref_low_e, pdf_curr=pred_gmm_ref_low_e,
+                                                 standard_supp=standard_supports, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_low_e.zero_grad()
@@ -223,7 +291,7 @@ if __name__ == '__main__':
                                                    kweights=kweights_fix)
             # Loss batch_i
             cramer_py_loss_ref_high_e = cramer_1k(pdf_target=distr_ref_high_e, pdf_curr=pred_gmm_ref_high_e,
-                                                  n_supp=n_eval_points, dev=device)
+                                                  standard_supp=standard_supports, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_high_e.zero_grad()
@@ -287,7 +355,7 @@ if __name__ == '__main__':
                                                 kweights=kweights_fix)
             # MB Cramer Loss
             cramer_py_loss_low_low = cramer_1k(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_low,
-                                               n_supp=n_eval_points, dev=device)
+                                               standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_low_low = torch.cat((dc_history_batch_low_low,
                                                   cramer_py_loss_low_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -343,7 +411,7 @@ if __name__ == '__main__':
                                                  kweights=kweights_fix)
             # MB Cramer Loss
             cramer_py_loss_high_low = cramer_1k(pdf_target=distr_low_e, pdf_curr=pred_gmm_high_low,
-                                                n_supp=n_eval_points, dev=device)
+                                                standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_high_low = torch.cat((dc_history_batch_high_low,
                                                   cramer_py_loss_high_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -399,7 +467,7 @@ if __name__ == '__main__':
 
             # MB Cramer Loss
             cramer_py_loss_low_high = cramer_1k(pdf_target=distr_high_e, pdf_curr=pred_gmm_low_high,
-                                                n_supp=n_eval_points, dev=device)
+                                                standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_low_high = torch.cat((dc_history_batch_low_high,
                                                    cramer_py_loss_low_high.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -455,7 +523,7 @@ if __name__ == '__main__':
 
             # Cramer MB Loss
             cramer_py_loss_high_high = cramer_1k(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_high,
-                                                 n_supp=n_eval_points, dev=device)
+                                                 standard_supp=standard_supports, dev=device)
 
             # Log loss
             dc_history_batch_high_high = torch.cat((dc_history_batch_high_high,

@@ -6,7 +6,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 one_kernel = True
 curr_path = os.getcwd()
 main_dir = '/VAR_REF_OPTI'
-dir_name = '1712363174.4160469'
+dir_name = 'r3_ini_A'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
 

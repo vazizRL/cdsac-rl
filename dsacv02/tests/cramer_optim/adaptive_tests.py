@@ -44,8 +44,8 @@ if __name__ == '__main__':
     # Integration interval
     # a = -3.1
     # b = 3.1
-    a = -10
-    b = 10
+    a = -30
+    b = 30
 
     # Number of supporting points
     num_support_points = 30
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     print(f'Integral for bounds {a} and {b} is: {integral}')
 
     integral_lim = py_integration(func=gauss_pdf, int_l=a, int_u=b, n_points=num_support_points)
-    print(f'Integral for bounds {a} and {b} for {num_support_points} is: {integral_lim}')
+    print(f'Integral for bounds {a} and {b} for {num_support_points} supprts is: {integral_lim}')
 
     print(f'Difference between SciPy and Own: {torch.abs(integral_lim - integral)}')
 
