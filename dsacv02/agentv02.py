@@ -16,7 +16,8 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, static_alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
-                 auto_alpha=True, log_alpha_ini=1, double_q=False, memory_size=int(5e5), n_supports=30, device='cuda:0'
+                 auto_alpha=True, log_alpha_ini=1, double_q=False, memory_size=int(5e5), n_supports=30, ibf=20,
+                 device='cuda:0'
                  ):
         """
         :param obs_dim: Observation dimension
@@ -52,6 +53,7 @@ class Agent:
         :param double_q: Whether Multiple Q networks are used
         :param memory_size: Max. replay buffer size
         :param n_supports: Number of supports to approximate each kernel in the GMM. Total number of supports: Tot=4n
+        :param ibf: Integral bound factor for numerical calculation of the Cramer distance
         :param device: Device on which networks are running
         """
         self.n_kernels_act = n_kernels_act
@@ -68,6 +70,7 @@ class Agent:
         self.static_alpha = static_alpha
         self.mem_size = memory_size
         self.n_supports = n_supports
+        self.ibf = ibf
         self.device = device
         self.agent_params = (self.t_max, self.tau, self.reward_scale, self.gamma, self.update_interval,
                              self.auto_alpha, self.static_alpha)
@@ -94,8 +97,8 @@ class Agent:
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
                              auto_alpha=self.auto_alpha, target_entropy=-action_dim, n_kernels_act=n_kernels_act,
-                             n_kernels_cr=n_kernels_cr, n_supports=self.n_supports,
-                             device=device)
+                             n_kernels_cr=n_kernels_cr, n_supports=self.n_supports, ibf=self.ibf,
+                             batch_size=self.batch_size, device=device)
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
 
@@ -196,7 +199,7 @@ class Agent:
         # Save non-Pytorch parameters
         agent_meta_data = (self.batch_size, self.t_max, self.tau, self.static_alpha, self.reward_scale,
                            self.gamma, self.update_interval, self.auto_alpha, self.log_alpha_ini, self.double_q,
-                           self.mem_size, self.n_supports, self.device)
+                           self.mem_size, self.n_supports, self.ibf, self.device)
         actor_class_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()
         learning_rates = self.dsac.get_lr_info()
@@ -241,7 +244,7 @@ class Agent:
 
         # Agent meta-parameters and update attributes
         batch_size, t_max, tau, static_alpha, reward_scale, gamma, update_interval, auto_alpha, log_alpha_ini, \
-            double_q, mem_size, n_supports, device = data['agent_params']
+            double_q, mem_size, n_supports, ibf, device = data['agent_params']
         # Actor meta-parameters
         state_dim, action_dim, act_hl, n_kernels_act, act_activation, act_min_std, act_max_std, action_low,\
             action_high, act_learnable_weights, device = data['actor_params']
@@ -262,7 +265,7 @@ class Agent:
                       batch_size=batch_size, t_max=t_max, tau=tau, static_alpha=static_alpha, reward_scale=reward_scale,
                       gamma=gamma, update_interval=update_interval,
                       auto_alpha=auto_alpha, log_alpha_ini=log_alpha_ini, double_q=double_q, memory_size=mem_size,
-                      n_supports=n_supports, device=device
+                      n_supports=n_supports, ibf=ibf, device=device
                       )
 
         # Load network, tensor params and learning rate schedule

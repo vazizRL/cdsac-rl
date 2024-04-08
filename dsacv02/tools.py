@@ -7,27 +7,108 @@ from scipy import integrate
 from typing import List
 
 
-def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100)):
+def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bound_factor=10, dev='cuda:0'):
     """
-    - Only for testing purposes
-    - Calculates the
-    - The integration limits should NOT be too far off form the lowest and highest point of the function!
-    :param pdf_target: Probability density function of target distribution
-    :param pdf_curr: Probability density function of reference distribution
-    :param int_l: Lower integral bound
-    :param int_u: Upper integral bound
-    :param points: Points to focus on, if not, then points=(int_l, int_u)
-    :return: Returns distance and error estimation of the calculated distance
+    - Calculates all Supports in a Linear Fashion for Normal Gaussian Distribution
+    :param batch_size: Number of MBs
+    :param n_kernels: NUmber of Kernels in GMM
+    :param n_supp: Number of Supports desired
+    :param integral_bound_factor: \mathbf{0} \plusminus \mathbf{integral_bound_factor}
+    :param dev: GPU/CPU
+    :return: Supports for Normal Gaussian; equidistant
     """
-    distance, error_est = integrate.quad(
-        lambda x: (pdf_target.cdf(torch.tensor([x])).numpy() - pdf_curr.cdf(torch.tensor([x])).numpy()) ** 2,
-        int_l, int_u, points=points
-    )
+    ones = [1] * n_kernels
 
-    return distance, error_est
+    normal_means = torch.ones(size=(batch_size, 1), dtype=torch.float64) * torch.zeros(n_kernels, dtype=torch.float64)
+    normal_stds = torch.ones(size=(batch_size, 1), dtype=torch.float64) * torch.tensor(ones, dtype=torch.float64)
+
+    steps_idx = torch.arange(start=1, end=n_supp + 1, step=1, dtype=torch.float64)
+    n_supp = torch.tensor(n_supp)
+    int_l_normal = normal_means - integral_bound_factor * normal_stds
+    int_u_normal = normal_means + integral_bound_factor * normal_stds
+
+    # Diff Current + Target
+    diff_normal = torch.abs(int_u_normal - int_l_normal)
+    delta_mb_normal = diff_normal / n_supp
+    delta_mb_normal.unsqueeze_(dim=2)
+
+    # Calculate \Delta x for all supports
+    dx_mb_diff_normal = steps_idx * delta_mb_normal
+
+    # Calculate All Supports for Normal Gaussian
+    dx_mb_normal = torch.ones((1, n_supp)) * int_l_normal.unsqueeze(dim=2) + dx_mb_diff_normal
+    dx_mb_normal = dx_mb_normal.to(dev)
+
+    if n_kernels == 1:
+        dx_mb_normal.squeeze_(dim=1)
+
+    return dx_mb_normal
 
 
-def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
+def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
+    """
+    - Dynamic Supports for 1-Kernel
+    - Batch-wise
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Meta parameters
+    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
+                    pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
+                    pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
+
+    dx_singular_sorted, _ = dx_mb_singular.sort()
+
+    dy_curr_mb = pdf_curr.cdf(dx_singular_sorted)
+    dy_target_mb = pdf_target.cdf(dx_singular_sorted)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
+def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
+    """
+    - Dynamic Supports
+    - Batch-wise
+    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    # Meta parameters
+    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=2) + \
+                    pdf_curr.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=2) + \
+                    pdf_target.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
+
+    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+    # dx_mb_multi = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+    dx_mb_multi = dx_singular_flat * torch.ones(n_kernels, device=dev).unsqueeze(dim=1)
+
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_multi)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
+def cramer_torch_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
     """
     - WARNING: DEPRECATED
     - The integration limits should NOT be too far off form the lowest and highest point of the function!
@@ -55,9 +136,10 @@ def cramer_torch(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u,
     return cramer_re
 
 
-def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_kernels, integral_bound_factor=10,
-                 dev='cpu'):
+def cramer_optim_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_kernels, integral_bound_factor=10,
+                      dev='cpu'):
     """
+    - WARNING: DEPRECATED
     - Dynamic Supports
     - Batch-wise
     - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
@@ -142,6 +224,26 @@ def approx_integral_bounds(means_curr: torch.tensor, means_target: torch.tensor,
         h_integral = h_mean + factor * h_std
 
     return l_integral, h_integral
+
+
+def cramer_from_pdf(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, points=(-100, 100)):
+    """
+    - Only for testing purposes
+    - Calculates the
+    - The integration limits should NOT be too far off form the lowest and highest point of the function!
+    :param pdf_target: Probability density function of target distribution
+    :param pdf_curr: Probability density function of reference distribution
+    :param int_l: Lower integral bound
+    :param int_u: Upper integral bound
+    :param points: Points to focus on, if not, then points=(int_l, int_u)
+    :return: Returns distance and error estimation of the calculated distance
+    """
+    distance, error_est = integrate.quad(
+        lambda x: (pdf_target.cdf(torch.tensor([x])).numpy() - pdf_curr.cdf(torch.tensor([x])).numpy()) ** 2,
+        int_l, int_u, points=points
+    )
+
+    return distance, error_est
 
 
 def sequential_iterator(n):

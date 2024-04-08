@@ -5,7 +5,7 @@ import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_torch, cramer_optim, approx_integral_bounds, get_double_q_selections, \
+from dsacv02.tools import cramer_optim, cramer_1k, get_normal_supports, get_double_q_selections, \
      get_partial_double_q_selections
 
 
@@ -14,7 +14,7 @@ class RealDSAC:
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
                  static_alpha=0.2,
                  reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels_act=1,
-                 n_kernels_cr=1,  n_supports=30, device='cuda:0'):
+                 n_kernels_cr=1,  n_supports=30, ibf=20, batch_size=None, device='cuda:0'):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
         :param critic1: First q-network in the double-Q setting
@@ -41,6 +41,7 @@ class RealDSAC:
         :param n_kernels_act: Number of Gaussian kernels in the GMM for Actor
         :param n_kernels_cr: Number of Gaussian kernels in the GMM for Critic
         :param n_supports: Number of supports
+        :param ibf: Integral bound factor for numerical calculation of Cramer loss
         """
 
         # Initialize device
@@ -57,7 +58,12 @@ class RealDSAC:
         self.n_kernels_act = n_kernels_act
         self.n_kernels_cr = n_kernels_cr
 
-        # Do not track gradients for target networks
+        # Load loss method
+        if n_kernels_cr == 1:
+            self.cramer_loss = cramer_1k
+        else:
+            self.cramer_loss = cramer_optim
+        # Do not track gradients for target networks; could be done with context manager
         self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
         # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agentv02.py
@@ -85,6 +91,7 @@ class RealDSAC:
         self.create_lr_schedules()
 
         # Algorithm parameters
+        self.batch_size = batch_size
         self.reward_scale = torch.tensor(reward_scale).to(self.device)
         self.gamma = torch.tensor(gamma).to(self.device)
         self.tau = torch.tensor(tau).to(self.device)
@@ -94,7 +101,9 @@ class RealDSAC:
         self.update_interval = update_interval
 
         # Train parameters
-        self.n_supports = n_supports
+        self.ibf = ibf
+        self.standard_supp = get_normal_supports(batch_size=self.batch_size, n_kernels=self.n_kernels_cr,
+                                                 n_supp=n_supports, integral_bound_factor=self.ibf, dev=self.device)
 
     @staticmethod
     def switch_autograd_logging(require_grad, models: list):
@@ -333,8 +342,8 @@ class RealDSAC:
                                                                  log_probs_a_next=action_log_probs_next_bounded)
 
         # Batch-wise, dynamically supported Cràmer distance between two PDFs
-        q_loss = cramer_optim(pdf_target=zcal_next, pdf_curr=zcal, n_supp=self.n_supports,
-                              integral_bound_factor=10, dev=self.device)
+        q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal, n_kernels=self.n_kernels_cr,
+                                  standard_supp=self.standard_supp, dev=self.device)
 
         return q_loss.mean(), means.mean(), stds.mean(), kweights
 
