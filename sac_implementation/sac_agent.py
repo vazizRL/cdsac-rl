@@ -1,5 +1,6 @@
 """
 - Implemented as original with target value network and Q-minimization trick
+- TODO: Implement learnable alpha
 """
 import os
 import torch as T
@@ -12,7 +13,8 @@ import torch.optim as optim
 
 class Agent:
     def __init__(self, alpha=0.0003, beta=0.0003, input_dims=(8,), env=None, gamma=0.99, n_actions=2,
-                 max_size=int(1e6), tau=0.005, layer1_size=256, layer2_size=256, batch_size=256, reward_scale=2):
+                 max_size=int(1e6), tau=0.005, layer1_size=256, layer2_size=256, batch_size=256, reward_scale=2,
+                 auto_co_h=False, ini_co_h=-2):
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)

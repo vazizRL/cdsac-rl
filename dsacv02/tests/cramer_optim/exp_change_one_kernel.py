@@ -119,13 +119,11 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp=No
     """
     - Dynamic Supports for 1-Kernel
     - Batch-wise
-    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
     - Implementation:
         1. Define the supports with constant n_steps
         2. Calculate the difference squared
         3. Integrate over all dx
     """
-    # Meta parameters
     dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
                     pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
     dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \

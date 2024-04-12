@@ -2,7 +2,6 @@ import os
 import torch
 import matplotlib.pyplot as plt
 from dsacv02.agentv02 import Agent
-from dsacv02.tools import smoothing
 from environments.linear_env import LinearEnv
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -17,10 +16,11 @@ N_CELLS = 10
 '''
 Loading Parameters
 '''
-env_name = 'LinearEnv'
-event_name = 'NoTargetSigma_SmallAlpha_2'
+env_name = 'LinearEnv_optim'
+event_name = 'r6_OneQ_AutoAlpha_HCrSTD'
+version_name = 'DSAC_Runs_Optim'
 curr_dir = os.getcwd()
-loading_path = curr_dir + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
+loading_path = curr_dir + '/' + version_name + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
@@ -83,13 +83,20 @@ if __name__ == '__main__':
     std1_right = std1_right.detach().cpu().numpy().squeeze()
     std2_right = std2_right.detach().cpu().numpy().squeeze()
     std_avg_right = 0.5 * (std1_right + std2_right)
-    plt.plot(cell_nr, std_avg_right, label='Right action')
+    plt.plot(cell_nr, std_avg_right, label='Right action', alpha=0.8)
 
     plt.title('Uncertainty of Agent for All States in EnvLin')
     plt.xlabel('Cell Number')
     plt.ylabel('Standard Deviation')
     plt.legend()
+
+    img_path = loading_path + 'images' + '/'
+    os.makedirs(img_path)
+    plt.savefig(img_path + 'Stds.png')
+
     plt.show(block=True)
+
+
 
 
 

@@ -11,6 +11,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 
     # Load TensorBoard log file
     event_acc = event_accumulator.EventAccumulator(logdir, compression_bps=None)
+    # event_acc = event_accumulator.EventAccumulator(logdir, size_guidance=(15000,))
     event_acc.Reload()
 
     # Get the TensorBoard graph
@@ -69,10 +70,9 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 if __name__ == '__main__':
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
-    curr_dir = os.getcwd() + '/'
+    curr_dir = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\LinearEnv_optim\r6_OneQ_AutoAlpha_HCrSTD"
+    output_dir = curr_dir + r"\graphs"
     plt.rcParams['figure.figsize'] = (20, 8)
     # Example usage:
-    event_file_name = 'event_1709569075.911902'
-    logdir = curr_dir + event_file_name
-    output_dir = "C:/Users/vanya/OneDrive/Desktop/PhD_RL/RL_Framework/dsacv02/images"
+    logdir = curr_dir
     save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)

@@ -4,7 +4,99 @@ Collections of tools to be sused in Z-DSAC
 import torch
 import numpy as np
 from scipy import integrate
-from typing import List
+from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
+
+
+def generate_gmm_distr_multi(means, stds, kweights, multivar=False):
+    """
+    TODO: Refactor to avoid if-statement
+    - Generates either a multivariate or standard Gaussian Mxiture Model
+    :param means: Kernel means
+    :param stds: Kernel standard deviations
+    :param kweights: Kernel weights
+    :param multivar: CHANGE! Whether components of GMM are multivariate or not
+    :return: Returns a GMM
+    """
+    mix_distr = torch.distributions.Categorical(probs=kweights)
+    if multivar:
+        comp_distr = torch.distributions.MultivariateNormal(loc=means, covariance_matrix=stds)
+    else:
+        comp_distr = torch.distributions.Normal(loc=means, scale=stds)
+    zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
+
+    return zcal
+
+
+def generate_gmm_distr_1k(means, stds, kweights, multivar=False):
+    """
+    TODO: Refactor to avoid if-statement
+    - Generates either a multivariate or standard Gaussian Mxiture Model
+    :param means: Kernel means
+    :param stds: Kernel standard deviations
+    :param kweights: Kernel weights
+    :param multivar: CHANGE! Whether components of GMM are multivariate or not
+    :return: Returns a GMM
+    """
+    mix_distr = torch.distributions.Categorical(probs=kweights.squeeze())
+    if multivar:
+        comp_distr = torch.distributions.MultivariateNormal(loc=means.squeeze(), covariance_matrix=stds.squeeze())
+    else:
+        comp_distr = torch.distributions.Normal(loc=means.squeeze(), scale=stds.squeeze())
+    zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
+
+    return zcal
+
+
+def sampler_1k(distr, reparameterize, batch_size):
+    """
+    - Function to sample from Gaussian - Batch-Wise
+    :param distr: GMM object with one kernel
+    :param reparameterize: If samples are used for backpropagation, reparameterization trick must be used
+    :param batch_size: Batch-size; gauss_distr.component_distribution.loc
+    """
+    if reparameterize:
+        gmm_sample = distr.rsample((batch_size,))
+        gmm_sample.unsqueeze_(dim=1)
+    else:
+        gmm_sample = distr.sample((batch_size,))
+        gmm_sample.unsqueeze_(dim=1)
+
+    return gmm_sample
+
+
+def sampler_multi(distr, reparameterize, batch_size=None):
+    """
+    - Function to sample from GMM - Batch-Wise
+    :param distr: GMM object
+    :param reparameterize: If samples are used for backpropagation, reparameterization trick must be used
+    :param batch_size: No need to specify in multi-kernel, since rsample() samples automatically batch-wise
+    """
+    if reparameterize:
+        gmm_sample = distr.rsample()
+        gmm_sample.unsqueeze_(dim=1)
+    else:
+        gmm_sample = distr.sample()
+        gmm_sample.unsqueeze_(dim=1)
+
+    return gmm_sample
+
+
+def rsampler_1k(distr, batch_size):
+    """
+    - Sampling with reparameterization for 1 kernel
+    :param distr:
+    :param batch_size:
+    :return:
+    """
+    r_sample = distr.rsample((batch_size,))
+
+    return r_sample
+
+
+def rsampler_multi(distr, batch_size=None):
+    r_sample = distr.rsample()
+
+    return r_sample
 
 
 def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bound_factor=10, dev='cuda:0'):
@@ -55,11 +147,15 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n
         2. Calculate the difference squared
         3. Integrate over all dx
     """
-    # Meta parameters
     dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
-                    pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+        pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
     dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
-                    pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+        pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+
+    # dx_mb_curr = pdf_curr.component_distribution.loc + \
+    #     pdf_curr.component_distribution.scale * standard_supp
+    # dx_mb_tar = pdf_target.component_distribution.loc + \
+    #     pdf_target.component_distribution.scale * standard_supp
 
     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
 

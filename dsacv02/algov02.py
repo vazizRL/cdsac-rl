@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.distributions as distr
 import time
-from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
 from dsacv02.tools import cramer_optim, cramer_1k, get_normal_supports, get_double_q_selections, \
-     get_partial_double_q_selections
+     get_partial_double_q_selections, generate_gmm_distr_multi, generate_gmm_distr_1k, sampler_multi, sampler_1k, \
+     rsampler_1k, rsampler_multi
 
 
 class RealDSAC:
@@ -58,11 +58,6 @@ class RealDSAC:
         self.n_kernels_act = n_kernels_act
         self.n_kernels_cr = n_kernels_cr
 
-        # Load loss method
-        if n_kernels_cr == 1:
-            self.cramer_loss = cramer_1k
-        else:
-            self.cramer_loss = cramer_optim
         # Do not track gradients for target networks; could be done with context manager
         self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
@@ -84,6 +79,7 @@ class RealDSAC:
         # Alpha is only a simple tensor with a scalar value
         self.alpha_optimizer = Adam([self.log_alpha], lr=self.alpha_lr_ini)
 
+        # LR Schedulers
         self.q1_lr_schedule = None
         self.q2_lr_schedule = None
         self.pol_lr_schedule = None
@@ -100,7 +96,19 @@ class RealDSAC:
         self.auto_alpha = auto_alpha
         self.update_interval = update_interval
 
-        # Train parameters
+        # Select Functions: Loss / Sampler
+        if n_kernels_cr == 1:
+            self.cramer_loss = cramer_1k
+            self.generate_gmm = generate_gmm_distr_1k
+            self.sampler = sampler_1k
+            self.rsampler = rsampler_1k
+        else:
+            self.cramer_loss = cramer_optim
+            self.generate_gmm = generate_gmm_distr_multi
+            self.sampler = sampler_multi
+            self.rsampler = rsampler_multi
+
+        # Nummerical parameters
         self.ibf = ibf
         self.standard_supp = get_normal_supports(batch_size=self.batch_size, n_kernels=self.n_kernels_cr,
                                                  n_supp=n_supports, integral_bound_factor=self.ibf, dev=self.device)
@@ -123,7 +131,6 @@ class RealDSAC:
     """ 
     Internally Called 
     """
-
     def create_lr_schedules(self):
         """
         - Instantiate learning rate scheduler with cosine annealing
@@ -165,26 +172,6 @@ class RealDSAC:
             para_targ.data.mul_(tar_complement)
             para_targ.data.add_(self.tau * para.data)
 
-    @staticmethod
-    def generate_gmm_distr(means, stds, kweights, multivar=False):
-        """
-        TODO: Refactor to avoid if-statement
-        - Generates either a multivariate or standard Gaussian Mxiture Model
-        :param means: Kernel means
-        :param stds: Kernel standard deviations
-        :param kweights: Kernel weights
-        :param multivar: CHANGE! Whether components of GMM are multivariate or not
-        :return: Returns a GMM
-        """
-        mix_distr = distr.Categorical(probs=kweights)
-        if multivar:
-            comp_distr = distr.MultivariateNormal(loc=means, covariance_matrix=stds)
-        else:
-            comp_distr = distr.Normal(loc=means, scale=stds)
-        zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
-
-        return zcal
-
     def evaluate_z(self, obs, actions, znet, exp=False, sample=False, reparameterize=False):
         """
         - Evaluates Z and can return mathcal{Z} and its samples
@@ -205,17 +192,11 @@ class RealDSAC:
         if kernel_weights is None:
             mb_size = actions.shape[0]
             kernel_weights = torch.ones(mb_size, self.n_kernels_cr) / self.n_kernels_cr
-        gmm = self.generate_gmm_distr(means=means, stds=stds, kweights=kernel_weights, multivar=False)
+        gmm = self.generate_gmm(means=means, stds=stds, kweights=kernel_weights, multivar=False)
 
         gmm_sample = None
         if sample:
-            batch_size = obs.shape[0]
-            if reparameterize:
-                gmm_sample = gmm.rsample()
-                gmm_sample.unsqueeze(dim=1)
-            else:
-                gmm_sample = gmm.sample()
-                gmm_sample.unsqueeze(dim=1)
+            gmm_sample = self.sampler(distr=gmm, reparameterize=reparameterize, batch_size=self.batch_size)
 
         return gmm_sample, gmm, means, stds, kernel_weights
 
@@ -238,7 +219,7 @@ class RealDSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights, log_probs_a_next):
+    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights_next, log_probs_a_next):
         """
         - Calculates the entropy-regularized target distribution \mathcal{Z}_H(\cdot|s,a) as a GMM
         - Note: Standard deviations are set to 0 for terminal states
@@ -246,7 +227,7 @@ class RealDSAC:
         :param dones: Whether s_{t+1} is a terminal state
         :param q_means_next: Next Q-means from kernels
         :param stds_next: Next standard deviation from kernels
-        :param kernel_weights: Weights of the Gaussian kernels in the GMM
+        :param kernel_weights_next: Weights of the Gaussian kernels in the GMM
         :param log_probs_a_next: Log probability of the next action
         :return: Target distribution modeles as a GMM
         """
@@ -256,22 +237,18 @@ class RealDSAC:
         rewards.unsqueeze_(dim=1)
         dones.unsqueeze_(dim=1)
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
-        # stds_next = (1-dones) * stds_next + torch.tensor(1e-40, dtype=torch.float64)
-        stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
+        stds_next = (1-dones) * stds_next + torch.tensor(1e-55, dtype=torch.float64)
+        # stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
 
-        cat_distr = distr.Categorical(probs=kernel_weights)
-        comp_distr = distr.Normal(loc=q_means_target, scale=stds_next)
-
-        target_distribution = RMM(mixture_distribution=cat_distr, component_distribution=comp_distr)
+        target_distribution = self.generate_gmm(means=q_means_target, stds=stds_next, kweights=kernel_weights_next)
         # Target is always used for gradient calculations, so always rsample
-        target_samples = target_distribution.rsample()
+        target_samples = self.rsampler(distr=target_distribution, batch_size=self.batch_size)
 
         return target_distribution, target_samples
 
-    def compute_z_loss(self, batch, double_q=False, integral_bound_factor=5, exp=False):
+    def compute_z_loss(self, batch, double_q=False, exp=False):
         """
         - Calculates the Q-distribution GMM-to-GMM cramer loss
-        :param integral_bound_factor:
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
         :return: Q-loss attached to functional graph for gradient calculation
@@ -321,15 +298,14 @@ class RealDSAC:
                                         kweights2_next=kweights2_next)
 
             # Calculate current distribution
-            zcal = self.generate_gmm_distr(means, stds, kweights)
-            # z = zcal.rsample(sample_shape=batch[0].shape[0])
-            z = zcal.rsample()
+            zcal = self.generate_gmm(means, stds, kweights)
+            z = self.rsampler(distr=zcal, batch_size=self.batch_size)
 
             # Calculate target distribution
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
                                                                  q_means_next=means_next,
                                                                  stds_next=stds_next,
-                                                                 kernel_weights=kweights_next,
+                                                                 kernel_weights_next=kweights_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
 
         else:
@@ -338,7 +314,7 @@ class RealDSAC:
             z, zcal, means, stds, kweights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
                                                              exp=exp, sample=True, reparameterize=True)
             zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
-                                                                 stds_next=stds1_next, kernel_weights=kweights1_next,
+                                                                 stds_next=stds1_next, kernel_weights_next=kweights1_next,
                                                                  log_probs_a_next=action_log_probs_next_bounded)
 
         # Batch-wise, dynamically supported Cràmer distance between two PDFs
@@ -428,8 +404,7 @@ class RealDSAC:
         self.q2_optimizer.zero_grad()
 
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q,
-                                                                    integral_bound_factor=10, exp=False)
+        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=False)
         loss_q.backward()
 
         loss_policy, entropy = None, None

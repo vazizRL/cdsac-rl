@@ -8,6 +8,9 @@ from tools import smoothing
 from environments.linear_env import LinearEnv
 
 
+''' Run Mode '''
+DEBUG = True
+
 ''' Environment constants '''
 N_CELLS = 10
 # gym_env = 'Hopper-v4'
@@ -21,17 +24,17 @@ N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-4, 5e-4, 5e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 5e-4, 5e-4, 5e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 5e-4, 5e-4, 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 1.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 10.0
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 1.0
 # Hidden Layers
 CR_HL = (32, 32)
 ACT_HL = (32, 32)
 # Activations
-CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
-ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
+CR_ACTIV = ('relu', 'relu')
+ACT_ACTIV = ('relu', 'relu')
 # Action boundaries
 ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
@@ -44,8 +47,8 @@ STATIC_ALPHA = 0.1          # 1.0
 REWARD_SCALE = 2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = False
-ALPHA_INI = 0.1      # Old 1
+AUTO_ALPHA = True
+ALPHA_INI = -2.0      # GIVEN AS x; e**x
 MEM_SIZE = 1e4         # 1e5
 N_POL_UPDATE_INTERVAL = 1
 
@@ -55,8 +58,14 @@ Training Parameters
 N_TOT_STEPS = 0
 MAX_TOTAL_ITER = 15000  # 150,000
 N_GAMES = 250000
-MAX_EPISODE_ITER = 5000
+MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
+
+''' 
+Numerical Parameters
+'''
+N_SUPP = 31
+IBF = 10
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:
@@ -73,7 +82,6 @@ meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
 # Instantiate tb
-
 dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
@@ -93,7 +101,7 @@ if __name__ == '__main__':
                   t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                   reward_scale=REWARD_SCALE, gamma=GAMMA,
                   update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                  memory_size=MEM_SIZE, device=DEVICE)
+                  memory_size=MEM_SIZE, n_supports=N_SUPP, ibf=IBF, device=DEVICE)
 
     curr_best_score = env.reward_range[0]
     score_history = []
