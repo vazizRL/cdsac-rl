@@ -14,7 +14,26 @@ import torch.optim as optim
 class Agent:
     def __init__(self, alpha=0.0003, beta=0.0003, input_dims=(8,), env=None, gamma=0.99, n_actions=2,
                  max_size=int(1e6), tau=0.005, layer1_size=256, layer2_size=256, batch_size=256, reward_scale=2,
-                 auto_co_h=False, ini_co_h=-2):
+                 auto_temp=False, ini_temp=-2, omega=0.0003, static_temp=1):
+        """
+        - Simple SAC agent, optionally entropy coefficient can be trained
+        :param alpha: Actor LR
+        :param beta: Critic LR
+        :param input_dims:
+        :param env: Environment, must have gym architecture
+        :param gamma: Discounting factor
+        :param n_actions: Number of actions
+        :param max_size: Max size of replay buffer
+        :param tau: Soft update parameter
+        :param layer1_size: HL 1
+        :param layer2_size: HL 3
+        :param batch_size: Mini batch size
+        :param reward_scale:
+        :param auto_temp: Whether
+        :param ini_temp: If auto_temp, then this will be initial value of temperature
+        :param omega: Temp LR
+        :param static_temp: If auto_alpha is False, then this value will be used for training the value network
+        """
         self.gamma = gamma
         self.tau = tau
         self.memory = ReplayBuffer(max_size, input_dims, n_actions)
@@ -38,6 +57,13 @@ class Agent:
         self.scale = reward_scale
         self.update_network_parameters(tau=1)
 
+        # Temperature Settings
+        self.static_temp = static_temp
+        self.target_entropy = -self.n_actions
+        self.auto_temp = auto_temp
+        self.temp = T.nn.Parameter(T.tensor(T.e**ini_temp , dtype=T.float64, device=self.actor.device))
+        self.temp_optim = optim.Adam([self.temp], lr=omega)
+
         self.empty_tb_data = {'SACQ/q1_val': 0,
                               'SACQ/q2_val': 0,
                               'SACLoss/critic_loss': 0,
@@ -46,6 +72,13 @@ class Agent:
                               'SACPolicy/avg. policy std plain': 0,
                               'SACPolicy/avg. policy std repara': 0
                               }
+
+    def get_temperature(self):
+        if self.auto_temp:
+            temp = self.temp.exp()
+        else:
+            temp = self.static_temp
+        return temp
 
     def choose_action(self, observation):
         state = T.tensor([observation]).to(self.actor.device)
@@ -133,7 +166,9 @@ class Agent:
         critic_value = critic_value.view(-1)
 
         self.value.optimizer.zero_grad()
-        value_target = critic_value - log_probs
+        temperature = self.get_temperature()
+        # value_target = critic_value - temperature * log_probs
+        value_target = critic_value.detach() - temperature * log_probs.detach()
         # MSE of the batch (mean of the square)
         value_loss = 0.5 * F.mse_loss(value, value_target)
         # retain_graph: Do not discard the graph calculation
@@ -141,7 +176,7 @@ class Agent:
         self.value.optimizer.step()
 
         """Calculate Critic Loss """
-        # According to Fujomo, chose min target and calculate mean of Q-losses, here: Same implementaiton
+        # According to Fujomo, chose min target and calculate mean of Q-losses, here: Same implementation
         self.critic_1.optimizer.zero_grad()
         self.critic_2.optimizer.zero_grad()
         q_hat = self.scale * reward + self.gamma * value_
@@ -174,6 +209,13 @@ class Agent:
 
         self.update_network_parameters()
 
+        """ Compute Entropy Coefficient Loss"""
+        if self.auto_temp:
+            self.temp_optim.zero_grad()
+            loss_temp = - self.temp * (log_probs_rep.detach() + self.target_entropy).mean()
+            loss_temp.backward()
+            self.temp_optim.step()
+
         tb_info = {'SACQ/q1_val': q1_new_policy.mean().detach(),
                    'SACQ/q2_val': q2_new_policy.mean().detach(),
                    'SACQ/approx_value': value.mean().detach(),
@@ -183,7 +225,8 @@ class Agent:
                    'SACLoss/value_loss': value_loss.detach().item(),
                    'SACPolicy/avg. policy std plain': pol_std.mean().detach().item(),
                    'SACPolicy/avg. policy std repara.': pol_std_rep.mean().detach().item(),
-                   'SACPolicy/avg. entropy plain.': log_probs.mean().detach().item()
+                   'SACPolicy/avg. entropy plain.': log_probs.mean().detach().item(),
+                   'SACPolicy/temperature': self.temp.mean().detach(),
                    }
 
         return tb_info

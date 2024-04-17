@@ -18,17 +18,17 @@ DEVICE = 'cuda:0'
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
 N_KERNELS_ACT = 1
-N_KERNELS_CR = 2
+N_KERNELS_CR = 1
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 10.0
-ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
+ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
-CR_HL = (64, 64)
-ACT_HL = (64, 64)
+CR_HL = (256, 256)
+ACT_HL = (256, 256)
 # Activations
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
@@ -37,27 +37,30 @@ ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
 # RL parameters
 DOUBLE_Q = True
-BATCH_SIZE = 32
-T_MAX = 500                 # Old 20000
-TAU = 0.01
-STATIC_ALPHA = 1            # Old 0.2
-REWARD_SCALE = 2            # Old 0.2
+BATCH_SIZE = 256
+T_MAX = 500                     # Old 20000
+TAU = 0.015
+STATIC_ALPHA = 1.0              # Old 0.2
+REWARD_SCALE = 2.0              # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = False
-ALPHA_INI = 0.1             # Old 1
-MEM_SIZE = 1e5              # 1e5
+AUTO_ALPHA = True
+ALPHA_INI = -1                  # Old 1
+MEM_SIZE = 1e6                  # 1e5
 N_POL_UPDATE_INTERVAL = 1
 
 '''
 Training Parameters
 '''
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 15000
-N_GAMES = 250000
-MAX_EPISODE_ITER = 500
+MAX_TOTAL_ITER = 150000000
+N_GAMES = 5500
+MAX_EPISODE_ITER = 2000
 CHK_PROGRESS_INTERVAL = 100
-N_SUPPORTS = 30
+
+''' Numerical Parameters'''
+N_SUPPORTS = 31                 # 31
+IBF = 15
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:
@@ -93,7 +96,7 @@ if __name__ == '__main__':
                   t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                   reward_scale=REWARD_SCALE, gamma=GAMMA,
                   update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                  memory_size=MEM_SIZE, n_supports=N_SUPPORTS, device=DEVICE)
+                  memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, device=DEVICE)
 
     best_score = env.reward_range[0]
     score_history = []
@@ -118,8 +121,8 @@ if __name__ == '__main__':
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
-                # done = True
-                pass
+                done = True
+                # pass
             if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
                 print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
@@ -137,7 +140,7 @@ if __name__ == '__main__':
                 tb_writer.add_scalar(key, value, N_TOT_STEPS)
             observation = observation_
 
-        tb_writer.add_scalar('Reward', reward_episode, N_TOT_STEPS)
+        tb_writer.add_scalar('Reward', reward_episode, i)
         print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(reward_episode)
 

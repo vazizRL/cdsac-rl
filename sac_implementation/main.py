@@ -27,7 +27,9 @@ if __name__ == '__main__':
     # agent = Agent(input_dims=env.observation_space.shape, env=env, n_actions=env.action_space.shape[0],
     #               layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006)
     agent = Agent(input_dims=(4,), env=env, n_actions=1,
-                  layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006)
+                  layer1_size=256, layer2_size=256, batch_size=256, tau=0.015, alpha=0.0006, beta=0.0006,
+                  auto_temp=True, ini_temp=0.08, omega=0.0006, static_temp=1,
+                  )
 
     iter_tot = 0
     interval_score = 0
@@ -72,7 +74,7 @@ if __name__ == '__main__':
                     tb_writer.add_scalar(key, value, iter_tot)
             observation = observation_
         if not load_checkpoint:
-            tb_writer.add_scalar('Reward_per_Epsiode', score, iter_tot)
+            tb_writer.add_scalar('Reward_per_Epsiode', score, i)
 
         score_history.append(score)
         avg_score = np.mean(score_history[-3:])

@@ -39,7 +39,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
         values_i = list()
         graph = event_acc.Scalars(graph_name)
         x_label = 'Iterations'
-        if graph_name == 'Reward_per_episode':
+        if graph_name == 'Reward':
             x_label = 'Episode'
         for data_i in graph:
             values_i.append(data_i.value)
@@ -70,9 +70,9 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 if __name__ == '__main__':
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
-    curr_dir = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\LinearEnv_optim\r6_OneQ_AutoAlpha_HCrSTD"
+    curr_dir = r"j"
     output_dir = curr_dir + r"\graphs"
-    plt.rcParams['figure.figsize'] = (20, 8)
+    plt.rcParams['figure.figsize'] = (30, 12)           # Old: (20, 8)
     # Example usage:
     logdir = curr_dir
     save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)
