@@ -8,6 +8,7 @@ from tools import smoothing
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
 N_KERNELS = 1
+LEARNABLE_KWEIGHTS = False
 
 ''' Environment constants '''
 # gym_env = 'Pendulum-v1'
@@ -19,31 +20,33 @@ Replay Parameters
 '''
 N_GAMES = 500
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 15000
+MAX_TOTAL_ITER = 1500000
 MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
 
 '''
 Loading Parameters
 '''
-env_name = 'CartPole-v1'
-event_name = 'Double_Q_Act1_Cr2_D'
+env_name = 'CartPole-v1_optim'
+event_name = 'r2_SOLVED_B'
 curr_dir = os.getcwd()
-loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
+# loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
+loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
 
 if __name__ == '__main__':
-    render = True
+    render = False
     if render:
         mode = 'human'
     else:
         mode = None
     env = gym.make(gym_env, render_mode=mode)
     # Highly reduced agent instantiation, since all parameters might be replaced
-    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1)
+    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1,
+                  learnable_kweights=LEARNABLE_KWEIGHTS)
     agent.load_checkpoint(path=loading_path, tar_name=tar_name, txt_name=meta_name, replay_npy_name=replay_name,
                           load_experience=True)
 

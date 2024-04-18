@@ -4,7 +4,7 @@ import torch.distributions as distr
 import time
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
-from dsacv02.tools import cramer_optim, cramer_1k, get_normal_supports, get_double_q_selections, \
+from dsacv02.tools import cramer_optim_multi, cramer_optim_1k, get_normal_supports, get_double_q_selections, \
      get_partial_double_q_selections, generate_gmm_distr_multi, generate_gmm_distr_1k, sampler_multi, sampler_1k, \
      rsampler_1k, rsampler_multi
 
@@ -98,12 +98,12 @@ class RealDSAC:
 
         # Select Functions: Loss / Sampler
         if n_kernels_cr == 1:
-            self.cramer_loss = cramer_1k
+            self.cramer_loss = cramer_optim_1k
             self.generate_gmm = generate_gmm_distr_1k
             self.sampler = sampler_1k
             self.rsampler = rsampler_1k
         else:
-            self.cramer_loss = cramer_optim
+            self.cramer_loss = cramer_optim_multi
             self.generate_gmm = generate_gmm_distr_multi
             self.sampler = sampler_multi
             self.rsampler = rsampler_multi
@@ -237,7 +237,9 @@ class RealDSAC:
         rewards.unsqueeze_(dim=1)
         dones.unsqueeze_(dim=1)
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
-        stds_next = (1-dones) * stds_next + torch.tensor(1e-55, dtype=torch.float64)
+        # q_means_target = rewards + (1 - dones)  * (q_means_next - alpha * log_probs_a_next)
+        # stds_next = (1-dones) * stds_next + torch.tensor(1e-55, dtype=torch.float64)
+        stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
         # stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
 
         target_distribution = self.generate_gmm(means=q_means_target, stds=stds_next, kweights=kernel_weights_next)
@@ -249,6 +251,8 @@ class RealDSAC:
     def compute_z_loss(self, batch, double_q=False, exp=False):
         """
         - Calculates the Q-distribution GMM-to-GMM cramer loss
+        - Implemented with AC Double-Q method (weighted Z loss)
+        - One Z target model
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
         :return: Q-loss attached to functional graph for gradient calculation
@@ -277,51 +281,38 @@ class RealDSAC:
         _, zcal1_next, means1_next, stds1_next, kweights1_next = \
             self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q1_target,
                             exp=exp, sample=False, reparameterize=True)
+        # MOD: Calculate target distribution  according to ONE target network (Q1)
+        zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
+                                                             q_means_next=means1_next,
+                                                             stds_next=stds1_next,
+                                                             kernel_weights_next=kweights1_next,
+                                                             log_probs_a_next=action_log_probs_next_bounded)
         if double_q:
             # Calculate current according to q1, q2 and target distributions according to q2
             _, zcal1, means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
                                                                  exp=exp, sample=False, reparameterize=True)
             _, zcal2, means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q2,
                                                                  exp=exp, sample=False, reparameterize=True)
-            _, zcal2_next, means2_next, stds2_next, kweights2_next = \
-                self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
-                                exp=exp, sample=False, reparameterize=True)
-
-            # The values for the least Q-value are choosen here
-            means, means_next, stds, stds_next, kweights, kweights_next = \
-                get_double_q_selections(means1=means1, means2=means2,
-                                        means1_next=means1_next,
-                                        means2_next=means2_next, stds1=stds1, stds2=stds2,
-                                        stds1_next=stds1_next, stds2_next=stds2_next,
-                                        kweights1=kweights1, kweights2=kweights2,
-                                        kweights1_next=kweights1_next,
-                                        kweights2_next=kweights2_next)
-
-            # Calculate current distribution
-            zcal = self.generate_gmm(means, stds, kweights)
-            z = self.rsampler(distr=zcal, batch_size=self.batch_size)
-
-            # Calculate target distribution
-            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
-                                                                 q_means_next=means_next,
-                                                                 stds_next=stds_next,
-                                                                 kernel_weights_next=kweights_next,
-                                                                 log_probs_a_next=action_log_probs_next_bounded)
-
+            c_loss1 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
+                                       standard_supp=self.standard_supp, dev=self.device)
+            c_loss2 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal2, n_kernels=self.n_kernels_cr,
+                                       standard_supp=self.standard_supp, dev=self.device)
+            means = 0.5 * (means1 + means2)
+            stds = 0.5 * (stds1 + stds2)
+            kweights = 0.5 * (kweights1 + kweights2)
+            c_loss = 0.5 * (c_loss1 + c_loss2)
+            return c_loss.mean(), means.mean(), stds.mean(), kweights
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
-            z, zcal, means, stds, kweights = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
-                                                             exp=exp, sample=True, reparameterize=True)
-            zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones, q_means_next=means1_next,
-                                                                 stds_next=stds1_next, kernel_weights_next=kweights1_next,
-                                                                 log_probs_a_next=action_log_probs_next_bounded)
+            _, zcal1, means1, stds1, kweights1 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q1,
+                                                                 exp=exp, sample=False, reparameterize=True)
 
-        # Batch-wise, dynamically supported Cràmer distance between two PDFs
-        q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal, n_kernels=self.n_kernels_cr,
-                                  standard_supp=self.standard_supp, dev=self.device)
+            # Batch-wise, dynamically supported Cràmer distance between two PDFs
+            q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
+                                      standard_supp=self.standard_supp, dev=self.device)
 
-        return q_loss.mean(), means.mean(), stds.mean(), kweights
+            return q_loss.mean(), means1.mean(), stds1.mean(), kweights1
 
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
@@ -387,6 +378,7 @@ class RealDSAC:
 
         # Construct action distribution with reparameterization trick
         means_act, stds_act, kweights_act = self.policy(obs=states, exp=exp)
+
         means_act.squeeze_(dim=2)
         stds_act.squeeze_(dim=2)
         stds_act.abs_()
@@ -430,7 +422,7 @@ class RealDSAC:
             "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
             "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
             "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
-            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
+            # "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
             "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
             "DSAC2_Alpha/alpha-RL iter": self.get_alpha(requires_grad=False),

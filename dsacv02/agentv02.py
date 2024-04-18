@@ -152,8 +152,9 @@ class Agent:
         action_mean.squeeze_(dim=2)
         action_std.squeeze_(dim=2)
         action_std.abs_()
-        if not self.policy.learnable_weights:
-            kernel_weights = torch.ones(action_mean.shape[1]) / self.policy.n_kernels
+        # if not self.policy.learnable_weights:
+        #     kernel_weights = (torch.ones(action_mean.shape[1]) / self.policy.n_kernels).to(self.device)
+        #     kernel_weights.unsqueeze_(dim=0)
         actions_bounded, probs_bounded = self.dsac.policy.sample_from_action_distr(locs=action_mean,
                                                                                    stds=action_std,
                                                                                    kweights=kernel_weights,

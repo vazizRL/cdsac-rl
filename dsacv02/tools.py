@@ -137,7 +137,7 @@ def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bou
     return dx_mb_normal
 
 
-def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
+def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
     """
     - Dynamic Supports for 1-Kernel
     - Batch-wise
@@ -149,8 +149,10 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n
     """
     dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
         pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+    dx_mb_curr = dx_mb_curr.detach()
     dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
         pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+    dx_mb_tar = dx_mb_tar.detach()
 
     # dx_mb_curr = pdf_curr.component_distribution.loc + \
     #     pdf_curr.component_distribution.scale * standard_supp
@@ -171,7 +173,7 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n
     return cramer_re
 
 
-def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
+def cramer_optim_multi(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
     """
     - Dynamic Supports
     - Batch-wise
@@ -184,9 +186,11 @@ def cramer_optim(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, st
     """
     # Meta parameters
     dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=2) + \
-                    pdf_curr.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+        pdf_curr.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+    dx_mb_curr = dx_mb_curr.detach()
     dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=2) + \
-                    pdf_target.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+        pdf_target.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+    dx_mb_tar = dx_mb_tar.detach()
 
     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
 

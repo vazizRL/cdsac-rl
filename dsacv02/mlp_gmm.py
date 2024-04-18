@@ -128,7 +128,10 @@ class MLPGMM(nn.Module):
         else:
             stds_logits.abs_()
 
-        return means_logits, stds_logits, None
+        kweights = torch.ones((x.shape[0], self._n_kernels), device=self.device) / self._n_kernels
+
+        # return means_logits, stds_logits, None
+        return means_logits, stds_logits, kweights
 
 
 class MLPGMMWeighted(MLPGMM):

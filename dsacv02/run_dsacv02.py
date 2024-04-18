@@ -17,8 +17,9 @@ DEVICE = 'cuda:0'
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 4
-N_KERNELS_ACT = 1
-N_KERNELS_CR = 1
+N_KERNELS_ACT = 2
+N_KERNELS_CR = 2
+LEARNABLE_KWEIGHTS = False
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
@@ -44,7 +45,7 @@ STATIC_ALPHA = 1.0              # Old 0.2
 REWARD_SCALE = 2.0              # Old 0.2
 GAMMA = 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = True
+AUTO_ALPHA = False
 ALPHA_INI = -1                  # Old 1
 MEM_SIZE = 1e6                  # 1e5
 N_POL_UPDATE_INTERVAL = 1
@@ -82,10 +83,13 @@ ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
 os.mkdir(event_path)
 tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
+port = 888
+
 
 if __name__ == '__main__':
     env = gym.make(gym_env)
-    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR,
+    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
+                  n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
                   act_lr_ini=ACT_LR_INI, act_lr_fin=ACT_LR_FIN,
                   alpha_lr_ini=ALPHA_LR_INI, alpha_lr_fin=ALPHA_LR_FIN,
@@ -136,6 +140,7 @@ if __name__ == '__main__':
             episode_iter += 1
 
             tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
+
             for key, value in tb_info.items():
                 tb_writer.add_scalar(key, value, N_TOT_STEPS)
             observation = observation_
