@@ -90,6 +90,7 @@ class Agent:
         self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
+        # Usually, target entropy is -action_dim
         self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
                              critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
                              policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
