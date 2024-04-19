@@ -70,7 +70,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 if __name__ == '__main__':
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
-    curr_dir = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1713540875.852953"
+    curr_dir = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1713543205.851964"
     output_dir = curr_dir + r"\graphs"
     plt.rcParams['figure.figsize'] = (30, 12)           # Old: (20, 8)
     # Example usage:

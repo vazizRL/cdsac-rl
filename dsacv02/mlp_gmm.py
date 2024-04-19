@@ -138,10 +138,11 @@ class MLPGMM(nn.Module):
 
 
 class MLPGMMWeighted(MLPGMM):
-    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, device: str, multivar=False):
-        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels, device, multivar=multivar)
+    def __init__(self, arch: tuple, activ: tuple, n_kernels: int, device: str, multivar=False, std_bias_ini=None):
+        super(MLPGMMWeighted, self).__init__(arch, activ, n_kernels, device, multivar=multivar,
+                                             std_bias_ini=std_bias_ini)
 
-    def build_layers(self):
+    def build_layers(self, std_bias_ini=None):
         layer_id = 1
 
         next_element_list = list(self._arch)[1:-1] + [None]
@@ -164,6 +165,9 @@ class MLPGMMWeighted(MLPGMM):
                 std_logit_i = nn.Linear(self._arch[-2], self.covar_out_size, dtype=torch.float64).to(self.device)
             else:
                 std_logit_i = nn.Linear(self._arch[-2], self._arch[-1], dtype=torch.float64).to(self.device)
+            if std_bias_ini:
+                # Set initial bias
+                std_logit_i.bias = nn.Parameter(torch.tensor(std_bias_ini, dtype=torch.float64, device=self.device))
             self.module_dict.update({f'std_{std_idx + 1}': std_logit_i})
             stds_layers.append(std_logit_i)
 
