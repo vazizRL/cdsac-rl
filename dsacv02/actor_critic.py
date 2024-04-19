@@ -35,7 +35,8 @@ class Critic(nn.Module):
             self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
                                     multivar=False)
         else:
-            self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device, multivar=False)
+            self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
+                            multivar=False, std_bias_ini=10.0)
         self.min_std = torch.tensor(value_min_std).to(self.q.device)
         self.max_std = torch.tensor(value_max_std).to(self.q.device)
         self.denominator = max(abs(self.min_std), self.max_std)

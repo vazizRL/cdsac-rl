@@ -41,9 +41,9 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 500                     # Old 20000
 TAU = 0.015
-STATIC_ALPHA = 1.0              # Old 0.2
+STATIC_ALPHA = 0.3              # Old 0.2
 REWARD_SCALE = 2.0              # Old 0.2
-GAMMA = 0.99                    # Old 0.99
+GAMMA = 0.95                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
 ALPHA_INI = -1                  # Old 1
@@ -56,7 +56,7 @@ Training Parameters
 N_TOT_STEPS = 0
 MAX_TOTAL_ITER = 150000000
 N_GAMES = 5500
-MAX_EPISODE_ITER = 2000
+MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
 
 ''' Numerical Parameters'''
