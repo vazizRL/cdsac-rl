@@ -41,6 +41,7 @@ class ZNetwork(nn.Module):
             # Chose action in standard greedy Q-fashion
             action = torch.argmax(q_values, dim=1)
         action_distribution = pmfs[torch.arange(batch_size), action.int()]
+
         return action, action_distribution
 
 

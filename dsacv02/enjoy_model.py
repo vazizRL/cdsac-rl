@@ -28,9 +28,8 @@ CHK_PROGRESS_INTERVAL = 100
 Loading Parameters
 '''
 env_name = 'CartPole-v1_optim'
-event_name = 'r2_SOLVED_B'
+event_name = 'event_1713885045.021224'
 curr_dir = os.getcwd()
-# loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs' + '/' + env_name + '/' + event_name + '/'
 loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
@@ -38,7 +37,7 @@ replay_name = 'replay_buffer.pkl'
 
 
 if __name__ == '__main__':
-    render = False
+    render = True
     if render:
         mode = 'human'
     else:

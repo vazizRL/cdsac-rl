@@ -7,6 +7,89 @@ from scipy import integrate
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
 
 
+def generate_gauss_distr(means, stds, multivar=False, kweights=None):
+    """
+    TODO: Refactor to avoid if-statement
+    - Generates either a multivariate or standard Gaussian
+    :param means: Means
+    :param stds: Standard deviations
+    :param kweights: Not used here;
+    :param multivar: CHANGE! Whether components of GMM are multivariate or not
+    :return: Returns a GMM
+    """
+    if multivar:
+        zcal = torch.distributions.MultivariateNormal(loc=means, covariance_matrix=stds)
+    else:
+        zcal = torch.distributions.Normal(loc=means, scale=stds)
+
+    return zcal
+
+
+def sampler_1k(distr, reparameterize):
+    """
+    - Function to sample from Gaussian - Batch-Wise
+    :param distr: GMM object with one kernel
+    :param reparameterize: If samples are used for backpropagation, reparameterization trick must be used
+    :param batch_size: Batch-size; gauss_distr.component_distribution.loc
+    """
+    if reparameterize:
+        # gmm_sample = distr.rsample((batch_size,))
+        # gmm_sample.unsqueeze_(dim=1)
+        gmm_sample = distr.rsample()
+    else:
+        # gmm_sample = distr.sample((batch_size,))
+        # gmm_sample.unsqueeze_(dim=1)
+        gmm_sample = distr.sample()
+
+    return gmm_sample
+
+
+def rsampler_1k(distr):
+    """
+    - Sampling with reparameterization for 1 kernel
+    :param distr:
+    :param batch_size:
+    :return:
+    """
+    r_sample = distr.rsample()
+
+    return r_sample
+
+
+def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
+    """
+    - Dynamic Supports for 1-Kernel
+    - Batch-wise
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
+    """
+    dx_mb_curr = pdf_curr.loc + pdf_curr.scale * standard_supp
+    dx_mb_curr = dx_mb_curr.detach()
+    dx_mb_tar = pdf_target.loc + pdf_target.scale * standard_supp
+    dx_mb_tar = dx_mb_tar.detach()
+
+    # dx_mb_curr = pdf_curr.component_distribution.loc + \
+    #     pdf_curr.component_distribution.scale * standard_supp
+    # dx_mb_tar = pdf_target.component_distribution.loc + \
+    #     pdf_target.component_distribution.scale * standard_supp
+
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
+
+    dx_singular_sorted, _ = dx_mb_singular.sort()
+
+    dy_curr_mb = pdf_curr.cdf(dx_singular_sorted)
+    dy_target_mb = pdf_target.cdf(dx_singular_sorted)
+
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) + 1e-55
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
+
+
 def generate_gmm_distr_multi(means, stds, kweights, multivar=False):
     """
     TODO: Refactor to avoid if-statement
@@ -27,44 +110,42 @@ def generate_gmm_distr_multi(means, stds, kweights, multivar=False):
     return zcal
 
 
-def generate_gmm_distr_1k(means, stds, kweights, multivar=False):
+def cramer_optim_multi(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
     """
-    TODO: Refactor to avoid if-statement
-    - Generates either a multivariate or standard Gaussian Mxiture Model
-    :param means: Kernel means
-    :param stds: Kernel standard deviations
-    :param kweights: Kernel weights
-    :param multivar: CHANGE! Whether components of GMM are multivariate or not
-    :return: Returns a GMM
+    - Dynamic Supports
+    - Batch-wise
+    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Implementation:
+        1. Define the supports with constant n_steps
+        2. Calculate the difference squared
+        3. Integrate over all dx
     """
-    mix_distr = torch.distributions.Categorical(probs=kweights.squeeze())
-    if multivar:
-        comp_distr = torch.distributions.MultivariateNormal(loc=means.squeeze(), covariance_matrix=stds.squeeze())
-    else:
-        comp_distr = torch.distributions.Normal(loc=means.squeeze(), scale=stds.squeeze())
-    zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
+    # Meta parameters
+    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=2) + \
+        pdf_curr.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+    dx_mb_curr = dx_mb_curr.detach()
+    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=2) + \
+        pdf_target.component_distribution.scale.unsqueeze(dim=2) * standard_supp
+    dx_mb_tar = dx_mb_tar.detach()
 
-    return zcal
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
 
+    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
+    # dx_mb_multi = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
+    dx_mb_multi = dx_singular_flat * torch.ones(n_kernels, device=dev).unsqueeze(dim=1)
 
-def sampler_1k(distr, reparameterize, batch_size):
-    """
-    - Function to sample from Gaussian - Batch-Wise
-    :param distr: GMM object with one kernel
-    :param reparameterize: If samples are used for backpropagation, reparameterization trick must be used
-    :param batch_size: Batch-size; gauss_distr.component_distribution.loc
-    """
-    if reparameterize:
-        gmm_sample = distr.rsample((batch_size,))
-        gmm_sample.unsqueeze_(dim=1)
-    else:
-        gmm_sample = distr.sample((batch_size,))
-        gmm_sample.unsqueeze_(dim=1)
+    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_multi)
+    dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
 
-    return gmm_sample
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
+    cramer_re.sqrt_()
+    cramer_re = cramer_re.mean()
+
+    return cramer_re
 
 
-def sampler_multi(distr, reparameterize, batch_size=None):
+def sampler_multi(distr, reparameterize):
     """
     - Function to sample from GMM - Batch-Wise
     :param distr: GMM object
@@ -81,19 +162,7 @@ def sampler_multi(distr, reparameterize, batch_size=None):
     return gmm_sample
 
 
-def rsampler_1k(distr, batch_size):
-    """
-    - Sampling with reparameterization for 1 kernel
-    :param distr:
-    :param batch_size:
-    :return:
-    """
-    r_sample = distr.rsample((batch_size,))
-
-    return r_sample
-
-
-def rsampler_multi(distr, batch_size=None):
+def rsampler_multi(distr):
     r_sample = distr.rsample()
 
     return r_sample
@@ -135,77 +204,6 @@ def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bou
         dx_mb_normal.squeeze_(dim=1)
 
     return dx_mb_normal
-
-
-def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
-    """
-    - Dynamic Supports for 1-Kernel
-    - Batch-wise
-    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
-    - Implementation:
-        1. Define the supports with constant n_steps
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
-        pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
-    dx_mb_curr = dx_mb_curr.detach()
-    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
-        pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
-    dx_mb_tar = dx_mb_tar.detach()
-
-    # dx_mb_curr = pdf_curr.component_distribution.loc + \
-    #     pdf_curr.component_distribution.scale * standard_supp
-    # dx_mb_tar = pdf_target.component_distribution.loc + \
-    #     pdf_target.component_distribution.scale * standard_supp
-
-    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
-
-    dx_singular_sorted, _ = dx_mb_singular.sort()
-
-    dy_curr_mb = pdf_curr.cdf(dx_singular_sorted)
-    dy_target_mb = pdf_target.cdf(dx_singular_sorted)
-
-    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) + 1e-55
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
-
-    return cramer_re
-
-
-def cramer_optim_multi(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
-    """
-    - Dynamic Supports
-    - Batch-wise
-    - int_l \approx \mu - 3.1*\sigma; int_u \approx \mu + 3.1*\sigma
-    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
-    - Implementation:
-        1. Define the supports with constant n_steps
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Meta parameters
-    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=2) + \
-        pdf_curr.component_distribution.scale.unsqueeze(dim=2) * standard_supp
-    dx_mb_curr = dx_mb_curr.detach()
-    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=2) + \
-        pdf_target.component_distribution.scale.unsqueeze(dim=2) * standard_supp
-    dx_mb_tar = dx_mb_tar.detach()
-
-    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=2)
-
-    dx_singular_flat, _ = dx_mb_singular.flatten(start_dim=1).unsqueeze(dim=1).sort()
-    # dx_mb_multi = torch.cat((dx_singular_flat, dx_singular_flat), dim=1)
-    dx_mb_multi = dx_singular_flat * torch.ones(n_kernels, device=dev).unsqueeze(dim=1)
-
-    dy_curr_mb = pdf_curr.cdf_mod(dx_mb_multi)
-    dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
-
-    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
-
-    return cramer_re
 
 
 def cramer_torch_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):

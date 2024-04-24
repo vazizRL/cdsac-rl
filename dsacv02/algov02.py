@@ -5,7 +5,7 @@ import time
 from torch.optim import Adam, lr_scheduler
 from dsac_old_versions.dsac_implementation.tensorboard_tools import tb_tags
 from dsacv02.tools import cramer_optim_multi, cramer_optim_1k, get_normal_supports, get_double_q_selections, \
-     get_partial_double_q_selections, generate_gmm_distr_multi, generate_gmm_distr_1k, sampler_multi, sampler_1k, \
+     get_partial_double_q_selections, generate_gmm_distr_multi, generate_gauss_distr, sampler_multi, sampler_1k, \
      rsampler_1k, rsampler_multi
 
 
@@ -99,7 +99,7 @@ class RealDSAC:
         # Select Functions: Loss / Sampler
         if n_kernels_cr == 1:
             self.cramer_loss = cramer_optim_1k
-            self.generate_gmm = generate_gmm_distr_1k
+            self.generate_gmm = generate_gauss_distr
             self.sampler = sampler_1k
             self.rsampler = rsampler_1k
         else:
@@ -196,7 +196,7 @@ class RealDSAC:
 
         gmm_sample = None
         if sample:
-            gmm_sample = self.sampler(distr=gmm, reparameterize=reparameterize, batch_size=self.batch_size)
+            gmm_sample = self.sampler(distr=gmm, reparameterize=reparameterize)
 
         return gmm_sample, gmm, means, stds, kernel_weights
 
@@ -240,11 +240,11 @@ class RealDSAC:
         # q_means_target = rewards + (1 - dones) * (q_means_next - alpha * log_probs_a_next)
         # stds_next = (1-dones) * stds_next + torch.tensor(1e-55, dtype=torch.float64)
         stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
-        # stds_next = stds_next + torch.tensor(1e-10, dtype=torch.float64)
+        # stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1.0, dtype=torch.float64) * dones
 
         target_distribution = self.generate_gmm(means=q_means_target, stds=stds_next, kweights=kernel_weights_next)
         # Target is always used for gradient calculations, so always rsample
-        target_samples = self.rsampler(distr=target_distribution, batch_size=self.batch_size)
+        target_samples = self.rsampler(distr=target_distribution)
 
         return target_distribution, target_samples
 
