@@ -97,7 +97,7 @@ class Agent:
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=-2, n_kernels_act=n_kernels_act,
+                             auto_alpha=self.auto_alpha, target_entropy=-3.0, n_kernels_act=n_kernels_act,
                              n_kernels_cr=n_kernels_cr, n_supports=self.n_supports, ibf=self.ibf,
                              batch_size=self.batch_size, device=device)
 
@@ -124,7 +124,7 @@ class Agent:
         :param n_learning_iter: Number of iterations in which the networks are fitted to the current experience.
                                 Note that the value networks are always fitted, the fitting of the policy depends on
                                 step_number
-        :param step_number: Total train step number from main.py
+        :param step_number: Total train step number from main_sac_sb.py
         :return: RL learning quantities (losses, rewards, ...etc.)
         """
         if self.memory.mem_cntr < self.batch_size:

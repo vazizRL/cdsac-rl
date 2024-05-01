@@ -214,6 +214,7 @@ class RealDSAC:
             if self.auto_alpha:
                 self.alpha_optimizer.step()
 
+            # Target network updates
             with torch.no_grad():
                 self.soft_avg_update(self.q1, self.q1_target)
                 self.soft_avg_update(self.q2, self.q2_target)
@@ -258,7 +259,7 @@ class RealDSAC:
         :return: Q-loss attached to functional graph for gradient calculation
         """
         states, old_actions, rewards, states_next, dones = batch
-        # Convert to tensors, since in main.py, they are stored as Python datatypes
+        # Convert to tensors, since in main_sac_sb.py, they are stored as Python datatypes
         states = torch.as_tensor(states, dtype=torch.float64).to(self.device)
         old_actions = torch.as_tensor(old_actions, dtype=torch.float64).to(self.device)
         rewards = self.reward_scale * torch.as_tensor(rewards, dtype=torch.float64).to(self.device)
@@ -363,6 +364,12 @@ class RealDSAC:
         return policy_loss, entropy
 
     def compute_alpha_loss(self, log_ps):
+        """
+        - Computes the loss of log_alpha. Alpha is put in logarithm form for higher num. stability
+        - Note that self.target_entropy is given in log form. In standard form: self.target_entropy.exp()
+        :param log_ps:
+        :return:
+        """
         loss_alpha = - self.log_alpha * (log_ps.detach() + self.target_entropy).mean()
 
         return loss_alpha
@@ -486,12 +493,6 @@ class RealDSAC:
         #                   f'\n q2: {self.q2_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n pol: {self.policy_optimizer.param_groups[0]["lr"]}' +
         #                   f'\n alpha: {self.alpha_optimizer.param_groups[0]["lr"]}')
-
-    def remote_update(self, update_info: dict):
-        raise NotImplementedError('The method "remote_update" is not implemented')
-
-    def get_remote_update_info(self):
-        raise NotImplementedError('The method "get_remote_update_info" is not implemented')
 
     def get_empty_tb_info(self):
         tb_info = {

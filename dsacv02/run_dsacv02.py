@@ -22,7 +22,7 @@ N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 100.0            # 0.01, 10.0
@@ -45,10 +45,10 @@ STATIC_ALPHA = 0.3              # Old 0.2
 REWARD_SCALE = 2.0              # Old 0.2
 GAMMA = 0.95                    # Old 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = False
-ALPHA_INI = -1                  # Old 1
+AUTO_ALPHA = True
+ALPHA_INI = 1                  # Old -1
 MEM_SIZE = 1e6                  # 1e5
-N_POL_UPDATE_INTERVAL = 1
+N_TRAIN_INTERVAL = 1
 
 '''
 Training Parameters
@@ -83,7 +83,6 @@ ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
 os.mkdir(event_path)
 tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
-port = 888
 
 
 if __name__ == '__main__':
@@ -139,7 +138,7 @@ if __name__ == '__main__':
             N_TOT_STEPS += 1
             episode_iter += 1
 
-            tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
+            tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=N_TOT_STEPS)
 
             for key, value in tb_info.items():
                 tb_writer.add_scalar(key, value, N_TOT_STEPS)

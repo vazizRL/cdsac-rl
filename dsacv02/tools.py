@@ -485,6 +485,7 @@ def get_supports(mb, means, sigmas):
 
 
 if __name__ == '__main__':
-    print(f'The action dim required for one action is: {calc_size_co_matrix(2)}')
+    n_actions = 1
+    print(f'The action dim required for {n_actions} action is: {calc_size_co_matrix(n_actions)}')
     means = torch.randn(10)
     sigmas = torch.randn(10)

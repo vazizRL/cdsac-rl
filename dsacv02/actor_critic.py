@@ -33,7 +33,7 @@ class Critic(nn.Module):
         self.activation = activ
         if self.learnable_weights:
             self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
-                                    multivar=False, std_bias_ini=None)
+                                    multivar=False, std_bias_ini=1.0)
         else:
             self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
                             multivar=False, std_bias_ini=1.0)
