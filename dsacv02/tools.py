@@ -71,11 +71,6 @@ def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_s
     dx_mb_tar = pdf_target.loc + pdf_target.scale * standard_supp
     dx_mb_tar = dx_mb_tar.detach()
 
-    # dx_mb_curr = pdf_curr.component_distribution.loc + \
-    #     pdf_curr.component_distribution.scale * standard_supp
-    # dx_mb_tar = pdf_target.component_distribution.loc + \
-    #     pdf_target.component_distribution.scale * standard_supp
-
     dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
 
     dx_singular_sorted, _ = dx_mb_singular.sort()

@@ -21,6 +21,7 @@ def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bou
     :param batch_size: Number of MBs
     :param n_kernels: NUmber of Kernels in GMM
     :param n_supp: Number of Supports desired
+    :param integral_bound_factor: \mathbf{0} \plusminus \mathbf{integral_bound_factor}
     :param dev: GPU/CPU
     :return: Supports for Normal Gaussian; equidistant
     """
@@ -115,21 +116,22 @@ def cramer_1k_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, dev
     return cramer_re, dx_mb_singular
 
 
-def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp=None, dev='cpu'):
+def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp,  dev='cpu'):
     """
     - Dynamic Supports for 1-Kernel
     - Batch-wise
+    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
     - Implementation:
         1. Define the supports with constant n_steps
         2. Calculate the difference squared
         3. Integrate over all dx
     """
-    dx_mb_curr = pdf_curr.component_distribution.loc.unsqueeze(dim=1) + \
-                    pdf_curr.component_distribution.scale.unsqueeze(dim=1) * standard_supp
-    dx_mb_tar = pdf_target.component_distribution.loc.unsqueeze(dim=1) + \
-                    pdf_target.component_distribution.scale.unsqueeze(dim=1) * standard_supp
+    dx_mb_curr = pdf_curr.loc + pdf_curr.scale * standard_supp
+    dx_mb_curr = dx_mb_curr.detach()
+    dx_mb_tar = pdf_target.loc + pdf_target.scale * standard_supp
+    dx_mb_tar = dx_mb_tar.detach()
 
-    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1)
+    dx_mb_singular = torch.cat((dx_mb_curr, dx_mb_tar), dim=1).to(dev)
 
     dx_singular_sorted, _ = dx_mb_singular.sort()
 
@@ -143,10 +145,10 @@ def cramer_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp=No
     return cramer_re
 
 
-def generate_gmm(locs: torch.tensor, scales: torch.tensor, kweights: torch.tensor):
-    gmm = RMM(distr.Categorical(probs=kweights), distr.Normal(locs, scales))
+def generate_norm_distr(locs: torch.tensor, scales: torch.tensor):
+    normal_distr = distr.Normal(loc=locs, scale=scales)
 
-    return gmm
+    return normal_distr
 
 
 def calculate_cdf(pdf: torch.tensor, supp_l, supp_u, spacing, dev='cpu'):
@@ -168,10 +170,10 @@ if __name__ == '__main__':
     epochs = 7                  # Old: 7
     epochs_low_e = 5           # Old: 10
     epochs_high_e = 5          # Old: 10
-    mb_size = 5
+    mb_size = 50
     # Network parameters
-    arch = (1, 10, 1)
-    activ = ('gelu',)
+    arch = (1, 256, 256, 1)
+    activ = ('relu', 'relu')
     n_kernels = 1
     multivar = True
     learnable_weights = True
@@ -183,43 +185,47 @@ if __name__ == '__main__':
     standard_supports = get_normal_supports(batch_size=mb_size, n_kernels=n_kernels, n_supp=n_eval_points,
                                             integral_bound_factor=ibf, dev=device)
     graph_spacing = 0.01
-    graph_l = -13
-    graph_u = 58
+    graph_l = -40
+    graph_u = 85
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
+    mean_ref_low_e.unsqueeze_(dim=1)
     std_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    kweight_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    distr_ref_low_e = generate_gmm(locs=mean_ref_low_e, scales=std_ref_low_e, kweights=kweight_ref_low_e)
+    std_ref_low_e.unsqueeze_(dim=1)
+    distr_ref_low_e = generate_norm_distr(locs=mean_ref_low_e, scales=std_ref_low_e)
 
     # Reference distribution - High E
     mean_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
-    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
-    kweight_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    distr_ref_high_e = generate_gmm(locs=mean_ref_high_e, scales=std_ref_high_e, kweights=kweight_ref_high_e)
+    mean_ref_high_e.unsqueeze_(dim=1)
+    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([10.0], dtype=torch.float64).to(device)
+    std_ref_high_e.unsqueeze_(dim=1)
+    distr_ref_high_e = generate_norm_distr(locs=mean_ref_high_e, scales=std_ref_high_e)
 
     # High-entropy Distribution Target, Standard: [2.0, 15.0] with 3 STD
     mean_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)
-    std_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([3.0], dtype=torch.float64).to(device)
-    kweight_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    distr_high_e = generate_gmm(locs=mean_high_e, scales=std_high_e, kweights=kweight_high_e)
+    mean_high_e.unsqueeze_(dim=1)
+    std_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([10.0], dtype=torch.float64).to(device)
+    std_high_e.unsqueeze_(dim=1)
+    distr_high_e = generate_norm_distr(locs=mean_high_e, scales=std_high_e)
 
     # Low-entropy Distribution, Standard: [2.0, 15.0] with 1 STD
     mean_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([45.0], dtype=torch.float64).to(device)
+    mean_low_e.unsqueeze_(dim=1)
     std_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    kweight_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([1.0], dtype=torch.float64).to(device)
-    distr_low_e = generate_gmm(locs=mean_low_e, scales=std_low_e, kweights=kweight_low_e)
+    std_low_e.unsqueeze_(dim=1)
+    distr_low_e = generate_norm_distr(locs=mean_low_e, scales=std_low_e)
 
     # Initialize network and optimizer
     if learnable_weights:
-        gmm_approx_ref_low_e = \
+        norm_approx_ref_low_e = \
             MLPGMMWeighted(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
-        gmm_approx_ref_high_e = deepcopy(gmm_approx_ref_low_e)
+        norm_approx_ref_high_e = deepcopy(norm_approx_ref_low_e)
     else:
-        gmm_approx_ref_low_e = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
-        gmm_approx_ref_high_e = deepcopy(gmm_approx_ref_low_e)
-    optimizer_ref_low_e = optim.Adam(gmm_approx_ref_low_e.parameters(), lr=learning_rate)
-    optimizer_ref_high_e = optim.Adam(gmm_approx_ref_high_e.parameters(), lr=learning_rate)
+        norm_approx_ref_low_e = MLPGMM(arch=arch, activ=activ, n_kernels=n_kernels, device=device, multivar=multivar)
+        norm_approx_ref_high_e = deepcopy(norm_approx_ref_low_e)
+    optimizer_ref_low_e = optim.Adam(norm_approx_ref_low_e.parameters(), lr=learning_rate)
+    optimizer_ref_high_e = optim.Adam(norm_approx_ref_high_e.parameters(), lr=learning_rate)
 
     # Initialize input
     n_datapoints = 6000
@@ -234,21 +240,21 @@ if __name__ == '__main__':
     start_ref_low = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
-            pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = gmm_approx_ref_low_e(batch)
+            pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = norm_approx_ref_low_e(batch)
             pred_stds_ref_low_e.abs_()
             pred_means_ref_low_e.squeeze_(dim=2)
             pred_stds_ref_low_e.squeeze_(dim=2)
             if learnable_weights:
-                pred_gmm_ref_low_e = generate_gmm(locs=pred_means_ref_low_e.squeeze(),
-                                                  scales=pred_stds_ref_low_e.squeeze(),
-                                                  kweights=kweights_ref_low_e.squeeze())
+                pred_norm_ref_low_e = generate_norm_distr(locs=pred_means_ref_low_e,
+                                                          scales=pred_stds_ref_low_e,
+                                                          )
             else:
-                pred_gmm_ref_low_e = generate_gmm(locs=pred_means_ref_low_e.squeeze(),
-                                                  scales=pred_stds_ref_low_e.squeeze(),
-                                                  kweights=kweights_fix)
+                pred_norm_ref_low_e = generate_norm_distr(locs=pred_means_ref_low_e,
+                                                          scales=pred_stds_ref_low_e,
+                                                          )
             # Loss batch_i
-            cramer_py_loss_ref_low_e = cramer_1k(pdf_target=distr_ref_low_e, pdf_curr=pred_gmm_ref_low_e,
-                                                 standard_supp=standard_supports, dev=device)
+            cramer_py_loss_ref_low_e = cramer_optim_1k(pdf_target=distr_ref_low_e, pdf_curr=pred_norm_ref_low_e,
+                                                       standard_supp=standard_supports, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_low_e.zero_grad()
@@ -260,12 +266,12 @@ if __name__ == '__main__':
     print(f'Optimized Time Ref Low.: {time_ref_low}')
 
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
-    preds_means_all, preds_stds_all, _ = gmm_approx_ref_low_e(input_total)
+    preds_means_all, preds_stds_all, _ = norm_approx_ref_low_e(input_total)
     print(f'Avg. Ref preds means for low_e: {preds_means_all.mean(dim=0)}')
     print(f'Avg. Ref preds stds for low_e: {preds_stds_all.mean(dim=0)}')
 
     # Evaluate CDFs for: Ref_Low
-    cdf_ref_low_e = calculate_cdf(pred_gmm_ref_low_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing,
+    cdf_ref_low_e = calculate_cdf(pred_norm_ref_low_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing,
                                   dev=device)
 
     ''' 
@@ -275,21 +281,21 @@ if __name__ == '__main__':
     start_ref_high = time.perf_counter()
     for epoch in range(epochs):
         for batch in batches:
-            pred_means_ref_high_e, pred_stds_ref_high_e, kweights_ref_high_e = gmm_approx_ref_high_e(batch)
+            pred_means_ref_high_e, pred_stds_ref_high_e, kweights_ref_high_e = norm_approx_ref_high_e(batch)
             pred_stds_ref_high_e.abs_()
             pred_means_ref_high_e.squeeze_(dim=2)
             pred_stds_ref_high_e.squeeze_(dim=2)
             if learnable_weights:
-                pred_gmm_ref_high_e = generate_gmm(locs=pred_means_ref_high_e.squeeze(),
-                                                   scales=pred_stds_ref_high_e.squeeze(),
-                                                   kweights=kweights_ref_high_e.squeeze())
+                pred_norm_ref_high_e = generate_norm_distr(locs=pred_means_ref_high_e,
+                                                           scales=pred_stds_ref_high_e,
+                                                           )
             else:
-                pred_gmm_ref_high_e = generate_gmm(locs=pred_means_ref_high_e.squeeze(),
-                                                   scales=pred_stds_ref_high_e.squeeze(),
-                                                   kweights=kweights_fix)
+                pred_norm_ref_high_e = generate_norm_distr(locs=pred_means_ref_high_e,
+                                                           scales=pred_stds_ref_high_e,
+                                                           )
             # Loss batch_i
-            cramer_py_loss_ref_high_e = cramer_1k(pdf_target=distr_ref_high_e, pdf_curr=pred_gmm_ref_high_e,
-                                                  standard_supp=standard_supports, dev=device)
+            cramer_py_loss_ref_high_e = cramer_optim_1k(pdf_target=distr_ref_high_e, pdf_curr=pred_norm_ref_high_e,
+                                                        standard_supp=standard_supports, dev=device)
 
             # Loss in MB-GD for cramer_py_loss_i
             optimizer_ref_high_e.zero_grad()
@@ -301,11 +307,11 @@ if __name__ == '__main__':
     print(f'Optimized Time Ref High: {time_ref_high}')
 
     # Test if trained correctly by probing mean of outputs: pred_means and pred_stds
-    preds_means_high_all, preds_stds_high_all, _ = gmm_approx_ref_high_e(input_total)
+    preds_means_high_all, preds_stds_high_all, _ = norm_approx_ref_high_e(input_total)
     print(f'Avg. Ref preds means for low_e: {preds_means_high_all.mean(dim=0)}')
     print(f'Avg. Ref preds stds for low_e: {preds_stds_high_all.mean(dim=0)}')
     # Evaluate CDFs for: Ref, Low_H, High_H
-    cdf_ref_high_e = calculate_cdf(pred_gmm_ref_high_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
+    cdf_ref_high_e = calculate_cdf(pred_norm_ref_high_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
 
     cdf_low_target = calculate_cdf(distr_low_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
     cdf_high_target = calculate_cdf(distr_high_e, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
@@ -313,16 +319,16 @@ if __name__ == '__main__':
     '''
     Deep copy the trained network (trained for means=[1.0, 0.0], stds=[1.0, 1.0])
     '''
-    gmm_approx_low_e_from_low_ref = deepcopy(gmm_approx_ref_low_e)
-    gmm_approx_low_e_from_high_ref = deepcopy(gmm_approx_ref_high_e)
+    norm_approx_low_e_from_low_ref = deepcopy(norm_approx_ref_low_e)
+    norm_approx_low_e_from_high_ref = deepcopy(norm_approx_ref_high_e)
 
-    gmm_approx_high_e_from_low_ref = deepcopy(gmm_approx_ref_low_e)
-    gmm_approx_high_e_from_high_ref = deepcopy(gmm_approx_ref_high_e)
+    norm_approx_high_e_from_low_ref = deepcopy(norm_approx_ref_low_e)
+    norm_approx_high_e_from_high_ref = deepcopy(norm_approx_ref_high_e)
 
     '''
     Measure change from low-to-low
     '''
-    optimizer_low_low = optim.Adam(gmm_approx_low_e_from_low_ref.parameters(), lr=learning_rate)
+    optimizer_low_low = optim.Adam(norm_approx_low_e_from_low_ref.parameters(), lr=learning_rate)
     means_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -336,7 +342,7 @@ if __name__ == '__main__':
             kweights_history_batch_low_low = torch.tensor([], dtype=torch.float64, device=device)
 
             # kweights = None
-            pred_means_low_low, pred_stds_low_low, kweights_low_low = gmm_approx_low_e_from_low_ref(batch)
+            pred_means_low_low, pred_stds_low_low, kweights_low_low = norm_approx_low_e_from_low_ref(batch)
             pred_stds_low_low.abs_()
             pred_means_low_low.squeeze_(dim=2)
             pred_stds_low_low.squeeze_(dim=2)
@@ -346,14 +352,16 @@ if __name__ == '__main__':
             kweights_history_batch_low_low = torch.cat((kweights_history_batch_low_low, kweights_low_low), dim=0)
 
             if learnable_weights:
-                pred_gmm_low_low = generate_gmm(locs=pred_means_low_low.squeeze(), scales=pred_stds_low_low.squeeze(),
-                                                kweights=kweights_low_low.squeeze())
+                pred_norm_low_low = generate_norm_distr(locs=pred_means_low_low,
+                                                        scales=pred_stds_low_low,
+                                                        )
             else:
-                pred_gmm_low_low = generate_gmm(locs=pred_means_low_low.squeeze(), scales=pred_stds_low_low.squeeze(),
-                                                kweights=kweights_fix)
+                pred_norm_low_low = generate_norm_distr(locs=pred_means_low_low,
+                                                        scales=pred_stds_low_low,
+                                                        )
             # MB Cramer Loss
-            cramer_py_loss_low_low = cramer_1k(pdf_target=distr_low_e, pdf_curr=pred_gmm_low_low,
-                                               standard_supp=standard_supports, dev=device)
+            cramer_py_loss_low_low = cramer_optim_1k(pdf_target=distr_low_e, pdf_curr=pred_norm_low_low,
+                                                     standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_low_low = torch.cat((dc_history_batch_low_low,
                                                   cramer_py_loss_low_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -376,7 +384,7 @@ if __name__ == '__main__':
     '''
     Measure change from high-to-low
     '''
-    optimizer_high_low = optim.Adam(gmm_approx_low_e_from_high_ref.parameters(), lr=learning_rate)
+    optimizer_high_low = optim.Adam(norm_approx_low_e_from_high_ref.parameters(), lr=learning_rate)
     means_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_low = torch.tensor([], dtype=torch.float64, device=device)
@@ -390,7 +398,7 @@ if __name__ == '__main__':
             kweights_history_batch_high_low = torch.tensor([], dtype=torch.float64, device=device)
 
             # kweights = None
-            pred_means_high_low, pred_stds_high_low, kweights_high_low = gmm_approx_low_e_from_high_ref(batch)
+            pred_means_high_low, pred_stds_high_low, kweights_high_low = norm_approx_low_e_from_high_ref(batch)
             pred_stds_high_low.abs_()
             pred_means_high_low.squeeze_(dim=2)
             pred_stds_high_low.squeeze_(dim=2)
@@ -400,16 +408,16 @@ if __name__ == '__main__':
             kweights_history_batch_high_low = torch.cat((kweights_history_batch_high_low, kweights_high_low), dim=0)
 
             if learnable_weights:
-                pred_gmm_high_low = generate_gmm(locs=pred_means_high_low.squeeze(),
-                                                 scales=pred_stds_high_low.squeeze(),
-                                                 kweights=kweights_high_low.squeeze())
+                pred_norm_high_low = generate_norm_distr(locs=pred_means_high_low,
+                                                         scales=pred_stds_high_low,
+                                                         )
             else:
-                pred_gmm_high_low = generate_gmm(locs=pred_means_high_low.squeeze(),
-                                                 scales=pred_stds_high_low.squeeze(),
-                                                 kweights=kweights_fix)
+                pred_norm_high_low = generate_norm_distr(locs=pred_means_high_low,
+                                                         scales=pred_stds_high_low,
+                                                         )
             # MB Cramer Loss
-            cramer_py_loss_high_low = cramer_1k(pdf_target=distr_low_e, pdf_curr=pred_gmm_high_low,
-                                                standard_supp=standard_supports, dev=device)
+            cramer_py_loss_high_low = cramer_optim_1k(pdf_target=distr_low_e, pdf_curr=pred_norm_high_low,
+                                                      standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_high_low = torch.cat((dc_history_batch_high_low,
                                                   cramer_py_loss_high_low.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -432,7 +440,7 @@ if __name__ == '__main__':
     '''
     Measure change for from low-to-high
     '''
-    optimizer_low_high = optim.Adam(gmm_approx_high_e_from_low_ref.parameters(), lr=learning_rate)
+    optimizer_low_high = optim.Adam(norm_approx_high_e_from_low_ref.parameters(), lr=learning_rate)
     means_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_low_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -445,7 +453,7 @@ if __name__ == '__main__':
             dc_history_batch_low_high = torch.tensor([], dtype=torch.float64, device=device)
             kweights_history_batch_low_high = torch.tensor([], dtype=torch.float64, device=device)
 
-            pred_means_low_high, pred_stds_low_high, kweights_low_high = gmm_approx_high_e_from_low_ref(batch)
+            pred_means_low_high, pred_stds_low_high, kweights_low_high = norm_approx_high_e_from_low_ref(batch)
             pred_stds_low_high.abs_()
             pred_means_low_high.squeeze_(dim=2)
             pred_stds_low_high.squeeze_(dim=2)
@@ -455,17 +463,17 @@ if __name__ == '__main__':
             kweights_history_batch_low_high = torch.cat((kweights_history_batch_low_high, kweights_low_high), dim=0)
 
             if learnable_weights:
-                pred_gmm_low_high = generate_gmm(locs=pred_means_low_high.squeeze(),
-                                                 scales=pred_stds_low_high.squeeze(),
-                                                 kweights=kweights_low_high.squeeze())
+                pred_norm_low_high = generate_norm_distr(locs=pred_means_low_high,
+                                                         scales=pred_stds_low_high,
+                                                         )
             else:
-                pred_gmm_low_high = generate_gmm(locs=pred_means_low_high.squeeze(),
-                                                 scales=pred_stds_low_high.squeeze(),
-                                                 kweights=kweights_fix)
+                pred_norm_low_high = generate_norm_distr(locs=pred_means_low_high,
+                                                         scales=pred_stds_low_high,
+                                                         )
 
             # MB Cramer Loss
-            cramer_py_loss_low_high = cramer_1k(pdf_target=distr_high_e, pdf_curr=pred_gmm_low_high,
-                                                standard_supp=standard_supports, dev=device)
+            cramer_py_loss_low_high = cramer_optim_1k(pdf_target=distr_high_e, pdf_curr=pred_norm_low_high,
+                                                      standard_supp=standard_supports, dev=device)
             # Log loss
             dc_history_batch_low_high = torch.cat((dc_history_batch_low_high,
                                                    cramer_py_loss_low_high.unsqueeze(dim=0).unsqueeze(dim=1)), dim=0)
@@ -488,7 +496,7 @@ if __name__ == '__main__':
     '''
     Measure change from high-to-high
     '''
-    optimizer_high_high = optim.Adam(gmm_approx_high_e_from_high_ref.parameters(), lr=learning_rate)
+    optimizer_high_high = optim.Adam(norm_approx_high_e_from_high_ref.parameters(), lr=learning_rate)
     means_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     stds_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
     dc_history_high_high = torch.tensor([], dtype=torch.float64, device=device)
@@ -501,7 +509,7 @@ if __name__ == '__main__':
             dc_history_batch_high_high = torch.tensor([], dtype=torch.float64, device=device)
             kweights_history_batch_high_high = torch.tensor([], dtype=torch.float64, device=device)
 
-            pred_means_high_high, pred_stds_high_high, kweights_high_high = gmm_approx_high_e_from_high_ref(batch)
+            pred_means_high_high, pred_stds_high_high, kweights_high_high = norm_approx_high_e_from_high_ref(batch)
             pred_stds_high_high.abs_()
             pred_means_high_high.squeeze_(dim=2)
             pred_stds_high_high.squeeze_(dim=2)
@@ -511,17 +519,17 @@ if __name__ == '__main__':
             kweights_history_batch_high_high = torch.cat((kweights_history_batch_high_high, kweights_high_high), dim=0)
 
             if learnable_weights:
-                pred_gmm_high_high = generate_gmm(locs=pred_means_high_high.squeeze(),
-                                                  scales=pred_stds_high_high.squeeze(),
-                                                  kweights=kweights_high_high.squeeze())
+                pred_norm_high_high = generate_norm_distr(locs=pred_means_high_high,
+                                                          scales=pred_stds_high_high,
+                                                          )
             else:
-                pred_gmm_high_high = generate_gmm(locs=pred_means_high_high.squeeze(),
-                                                  scales=pred_stds_high_high.squeeze(),
-                                                  kweights=kweights_fix)
+                pred_norm_high_high = generate_norm_distr(locs=pred_means_high_high,
+                                                          scales=pred_stds_high_high,
+                                                          )
 
             # Cramer MB Loss
-            cramer_py_loss_high_high = cramer_1k(pdf_target=distr_high_e, pdf_curr=pred_gmm_high_high,
-                                                 standard_supp=standard_supports, dev=device)
+            cramer_py_loss_high_high = cramer_optim_1k(pdf_target=distr_high_e, pdf_curr=pred_norm_high_high,
+                                                       standard_supp=standard_supports, dev=device)
 
             # Log loss
             dc_history_batch_high_high = torch.cat((dc_history_batch_high_high,
@@ -545,10 +553,10 @@ if __name__ == '__main__':
     '''
     Calculate CDFs: Retro-Fitted GMM for low and high entropy
     '''
-    cdf_low_low_post = calculate_cdf(pred_gmm_low_low, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
-    cdf_high_low_post = calculate_cdf(pred_gmm_high_low, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
-    cdf_low_high_post = calculate_cdf(pred_gmm_low_high, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
-    cdf_high_high_post = calculate_cdf(pred_gmm_high_high, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
+    cdf_low_low_post = calculate_cdf(pred_norm_low_low, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
+    cdf_high_low_post = calculate_cdf(pred_norm_high_low, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
+    cdf_low_high_post = calculate_cdf(pred_norm_low_high, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
+    cdf_high_high_post = calculate_cdf(pred_norm_high_high, supp_l=graph_l, supp_u=graph_u, spacing=graph_spacing, dev=device)
 
     '''
     Save Data

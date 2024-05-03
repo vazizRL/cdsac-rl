@@ -1,33 +1,43 @@
 import torch
 import matplotlib.pyplot as plt
 import os
+from dsacv02.tools import smoothing
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 one_kernel = True
 curr_path = os.getcwd()
 main_dir = '/VAR_REF_OPTI'
-dir_name = 'r3_ini_A'
+dir_name = 'test'
 loading_path = curr_path + '/' + main_dir + '/' + dir_name
 # loading_path = curr_path + '/' + dir_name
+smoothing_weight_means = 0.85
 
 # Load low-low Values
 means_history_low_low = torch.load(loading_path + '/' + 'means_history_low_low').cpu().detach().numpy()
+means_history_low_low, _, _ = smoothing(scalars=means_history_low_low, weight=smoothing_weight_means)
+means_history_low_low = torch.as_tensor(means_history_low_low)
 stds_history_low_low = torch.load(loading_path + '/' + 'stds_history_low_low').cpu().detach().numpy()
 kweights_history_low_low = torch.load(loading_path + '/' + 'kweights_history_low_low').cpu().detach().numpy()
 dc_history_low_low = torch.load(loading_path + '/' + 'dc_history_low_low').cpu().detach().numpy()
 # Load high-low Values
 means_history_high_low = torch.load(loading_path + '/' + 'means_history_high_low').cpu().detach().numpy()
+means_history_high_low, _, _ = smoothing(scalars=means_history_high_low, weight=smoothing_weight_means)
+means_history_high_low = torch.as_tensor(means_history_high_low)
 stds_history_high_low = torch.load(loading_path + '/' + 'stds_history_high_low').cpu().detach().numpy()
 kweights_history_high_low = torch.load(loading_path + '/' + 'kweights_history_high_low').cpu().detach().numpy()
 dc_history_high_low = torch.load(loading_path + '/' + 'dc_history_high_low').cpu().detach().numpy()
 
 # Load low-high
 means_history_low_high = torch.load(loading_path + '/' + 'means_history_low_high').cpu().detach().numpy()
+means_history_low_high, _, _ = smoothing(scalars=means_history_low_high, weight=smoothing_weight_means)
+means_history_low_high = torch.as_tensor(means_history_low_high)
 stds_history_low_high = torch.load(loading_path + '/' + 'stds_history_low_high').cpu().detach().numpy()
 kweights_history_low_high = torch.load(loading_path + '/' + 'kweights_history_low_high').cpu().detach().numpy()
 dc_history_low_high = torch.load(loading_path + '/' + 'dc_history_low_high').cpu().detach().numpy()
 # Load high-high
 means_history_high_high = torch.load(loading_path + '/' + 'means_history_high_high').cpu().detach().numpy()
+means_history_high_high, _, _ = smoothing(scalars=means_history_high_high, weight=smoothing_weight_means)
+means_history_high_high = torch.as_tensor(means_history_high_high)
 stds_history_high_high = torch.load(loading_path + '/' + 'stds_history_high_high').cpu().detach().numpy()
 kweights_history_high_high = torch.load(loading_path + '/' + 'kweights_history_high_high').cpu().detach().numpy()
 dc_history_high_high = torch.load(loading_path + '/' + 'dc_history_high_high').cpu().detach().numpy()
