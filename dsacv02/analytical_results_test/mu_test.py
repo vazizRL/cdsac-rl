@@ -57,30 +57,42 @@ def p_c_p_mu(pdf_curr, pdf_tar, cramer_supports, outer_supports, mu, sigma, wrt_
 if __name__ == '__main__':
     device = 'cpu'
 
-    ''' Current Distribution'''
+    ''' Define Supports '''
+    # Supports for var_mu
+    outer_var_mu_l = -36
+    outer_var_mu_u = 16
+    stepsize_var_mu = 0.05
+    supports_outer_var_mu = torch.arange(outer_var_mu_l, outer_var_mu_u, stepsize_var_mu)
+    # Supports for var_std
+    outer_var_std_l = -120
+    outer_var_std_u = 120
+    stepsize_var_std = 0.05
+    supports_outer_var_std = torch.arange(outer_var_std_l, outer_var_std_u, stepsize_var_std)
+
+    ''' Current Distribution / Variables '''
     # Mu Range
-    mu_l = -50
-    mu_u = 20
+    mu_l = -30
+    mu_u = 10
     mu_stepsize = 0.5
     mu_range = torch.arange(mu_l, mu_u, mu_stepsize, device=device)
-    # Standard Deviation Range
-    std_l = 0
-    std_u = 20
+    # Std Range
+    std_l = 0.1
+    std_u = 30.0
     std_stepsize = 0.5
     std_range = torch.arange(std_l, std_u, std_stepsize, device=device)
-
-    # Mu Fixed
+    '''Current Distribution / Fixed '''
+    # Mu Fixed - For VarStd
     mu_fixed = 0.0
-    n_std = int((std_u - std_l)/std_stepsize)
+    n_std = int((std_u - std_l)/std_stepsize) + 1
     mu_range_fixed = torch.ones(n_std) * torch.as_tensor(mu_fixed, device=device)
-    # Standard Deviation Fixed
+    # Std Fixed - For VarMu
     std_fixed = 1.0
     n_mu = int((mu_u - mu_l)/mu_stepsize)
     std_range_fixed = torch.ones(n_mu) * torch.as_tensor(std_fixed, device=device)
 
     ''' Target Distribution '''
     # Fixed
-    mean_tar = torch.as_tensor(20.0, device=device).unsqueeze(dim=0)
+    mean_tar = torch.as_tensor(10.0, device=device).unsqueeze(dim=0)
     std_tar = torch.as_tensor(1.0, device=device).unsqueeze(dim=0)
     distr_tar = Normal(loc=mean_tar, scale=std_tar)
 
@@ -90,26 +102,20 @@ if __name__ == '__main__':
     supp_cr = get_normal_supports(batch_size=1, n_kernels=1, n_supp=n_supp, integral_bound_factor=ibf,
                                   dev=device)
 
-    ''' Define Supports '''
-    outer_l = -56
-    outer_u = 26
-    step_size = 0.01
-    supports_outer = torch.arange(outer_l, outer_u, step_size)
-
     ''' Calculate dC/dMu w.r.t. current distribution, vary Mu'''
     grad_list_var_mu = list()
     for mu, std_f in zip(mu_range, std_range_fixed):
-        distr_curr_i = Normal(loc=mu, scale=std_f)
-        grad_var_mu_i = p_c_p_mu(pdf_curr=distr_curr_i, pdf_tar=distr_tar, cramer_supports=supp_cr,
-                                 outer_supports=supports_outer, mu=mu, sigma=std_f, wrt_tar_params=False)
+        distr_curr_var_mu_i = Normal(loc=mu, scale=std_f)
+        grad_var_mu_i = p_c_p_mu(pdf_curr=distr_curr_var_mu_i, pdf_tar=distr_tar, cramer_supports=supp_cr,
+                                 outer_supports=supports_outer_var_mu, mu=mu, sigma=std_f, wrt_tar_params=False)
         grad_list_var_mu.append(grad_var_mu_i)
 
     ''' Calculate dC/dMu w.r.t. current distribution, vary Std'''
     grad_list_var_std = list()
     for mu_f, std in zip(mu_range_fixed, std_range):
-        distr_curr_i = Normal(loc=mu_f, scale=std)
-        grad_var_std_i = p_c_p_mu(pdf_curr=distr_curr_i, pdf_tar=distr_tar, cramer_supports=supp_cr,
-                                  outer_supports=supports_outer, mu=mu_f, sigma=std, wrt_tar_params=False)
+        distr_curr_var_std_i = Normal(loc=mu_f, scale=std)
+        grad_var_std_i = p_c_p_mu(pdf_curr=distr_curr_var_std_i, pdf_tar=distr_tar, cramer_supports=supp_cr,
+                                  outer_supports=supports_outer_var_std, mu=mu_f, sigma=std, wrt_tar_params=False)
         grad_list_var_std.append(grad_var_std_i)
 
     '''Save Parameters'''
@@ -118,17 +124,28 @@ if __name__ == '__main__':
     saving_path = curr_path + '/' + 'MuTest_' + str(ts)
     os.mkdir(saving_path)
 
-    '''Plot Varying Mu with Fixed Target'''
+    ''' Plot and Save Graphs '''
+    # Plot Varying Mu with Fixed Target
     plt.rcParams['figure.figsize'] = (30, 12)
     plt.plot(mu_range, grad_list_var_mu, label='dC/dMu Curve')
-    # Add labels and legend
-    plt.title(f'dC/dMu - Fixed Target - Mean: {mean_tar.item()}; Std: {std_tar.item()}')
-    plt.xlabel('Mu')
+    plt.title(f'dC/dMu - Fixed Target, Var. Mean Curr. - Mean: {mean_tar.item()}; Std: {std_tar.item()}')
+    plt.xlabel('Curr. Mu')
     plt.ylabel('dC/dMu')
     plt.legend()
-    # Save Plot
     plt.savefig(saving_path + '/' + 'Varying_CurrMu.png')
+    plt.show(block=False)
+    # Plot Varying Std with Fixed Target
+    plt.figure()
+    plt.rcParams['figure.figsize'] = (30, 12)
+    plt.plot(std_range, grad_list_var_std, label='dc/dMu Curve')
+    plt.title(f'dC/dMu - Fixed Target, Var. Std Curr. - Mean: {mean_tar.item()}; Std: {std_tar.item()}')
+    plt.xlabel('Curr. Std')
+    plt.ylabel('dC/dMu')
+    plt.legend()
+    plt.savefig(saving_path + '/' + 'Varying_CurrSTD.png')
     plt.show(block=True)
+
+
 
 
 
