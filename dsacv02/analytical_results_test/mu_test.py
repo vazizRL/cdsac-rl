@@ -59,20 +59,20 @@ if __name__ == '__main__':
 
     ''' Define Supports '''
     # Supports for var_mu
-    outer_var_mu_l = -36
-    outer_var_mu_u = 16
+    outer_var_mu_l = -55
+    outer_var_mu_u = 45
     stepsize_var_mu = 0.05
     supports_outer_var_mu = torch.arange(outer_var_mu_l, outer_var_mu_u, stepsize_var_mu)
     # Supports for var_std
-    outer_var_std_l = -120
-    outer_var_std_u = 120
+    outer_var_std_l = -110
+    outer_var_std_u = 150
     stepsize_var_std = 0.05
     supports_outer_var_std = torch.arange(outer_var_std_l, outer_var_std_u, stepsize_var_std)
 
     ''' Current Distribution / Variables '''
     # Mu Range
     mu_l = -30
-    mu_u = 10
+    mu_u = 20
     mu_stepsize = 0.5
     mu_range = torch.arange(mu_l, mu_u, mu_stepsize, device=device)
     # Std Range
@@ -82,7 +82,7 @@ if __name__ == '__main__':
     std_range = torch.arange(std_l, std_u, std_stepsize, device=device)
     '''Current Distribution / Fixed '''
     # Mu Fixed - For VarStd
-    mu_fixed = 0.0
+    mu_fixed = 20.0
     n_std = int((std_u - std_l)/std_stepsize) + 1
     mu_range_fixed = torch.ones(n_std) * torch.as_tensor(mu_fixed, device=device)
     # Std Fixed - For VarMu
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     ''' Target Distribution '''
     # Fixed
     mean_tar = torch.as_tensor(10.0, device=device).unsqueeze(dim=0)
-    std_tar = torch.as_tensor(1.0, device=device).unsqueeze(dim=0)
+    std_tar = torch.as_tensor(3.0, device=device).unsqueeze(dim=0)
     distr_tar = Normal(loc=mean_tar, scale=std_tar)
 
     ''' Cramer Settings '''
@@ -131,6 +131,7 @@ if __name__ == '__main__':
     plt.title(f'dC/dMu - Fixed Target, Var. Mean Curr. - Mean: {mean_tar.item()}; Std: {std_tar.item()}')
     plt.xlabel('Curr. Mu')
     plt.ylabel('dC/dMu')
+    # plt.ylim((-5, 0))
     plt.legend()
     plt.savefig(saving_path + '/' + 'Varying_CurrMu.png')
     plt.show(block=False)
