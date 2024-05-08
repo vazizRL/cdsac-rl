@@ -17,7 +17,7 @@ N_CELLS = 10
 Loading Parameters
 '''
 env_name = 'LinearEnv_optim'
-event_name = 'r6_OneQ_AutoAlpha_HCrSTD'
+event_name = 'r8_TwoQs_InitialSTD1.0_MaxCr100'
 version_name = 'DSAC_Runs_Optim'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + version_name + '/' + env_name + '/' + event_name + '/'
