@@ -240,8 +240,8 @@ class RealDSAC:
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
         # q_means_target = rewards + (1 - dones) * (q_means_next - alpha * log_probs_a_next)
 
-        # stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
-        stds_next = stds_next * self.gamma # + torch.tensor(1e-55, dtype=torch.float64)
+        stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
+        # stds_next = stds_next * self.gamma # + torch.tensor(1e-55, dtype=torch.float64)
 
         target_distribution = self.generate_gmm(means=q_means_target, stds=stds_next, kweights=kernel_weights_next)
         # Target is always used for gradient calculations, so always rsample
