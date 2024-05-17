@@ -56,8 +56,8 @@ if __name__ == '__main__':
     learning_rate = 1.0
     ''' Numerical Configuration'''
     # Double Integral Configuration
-    outer_var_std_l = -280
-    outer_var_std_u = 280
+    outer_var_std_l = -410
+    outer_var_std_u = 410
     stepsize_var_std = 0.05
     supp_outer_var_std = torch.arange(outer_var_std_l, outer_var_std_u, stepsize_var_std)
     # Cramer Settings
@@ -68,32 +68,47 @@ if __name__ == '__main__':
 
     ''' Current Range '''
     # Mu Fixed
-    mu_fixed = torch.tensor(10.0, device=device)
+    mu_fixed = torch.tensor(0.0, device=device)
     # Standard Deviation Range
     std_l = 0.1
-    std_u = 70.0
-    std_stepsize = 0.5
+    std_u = 100.0
+    std_stepsize = 5.0          # Old: 0.5
     std_range = torch.arange(std_l, std_u, std_stepsize, device=device)
 
-    ''' Initialize Targets Varying H, Low considered True'''
-    mu_tar_low, std_tar_low = 10.0, 2.0
-    mu_tar_high, std_tar_high = 10.0, 10.0
-    # Initialize Fixed Low Targets
-    mean_tar_low = torch.as_tensor(mu_tar_low, device=device).unsqueeze(dim=0)
-    std_tar_low = torch.as_tensor(std_tar_low, device=device).unsqueeze(dim=0)
-    distr_tar_low = Normal(loc=mean_tar_low, scale=std_tar_low)
-    # Initialize Fixed High Target
-    mean_tar_high = torch.as_tensor(mu_tar_high, device=device).unsqueeze(dim=0)
-    std_tar_high = torch.as_tensor(std_tar_high, device=device).unsqueeze(dim=0)
-    distr_tar_high = Normal(loc=mean_tar_high, scale=std_tar_high)
+    ''' Initialize Targets Varying H and True Target'''
+    # Values
+    mu_tar_true, std_tar_true = 10.0, 1.0
+    mu_tar_high1, std_tar_high1 = 10.0, 10.0
+    mu_tar_high2, std_tar_high2 = 10.0, 15.0
+    mu_tar_high3, std_tar_high3 = 10.0, 20.0
+    # Initialize Fixed True Targets
+    mean_tar_true = torch.as_tensor(mu_tar_true, device=device).unsqueeze(dim=0)
+    std_tar_true = torch.as_tensor(std_tar_true, device=device).unsqueeze(dim=0)
+    distr_tar_true = Normal(loc=mean_tar_true, scale=std_tar_true)
+    # Initialize Fixed Target Tensors
+    mu_tar_high1 = torch.as_tensor(mu_tar_high1, device=device).unsqueeze(dim=0)
+    mu_tar_high2 = torch.as_tensor(mu_tar_high2, device=device).unsqueeze(dim=0)
+    mu_tar_high3 = torch.as_tensor(mu_tar_high3, device=device).unsqueeze(dim=0)
+    std_tar_high1 = torch.as_tensor(std_tar_high1, device=device).unsqueeze(dim=0)
+    std_tar_high2 = torch.as_tensor(std_tar_high2, device=device).unsqueeze(dim=0)
+    std_tar_high3 = torch.as_tensor(std_tar_high3, device=device).unsqueeze(dim=0)
 
-    ''' Perform Testing '''
-    deltas = list()
-    for std_i in std_range:
-        delta_i = compute_delta(mu_curr=mu_fixed, std_curr=std_i, outer_supp=supp_outer_var_std, lr=learning_rate,
-                                cramer_supp=supp_cr, tar_noisy=distr_tar_high, tar_true=distr_tar_low,
-                                nabla=1, dev='cpu')
-        deltas.append(delta_i)
+    distr_tar_high1 = Normal(loc=mu_tar_high1, scale=std_tar_high1)
+    distr_tar_high2 = Normal(loc=mu_tar_high2, scale=std_tar_high2)
+    distr_tar_high3 = Normal(loc=mu_tar_high3, scale=std_tar_high3)
+    # List of Target Distributions
+    target_distributions_noisy = [distr_tar_high1, distr_tar_high2, distr_tar_high3]
+
+    ''' Perform Evaluations '''
+    deltas_all_tars = list()
+    for tar_distr in target_distributions_noisy:
+        deltas = list()
+        for std_i in std_range:
+            delta_i = compute_delta(mu_curr=mu_fixed, std_curr=std_i, outer_supp=supp_outer_var_std, lr=learning_rate,
+                                    cramer_supp=supp_cr, tar_noisy=tar_distr, tar_true=distr_tar_true,
+                                    nabla=1, dev=device)
+            deltas.append(delta_i)
+        deltas_all_tars.append(deltas)
 
     '''Save Parameters'''
     ts = time.time()
@@ -104,10 +119,14 @@ if __name__ == '__main__':
     ''' Plot and Save Graphs '''
     # Plot Varying Mu with Fixed Target
     plt.rcParams['figure.figsize'] = (30, 12)
-    plt.plot(std_range, deltas, label='Delta(s,a) Curve')
-    plt.title(f'Delta(s,a) - Tar: Mu={mu_tar_low}, Std={std_tar_low.item()} - TarNoisy: Mu={mu_tar_high}, '
-              f'Std={std_tar_high.item()}'
-              f'Curr: Mu={mu_fixed}, StdRange={std_l}-{std_u}')
+    # for idx, deltas in enumerate(deltas_all_tars):
+    plt.plot(std_range, deltas_all_tars[0], label=f'Delta(s,a) Curve - TarNoisy: Mu={mu_tar_high1.item()}, '
+                                                  f'Std={std_tar_high1.item()}')
+    plt.plot(std_range, deltas_all_tars[1], label=f'Delta(s,a) Curve - TarNoisy: Mu={mu_tar_high2.item()}, '
+                                                  f'Std={std_tar_high2.item()}')
+    plt.plot(std_range, deltas_all_tars[2], label=f'Delta(s,a) Curve - TarNoisy: Mu={mu_tar_high3.item()}, '
+                                                  f'Std={std_tar_high3.item()}')
+    plt.title(f'Delta(s,a) - Curr: Mu={mu_fixed}, StdRange={std_l}-{std_u}')
     plt.xlabel('Curr. Std')
     plt.ylabel('Delta(s,a)')
     # plt.ylim((-5, 0))
