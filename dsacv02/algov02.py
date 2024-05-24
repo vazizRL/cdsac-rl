@@ -216,6 +216,7 @@ class RealDSAC:
 
             # Target network updates
             with torch.no_grad():
+                # Alternatively, q1_target can be updated with min(q1,q2)
                 self.soft_avg_update(self.q1, self.q1_target)
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)

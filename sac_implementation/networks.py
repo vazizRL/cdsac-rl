@@ -46,7 +46,9 @@ class CriticNetwork(nn.Module):
 
         return q_value
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, chk_name=None):
+        if chk_name:
+            self.checkpoint_file = os.path.join(self.checkpoint_dir, chk_name + '_sac')
         T.save(self.state_dict(), self.checkpoint_file)
 
     def load_checkpoint(self):
@@ -81,7 +83,9 @@ class ValueNetwork(nn.Module):
 
         return v
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, chk_name=None):
+        if chk_name:
+            self.checkpoint_file = os.path.join(self.checkpoint_dir, chk_name + '_sac')
         T.save(self.state_dict(), self.checkpoint_file)
 
     def load_checkpoint(self):
@@ -159,7 +163,9 @@ class ActorNetwork(nn.Module):
 
         return action, log_probs, sigma
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, chk_name=None):
+        if chk_name:
+            self.checkpoint_file = os.path.join(self.checkpoint_dir, chk_name + '_sac')
         T.save(self.state_dict(), self.checkpoint_file)
 
     def load_checkpoint(self):

@@ -1,5 +1,6 @@
 """
-This script serves to analyze a NN-distribution with one kernel fitted on a noisy target
+- This script serves to analyze a NN-distribution with one kernel fitted on a noisy target
+-
 """
 import torch
 import torch.optim as optim

@@ -37,7 +37,7 @@ def get_outer_int(outer_supports, mu_curr, std_curr):
     return dy_outer
 
 
-def compute_delta(mu_curr, std_curr, outer_supp, lr, cramer_supp, tar_noisy, tar_true, nabla=1, dev='cpu'):
+def compute_delta_c(mu_curr, std_curr, outer_supp, lr, cramer_supp, tar_noisy, tar_true, nabla=1, dev='cpu'):
     pdf_curr = Normal(loc=mu_curr, scale=std_curr)
     cramer_loss_noisy = cramer_optim_1k(pdf_target=tar_noisy, pdf_curr=pdf_curr, standard_supp=cramer_supp,
                                         n_kernels=1, dev=dev)
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     learning_rate = 1.0
     ''' Numerical Configuration'''
     # Double Integral Configuration
-    outer_var_std_l = -410
-    outer_var_std_u = 410
+    outer_var_std_l = -810
+    outer_var_std_u = 810
     stepsize_var_std = 0.05
     supp_outer_var_std = torch.arange(outer_var_std_l, outer_var_std_u, stepsize_var_std)
     # Cramer Settings
@@ -71,16 +71,16 @@ if __name__ == '__main__':
     mu_fixed = torch.tensor(0.0, device=device)
     # Standard Deviation Range
     std_l = 0.1
-    std_u = 100.0
-    std_stepsize = 5.0          # Old: 0.5
+    std_u = 200.0
+    std_stepsize = 20.0          # Old: 0.5
     std_range = torch.arange(std_l, std_u, std_stepsize, device=device)
 
     ''' Initialize Targets Varying H and True Target'''
     # Values
     mu_tar_true, std_tar_true = 10.0, 1.0
-    mu_tar_high1, std_tar_high1 = 10.0, 10.0
-    mu_tar_high2, std_tar_high2 = 10.0, 15.0
-    mu_tar_high3, std_tar_high3 = 10.0, 20.0
+    mu_tar_high1, std_tar_high1 = 15.0, 30.0
+    mu_tar_high2, std_tar_high2 = 15.0, 35.0
+    mu_tar_high3, std_tar_high3 = 15.0, 200.0
     # Initialize Fixed True Targets
     mean_tar_true = torch.as_tensor(mu_tar_true, device=device).unsqueeze(dim=0)
     std_tar_true = torch.as_tensor(std_tar_true, device=device).unsqueeze(dim=0)
@@ -104,9 +104,9 @@ if __name__ == '__main__':
     for tar_distr in target_distributions_noisy:
         deltas = list()
         for std_i in std_range:
-            delta_i = compute_delta(mu_curr=mu_fixed, std_curr=std_i, outer_supp=supp_outer_var_std, lr=learning_rate,
-                                    cramer_supp=supp_cr, tar_noisy=tar_distr, tar_true=distr_tar_true,
-                                    nabla=1, dev=device)
+            delta_i = compute_delta_c(mu_curr=mu_fixed, std_curr=std_i, outer_supp=supp_outer_var_std, lr=learning_rate,
+                                      cramer_supp=supp_cr, tar_noisy=tar_distr, tar_true=distr_tar_true,
+                                      nabla=1, dev=device)
             deltas.append(delta_i)
         deltas_all_tars.append(deltas)
 
