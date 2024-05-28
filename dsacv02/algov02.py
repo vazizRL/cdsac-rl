@@ -108,7 +108,7 @@ class RealDSAC:
             self.sampler = sampler_multi
             self.rsampler = rsampler_multi
 
-        # Nummerical parameters
+        # Numerical parameters
         self.ibf = ibf
         self.standard_supp = get_normal_supports(batch_size=self.batch_size, n_kernels=self.n_kernels_cr,
                                                  n_supp=n_supports, integral_bound_factor=self.ibf, dev=self.device)

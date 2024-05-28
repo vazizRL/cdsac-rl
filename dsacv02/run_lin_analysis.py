@@ -1,11 +1,13 @@
 import gym
 import numpy as np
 import os
-from dsacv02.agentv02 import Agent
+from dsacv02.agentv02 import Agent as DSACAgent
+from sac_implementation.sac_agent_compatible import Agent as SACAgent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from tools import smoothing
 from environments.linear_env import LinearEnv
+from copy import deepcopy
 
 
 ''' Run Mode '''
@@ -57,7 +59,6 @@ Training Parameters
 '''
 N_TOT_STEPS = 0
 MAX_TOTAL_ITER = 150000  # 150,000
-N_GAMES = 250000
 MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
 
@@ -81,29 +82,44 @@ tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
-# Instantiate tb
+'''
+Instantiate TB
+'''
 dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
 os.mkdir(event_path)
 tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
 
-if __name__ == '__main__':
-    env = LinearEnv(size=N_CELLS)
-    agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR,
-                  cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
-                  act_lr_ini=ACT_LR_INI, act_lr_fin=ACT_LR_FIN,
-                  alpha_lr_ini=ALPHA_LR_INI, alpha_lr_fin=ALPHA_LR_FIN,
-                  value_min_std=CR_MIN_STD, value_max_std=CR_MAX_STD, cr_activ=CR_ACTIV, cr_hl=CR_HL,
-                  act_min_std=ACT_MIN_STD, act_max_std=ACT_MAX_STD, act_hl=ACT_HL,
-                  act_activ=ACT_ACTIV, action_low=ACTION_LOW, action_up=ACTION_HIGH,
-                  batch_size=BATCH_SIZE,
-                  t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
-                  reward_scale=REWARD_SCALE, gamma=GAMMA,
-                  update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                  memory_size=MEM_SIZE, n_supports=N_SUPP, ibf=IBF, device=DEVICE)
+'''
+Calculate true values according to the optimal policy (a=-1 /forall s \in S)
+'''
+v_pi_optim = [GAMMA**i for i in range(N_CELLS-2)]
 
-    curr_best_score = env.reward_range[0]
+if __name__ == '__main__':
+    env_dsac = LinearEnv(size=N_CELLS)
+    agent_dsac = DSACAgent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
+                       n_kernels_cr=N_KERNELS_CR, cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
+                       act_lr_ini=ACT_LR_INI, act_lr_fin=ACT_LR_FIN,
+                       alpha_lr_ini=ALPHA_LR_INI, alpha_lr_fin=ALPHA_LR_FIN,
+                       value_min_std=CR_MIN_STD, value_max_std=CR_MAX_STD, cr_activ=CR_ACTIV, cr_hl=CR_HL,
+                       act_min_std=ACT_MIN_STD, act_max_std=ACT_MAX_STD, act_hl=ACT_HL,
+                       act_activ=ACT_ACTIV, action_low=ACTION_LOW, action_up=ACTION_HIGH,
+                       batch_size=BATCH_SIZE,
+                       t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
+                       reward_scale=REWARD_SCALE, gamma=GAMMA,
+                       update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
+                       memory_size=MEM_SIZE, n_supports=N_SUPP, ibf=IBF, device=DEVICE)
+    pi_net = deepcopy(agent_dsac.policy)
+    q1_net = deepcopy(agent_dsac.q1)
+    q2_net = deepcopy(agent_dsac.q1)
+    agent_sac = SACAgent(policy_net=pi_net, critic1_net=q1_net, critic2_net=q2_net, actor_lr=ACT_LR_INI,
+                         critic_lr=CR_LR_INI, input_dims=OBSERVATION_DIM, gamma=GAMMA,
+                         n_actions=ACTION_DIM, max_size=MEM_SIZE, tau=TAU, batch_size=BATCH_SIZE,
+                         reward_scale=REWARD_SCALE, auto_temp=AUTO_ALPHA, temp_log_ini=ALPHA_INI, omega=ALPHA_LR_INI,
+                         static_temp=STATIC_ALPHA)
+
+    curr_best_score = env_dsac.reward_range[0]
     score_history = []
 
     # Reward smoothing variables
@@ -114,40 +130,46 @@ if __name__ == '__main__':
 
     for i in range(N_GAMES):
         episode_iter = 0
-        observation = env.reset()
-        observation = np.expand_dims(observation, axis=0)
-        done = False
+        observation_dsac = env_dsac.reset()
+        env_sac = deepcopy(env_dsac)
+
+        observation_dsac = np.expand_dims(observation_dsac, axis=0)
+        done_dsac = False
+        done_sac = False
         reward_episode = 0
         interval_reward = 0
-        while not done:
-            action, prob_action = agent.choose_action(observation)
-            action = -1 if action <= 0 else 1
+        while not done_dsac:
+            action_dsac, prob_action_dsac = agent_dsac.choose_action(observation_dsac)
+            action_sac, prob_action_sac = agent_sac.choose_action(observation_dsac)
+
+            action_dsac = -1 if action_dsac <= 0 else 1
+            action_sac = -1 if action_sac <= 0 else 1
             # rnd = np.random.random(1)
             # action = -1 if rnd <= 0.98 else 1
-            observation_, reward, done, info, _ = env.step(action)
+            observation_, reward, done_dsac, info, _ = env_dsac.step(action_dsac)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
                 # done = True
                 pass
             if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
-                print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
-                      f'stored transitions: {agent.memory.mem_cntr}')
+                print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action_dsac};' + \
+                      f'stored transitions: {agent_dsac.memory.mem_cntr}')
                 interval_reward = 0
                 # agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
                 #                       replay_txt_name=replay_name)
             interval_reward += reward
             reward_episode += reward
             reward = np.asarray(reward)
-            done = np.asarray(done)
-            agent.save_experience_tupel(observation, action, reward, observation_, done)
+            done_dsac = np.asarray(done_dsac)
+            agent_dsac.save_experience_tupel(observation_dsac, action_dsac, reward, observation_, done_dsac)
             N_TOT_STEPS += 1
             episode_iter += 1
 
-            tb_info = agent.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
+            tb_info = agent_dsac.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=N_TOT_STEPS)
             for key, value in tb_info.items():
                 tb_writer.add_scalar(key, value, N_TOT_STEPS)
-            observation = observation_
+            observation_dsac = observation_
 
         tb_writer.add_scalar('Reward', reward_episode, N_TOT_STEPS)
         print(f'@Iter: {N_TOT_STEPS}')
@@ -161,8 +183,8 @@ if __name__ == '__main__':
         smoothed_last_epi = smoothed_total[-1][-1]
         if smoothed_last_epi > curr_best_score and i > 15:
             curr_best_score = smoothed_last_epi
-            agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
-                                  replay_txt_name=replay_name)
+            agent_dsac.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
+                                       replay_txt_name=replay_name)
 
         print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f'
               % smoothed_last_epi)
