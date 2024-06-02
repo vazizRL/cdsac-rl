@@ -18,7 +18,7 @@ from dsacv02.actor_critic import Actor, Critic
 class Agent:
     def __init__(self, policy_net, critic1_net, critic2_net, actor_lr=0.0003, critic_lr=0.0003, input_dims=(8,),
                  gamma=0.99, n_actions=2, max_size=int(1e6), tau=0.005, batch_size=256, reward_scale=2,
-                 auto_temp=False, temp_log_ini=-2, omega=0.0003, static_temp=1):
+                 auto_temp=False, temp_log_ini=-2, omega=0.0003, static_temp=1, double_q=False):
         """
         - Simple SAC agent, optionally entropy coefficient can be trained
         :param policy_net: Actor network
@@ -37,6 +37,7 @@ class Agent:
         :param temp_log_ini: If auto_temp, then this will be initial LOG value of temperature
         :param omega: Temp LR
         :param static_temp: If auto_alpha is False, this value will be used for target. Number is NOT log
+        :param static_temp: Whether on non-standard version of double-Q is used for updates
         """
         self.gamma = gamma
         self.tau = tau
@@ -50,6 +51,8 @@ class Agent:
         self.policy = policy_net
         self.policy_optimizer = optim.Adam(self.policy.parameters(), lr=actor_lr)
         self.policy_target = deepcopy(self.policy)
+
+        self.double_q = double_q
 
         self.q1 = critic1_net
         self.q1_optimizer = optim.Adam(self.q1.parameters(), lr=critic_lr)
@@ -72,8 +75,7 @@ class Agent:
         self.temp_optim = optim.Adam([self.temp_log], lr=omega)
         self.omega = omega
 
-        self.empty_tb_data = {'SACQ/q1_val': 0,
-                              'SACQ/q2_val': 0,
+        self.empty_tb_data = {'SACQ/q_val_min': 0,
                               'SACLoss/critic_loss': 0,
                               'SACLoss/actor_loss': 0,
                               'SACPolicy/avg. policy STD': 0,
@@ -202,15 +204,19 @@ class Agent:
 
         q1_old_policy, _, _ = self.q1(state, old_actions)
         q1_old_policy.squeeze_(dim=2)
-        q2_old_policy, _, _ = self.q2(state, old_actions)
-        q2_old_policy.squeeze_(dim=2)
-        critic_1_loss = 0.5 * F.mse_loss(q1_old_policy, q_hat)
-        critic_2_loss = 0.5 * F.mse_loss(q2_old_policy, q_hat)
-
-        critic_loss = critic_1_loss + critic_2_loss
-        critic_loss.backward()
-        self.q1_optimizer.step()
-        self.q2_optimizer.step()
+        if self.double_q:
+            q2_old_policy, _, _ = self.q2(state, old_actions)
+            q2_old_policy.squeeze_(dim=2)
+            critic_1_loss = 0.5 * F.mse_loss(q1_old_policy, q_hat)
+            critic_2_loss = 0.5 * F.mse_loss(q2_old_policy, q_hat)
+            critic_loss = critic_1_loss + critic_2_loss
+            critic_loss.backward()
+            self.q1_optimizer.step()
+            self.q2_optimizer.step()
+        else:
+            critic_loss = F.mse_loss(q1_old_policy, q_hat)
+            critic_loss.backward()
+            self.q1_optimizer.step()
 
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()
@@ -229,11 +235,15 @@ class Agent:
             kweights=self.generic_kw_batch,
             reparameterization=True)
 
-        # IMPORTANT: Do NOT detach Q-network, these grads will be eradicated with q_optimizer.zero_grad()
-        q1_online_pol, _, _ = self.q1(state, actions_online)
-        q2_online_pol, _, _ = self.q2(state, actions_online)
-        q_online_pol_min = T.min(q1_online_pol, q2_online_pol)
-        q_online_pol_min.squeeze_(dim=2)
+        # IMPORTANT: Do NOT detach Q-network, these grads will be eradicated with q_optimizer.zero_grad
+        if self.double_q:
+            q1_online_pol, _, _ = self.q1(state, actions_online)
+            q2_online_pol, _, _ = self.q2(state, actions_online)
+            q_online_pol_min = T.min(q1_online_pol, q2_online_pol)
+            q_online_pol_min.squeeze_(dim=2)
+        else:
+            # Min value is standard Q-value of singular network
+            q_online_pol_min, _, _ = self.q1(state, actions_online)
 
         temp = self.get_temperature(detach=True)
         actor_loss = temp * actions_online_log - q_online_pol_min
@@ -256,8 +266,7 @@ class Agent:
 
         """ Tensorboard Quantities"""
 
-        tb_info = {'SACQ/q1_val': q1_online_pol.mean().detach(),
-                   'SACQ/q2_val': q2_online_pol.mean().detach(),
+        tb_info = {'SACQ/q_val_min': q_online_pol_min.mean().detach(),
                    'SACLoss/critic_loss': critic_loss.detach().item(),
                    'SACLoss/actor_loss': actor_loss.detach().item(),
                    'SACPolicy/avg. policy STD': actions_std.mean().detach().item(),

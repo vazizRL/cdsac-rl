@@ -40,7 +40,7 @@ ACT_ACTIV = ('relu', 'relu')
 ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
 # RL parameters
-DOUBLE_Q = True
+DOUBLE_Q = False
 BATCH_SIZE = 16
 T_MAX = N_CELLS*10
 TAU = 0.85
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                          critic_lr=CR_LR_INI, input_dims=OBSERVATION_DIM, gamma=GAMMA,
                          n_actions=ACTION_DIM, max_size=MEM_SIZE, tau=TAU, batch_size=BATCH_SIZE,
                          reward_scale=REWARD_SCALE, auto_temp=AUTO_ALPHA, temp_log_ini=ALPHA_INI, omega=ALPHA_LR_INI,
-                         static_temp=STATIC_ALPHA)
+                         static_temp=STATIC_ALPHA, double_q=DOUBLE_Q)
 
     curr_best_score_dsac = env_dsac.reward_range[0]
     curr_best_score_sac = env_sac.reward_range[0]
@@ -207,13 +207,17 @@ if __name__ == '__main__':
             diff_dsac_chk = list()
             diff_sac_chk = list()
             for cell, true_val in zip(CELL_LIST[1:-1], v_pi_optim):
-                val_dsac1, _, _ = agent_dsac.q1(cell, ACTION_LEFT)
-                val_dsac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
-                val_dsac = 0.5 * (val_dsac1 + val_dsac2)
+                if DOUBLE_Q:
+                    val_dsac1, _, _ = agent_dsac.q1(cell, ACTION_LEFT)
+                    val_dsac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
+                    val_dsac = 0.5 * (val_dsac1 + val_dsac2)
 
-                val_sac1, _, _ = agent_sac.q1(cell, ACTION_LEFT)
-                val_sac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
-                val_sac = 0.5 * (val_sac1 + val_sac2)
+                    val_sac1, _, _ = agent_sac.q1(cell, ACTION_LEFT)
+                    val_sac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
+                    val_sac = 0.5 * (val_sac1 + val_sac2)
+                else:
+                    val_dsac = agent_dsac.q1(cell, ACTION_LEFT)
+                    val_sac = agent_sac.q1(cell, ACTION_LEFT)
 
                 diff_dsac_i = val_dsac - true_val
                 diff_sac_i = val_sac - true_val
