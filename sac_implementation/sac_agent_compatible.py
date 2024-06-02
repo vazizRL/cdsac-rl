@@ -61,13 +61,14 @@ class Agent:
 
         self.scale = reward_scale
 
-        # Temperature Settings
+        # Temperature Settings, static given in LOG
         self.static_temp = static_temp
         self.target_entropy = -self.n_actions
         self.auto_temp = auto_temp
+        # Given in LOG form
         self.temp_log_ini = temp_log_ini
-        # self.temp = T.nn.Parameter(T.tensor(T.e**ini_temp, dtype=T.float64, device=self.actor.device))
         self.temp_log = T.nn.Parameter(T.tensor(temp_log_ini, dtype=T.float64, device=self.policy.device))
+        # self.temp_log = T.tensor(temp_log_ini, dtype=T.float64, device=self.policy.device)
         self.temp_optim = optim.Adam([self.temp_log], lr=omega)
         self.omega = omega
 
@@ -75,17 +76,34 @@ class Agent:
                               'SACQ/q2_val': 0,
                               'SACLoss/critic_loss': 0,
                               'SACLoss/actor_loss': 0,
-                              'SACLoss/value_loss': 0,
-                              'SACPolicy/avg. policy std plain': 0,
-                              'SACPolicy/avg. policy std repara': 0
+                              'SACPolicy/avg. policy STD': 0,
+                              'SACPolicy/avg. policy log entropy': 0,
+                              'SACPolicy/temperature': self.static_temp,
                               }
 
         self.generic_kw_batch = T.ones(self.batch_size, device=self.policy.device).unsqueeze(dim=1)
         self.generic_kw_single = T.ones(1, device=self.policy.device).unsqueeze(dim=1)
 
-    def get_temperature(self):
+    @staticmethod
+    def switch_autograd_logging(require_grad, models: list):
+        """
+        - Either turns on or turns off logging of the gradients of models.
+        - When calculating policy loss, grads for value networks must not be traced
+        :param require_grad: Whether gradients are logged
+        :param models: Parameterized as neural network
+        """
+        for model in models:
+            for para in model.parameters():
+                if require_grad:
+                    para.requires_grad = True
+                else:
+                    para.requires_grad = False
+
+    def get_temperature(self, detach):
         if self.auto_temp:
             temp = self.temp_log.exp()
+            if detach:
+                temp = temp.detach()
         else:
             temp = self.static_temp
         return temp
@@ -103,11 +121,11 @@ class Agent:
         stds.abs_()
         actions, _ = self.policy.sample_from_action_distr(locs=means, stds=stds, kweights=self.generic_kw_single,
                                                           reparameterization=False)
-
+        _.cpu().detach().numpy()
         # Send it to CPU, detach from graph, turn into np.ndarray and take zeroth element
         return actions.cpu().detach().numpy()[0]
 
-    def remember(self, state, action, reward, new_state, done):
+    def save_experience_tuple(self, state, action, reward, new_state, done):
         self.memory.store_transition(state, action, reward, new_state, done)
 
     def soft_avg_update(self, net: T, net_targ: T):
@@ -132,18 +150,18 @@ class Agent:
         self.soft_avg_update(self.q1, self.q_target)
         self.soft_avg_update(self.policy, self.policy_target)
 
-    def get_soft_value_target(self, rewards, states_new, dones):
+    def get_soft_value_target(self, rewards, states_next, dones):
         """
         - Detach action, Q(s',a')
         - Use actor and critic target networks for target values
         :param rewards: Reward sampled from Replay Buffer
-        :param states_new: Next step after state sampled from Replay Buffer
+        :param states_next: Next step after state sampled from Replay Buffer
         :param dones: Terminal flags
         """
         rewards.unsqueeze_(dim=1)
         dones.unsqueeze_(dim=1)
         with T.no_grad():
-            actions_next_mean, actions_next_std, _ = self.policy_target(states_new)
+            actions_next_mean, actions_next_std, _ = self.policy_target(states_next)
             actions_next_mean.squeeze_(dim=2)
             actions_next_std.squeeze_(dim=2).abs_()
             actions_next, actions_next_log = self.policy_target.sample_from_action_distr(locs=actions_next_mean,
@@ -151,10 +169,11 @@ class Agent:
                                                                                          kweights=self.generic_kw_batch,
                                                                                          reparameterization=False)
 
-            q_val, _, _ = self.q_target(states_new, actions_next)
-            omega = self.get_temperature()
+            q_val_next, _, _ = self.q_target(states_next, actions_next)
+            q_val_next.squeeze_(dim=2)
+            omega = self.get_temperature(detach=True)
 
-        target = rewards + (1 - dones) * self.gamma * (q_val - omega * actions_next_log)
+        target = rewards + (1 - dones) * self.gamma * (q_val_next - omega * actions_next_log)
 
         return target
 
@@ -179,10 +198,12 @@ class Agent:
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()
 
-        q_hat = self.get_soft_value_target(rewards=reward, states_new=state_next, dones=done)
+        q_hat = self.get_soft_value_target(rewards=reward, states_next=state_next, dones=done)
 
         q1_old_policy, _, _ = self.q1(state, old_actions)
+        q1_old_policy.squeeze_(dim=2)
         q2_old_policy, _, _ = self.q2(state, old_actions)
+        q2_old_policy.squeeze_(dim=2)
         critic_1_loss = 0.5 * F.mse_loss(q1_old_policy, q_hat)
         critic_2_loss = 0.5 * F.mse_loss(q2_old_policy, q_hat)
 
@@ -191,44 +212,57 @@ class Agent:
         self.q1_optimizer.step()
         self.q2_optimizer.step()
 
+        self.q1_optimizer.zero_grad()
+        self.q2_optimizer.zero_grad()
+
         """ Calculate Actor Loss """
-        actions_mean, actions_std, _ = self.policy_target(state)
+        critic_models = [self.q1, self.q2]
+        self.switch_autograd_logging(require_grad=False, models=critic_models)      # Theoretically not necessary
+
+        self.policy_optimizer.zero_grad()
+        actions_mean, actions_std, _ = self.policy(state)
         actions_mean.squeeze_(dim=2)
         actions_std.squeeze_(dim=2).abs_()
-        actions_online, actions_online_log = self.policy_target.sample_from_action_distr(
+        actions_online, actions_online_log = self.policy.sample_from_action_distr(
             locs=actions_mean,
             stds=actions_std,
             kweights=self.generic_kw_batch,
             reparameterization=True)
 
+        # IMPORTANT: Do NOT detach Q-network, these grads will be eradicated with q_optimizer.zero_grad()
         q1_online_pol, _, _ = self.q1(state, actions_online)
         q2_online_pol, _, _ = self.q2(state, actions_online)
         q_online_pol_min = T.min(q1_online_pol, q2_online_pol)
+        q_online_pol_min.squeeze_(dim=2)
 
-        actor_loss = actions_online_log - q_online_pol_min
-        # Get mean of the batch
+        temp = self.get_temperature(detach=True)
+        actor_loss = temp * actions_online_log - q_online_pol_min
         actor_loss = T.mean(actor_loss)
-        self.policy_optimizer.zero_grad()
+
         # actor_loss.backward(retain_graph=True)
         actor_loss.backward()
         self.policy_optimizer.step()
+        self.switch_autograd_logging(require_grad=True, models=critic_models)
+
+        """ Update Target Parameters """
         self.update_target_parameters()
 
         """ Compute Entropy Coefficient Loss"""
         if self.auto_temp:
             self.temp_optim.zero_grad()
-            loss_temp = - self.temp_log * (actions_online_log.detach() + self.target_entropy).mean()
+            loss_temp = - self.get_temperature(detach=False) * (actions_online_log.detach() + self.target_entropy).mean()
             loss_temp.backward()
             self.temp_optim.step()
 
         """ Tensorboard Quantities"""
+
         tb_info = {'SACQ/q1_val': q1_online_pol.mean().detach(),
                    'SACQ/q2_val': q2_online_pol.mean().detach(),
                    'SACLoss/critic_loss': critic_loss.detach().item(),
                    'SACLoss/actor_loss': actor_loss.detach().item(),
                    'SACPolicy/avg. policy STD': actions_std.mean().detach().item(),
                    'SACPolicy/avg. policy log entropy': actions_online_log.mean().detach().item(),
-                   'SACPolicy/temperature': self.temp_log.mean().detach(),
+                   'SACPolicy/temperature': temp,
                    }
 
         return tb_info

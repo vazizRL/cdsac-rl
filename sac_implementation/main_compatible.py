@@ -20,7 +20,7 @@ dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
 os.mkdir(event_path)
-tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
+tb_writer = SummaryWriter(log_dir=event_path, comment='SACComp', flush_secs=20)
 
 '''Network Parameters'''
 STATE_DIM = 4
@@ -29,21 +29,27 @@ N_KERNELS = 1
 CR_HL, ACTOR_HL = (256, 256), (256, 256)
 CR_ACTIV, ACTOR_ACTIV = ('relu', 'relu'), ('relu', 'relu')
 
-CR_STD_MIN, CR_STD_MAX = 1e-6, 1e-5
+CR_STD_MIN, CR_STD_MAX = 1e-6, 100
 ACTOR_STD_MIN, ACTOR_STD_MAX = 1e-6, 1.0
 ACTION_MIN, ACTION_MAX = -1.0, 1.0
 '''RL Parameters'''
-ACTOR_LR = 6e-4
-CRITIC_LR = 6e-4
-TEMP_LR = 6e-4
+ACTOR_LR = 6e-4             # 6e-4
+CRITIC_LR = 6e-4            # 6e-4
+TEMP_LR = 6e-4              # 6e-4
 GAMMA = 0.95
 REPLAY_SIZE = 1e6
 TAU = 0.015
 BATCH_SIZE = 256
 REWARD_SCALE = 2
-AUTO_TEMP = False
-TEMP_LOG_INI = -2
+AUTO_TEMP = True
+TEMP_LOG_INI = 0
 STATIC_TEMP = 0.3
+
+
+''' Train Parameters '''
+N_GAMES = 5500
+EPI_END = 2000
+CHK_PROGRESS_INTERVALL = 100
 
 '''Initiate networks'''
 critic1_net = Critic(state_dim=STATE_DIM, action_dim=ACTION_DIM, hidden_layers=CR_HL, n_kernels=N_KERNELS,
@@ -81,8 +87,6 @@ if __name__ == '__main__':
 
     iter_tot = 0
     interval_score = 0
-    n_games = 5500
-    epi_end = 2000
     best_score = env.reward_range[0]
     score_history = []
 
@@ -90,10 +94,10 @@ if __name__ == '__main__':
         agent.load_models(event_path, tar_name=tar_name, txt_name=txt_name, replay_npy_name=replay_name,
                           load_experience=True)
 
-    for i in range(n_games):
+    for i in range(N_GAMES):
         episode_iter = 0
         observation, _ = env.reset()
-        observation = np.expand_dims(observation, axis=0)
+        observation = observation.reshape((1, STATE_DIM))
         done = False
         score = 0
         interval_score = 0
@@ -102,16 +106,16 @@ if __name__ == '__main__':
             action = np.asarray(0, dtype=np.int16) if action <= 0 else np.asarray(1, dtype=np.int16)
             # action = action.astype(np.float64)
             observation_, reward, done, info, _ = env.step(action)
-            observation_ = np.expand_dims(observation_, axis=0)
+            observation_ = observation_.reshape((1, STATE_DIM))
             score += reward
             interval_score += reward
-            agent.remember(observation, action, reward, observation_, done)
+            agent.save_experience_tuple(observation, action, reward, observation_, done)
             iter_tot += 1
             episode_iter += 1
-            if iter_tot % 100 == 0:
-                print(f'Reward for 100-interval: {interval_score}; with action: {action}')
+            if iter_tot % CHK_PROGRESS_INTERVALL == 0:
+                print(f'Reward for 100-interval: {interval_score}; with action: {action}, Iter: {iter_tot}')
                 interval_score = 0
-            if episode_iter > epi_end:
+            if episode_iter > EPI_END:
                 done = True
             if render:
                 env.render()

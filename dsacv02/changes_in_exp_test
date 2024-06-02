@@ -1,4 +1,0 @@
-- In gmm_reparameterization\mixture_same_family.py, class MixtureSameFamilyMod, line 152
-    - Changed:
-        - mix_prob = self.mixture_distribution.probs.to('cuda:0'),
-        - Old:  mix_prob = self.mixture_distribution.probs

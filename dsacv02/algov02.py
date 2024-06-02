@@ -61,7 +61,7 @@ class RealDSAC:
         # Do not track gradients for target networks; could be done with context manager
         self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
 
-        # NOTE: log_alpha is already given as a torch tensor, with initial value specified in agentv02.py
+        # NOTE: log_alpha is already given as a torch tensor in LOG form, with initial value specified in agentv02.py
         self.log_alpha = log_alpha
 
         # Assign optimizer params and create optimizers
