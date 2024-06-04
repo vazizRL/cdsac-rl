@@ -15,8 +15,10 @@ from copy import deepcopy
 DEVICE = 'cuda:0'
 N_CELLS = 10
 CELL_LIST = torch.tensor([[i] for i in range(N_CELLS)], device=DEVICE).unsqueeze(dim=2)
-ACTION_LEFT = torch.tensor([-1], device=DEVICE).unsqueeze(dim=1)
-
+ACTION_LEFT = torch.tensor([-1.0], device=DEVICE).unsqueeze(dim=1)
+ACTION_RIGHT = torch.tensor([1.0], device=DEVICE).unsqueeze(dim=1)
+RIGHT_GETS_REWARD = True
+STOCHASTICITY_TERMINAL = 0.1
 ''' Agent constants '''
 # Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
@@ -28,7 +30,7 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-4, 5e-4, 5e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 5e-4, 5e-4, 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 100.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 10000.0            # 0.01, 100.0
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 1.0
 # Hidden Layers
 CR_HL = (32, 32)
@@ -57,9 +59,9 @@ N_POL_UPDATE_INTERVAL = 1
 Training Parameters
 '''
 n_tot_steps = 1
-MAX_TOTAL_ITER = 9040               # 150000
+MAX_TOTAL_ITER = 12040               # 150000
 MAX_EPISODE_ITER = 500
-LOG_Y_DIFF_INTERVAL = 3000
+LOG_Y_DIFF_INTERVAL = 4000
 
 ''' 
 Numerical Parameters
@@ -77,6 +79,7 @@ if EXPONENTIATE:
 '''
 Saving options
 '''
+SAVE_N_SUCCESS = 150
 curr_dir = os.getcwd() + '/' + 'analytical_results_test' + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
@@ -93,11 +96,24 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='CDSAC_vs_SAC', flush_secs
 '''
 Calculate true values according to the optimal policy (a=-1 /forall s \in S)
 '''
-v_pi_optim = [GAMMA**i for i in range(N_CELLS-2)]
+if STOCHASTICITY_TERMINAL:
+    first_element = 1 - 2 * STOCHASTICITY_TERMINAL
+    v_pi_optim = [first_element * (GAMMA**i) for i in range(N_CELLS-2)]
+else:
+    v_pi_optim = [GAMMA**i for i in range(N_CELLS-2)]
+if RIGHT_GETS_REWARD:
+    v_pi_optim = v_pi_optim[-1::-1]
+
+
+def print_block(string: str):
+    print(f'--------------------------------------- \n')
+    print(f'--------- {string} ---------- \n')
+    print(f'--------------------------------------- \n')
+
 
 if __name__ == '__main__':
-    env_dsac = LinearEnv(size=N_CELLS)
-    env_sac = LinearEnv(size=N_CELLS)
+    env_dsac = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
+    env_sac = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
     diff_dsac_hist = list()
     diff_sac_hist = list()
 
@@ -112,7 +128,7 @@ if __name__ == '__main__':
                        t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                        reward_scale=REWARD_SCALE, gamma=GAMMA,
                        update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                       memory_size=MEM_SIZE, n_supports=N_SUPP, ibf=IBF, device=DEVICE)
+                       memory_size=MEM_SIZE, n_supports=N_SUPP, ibf=IBF, device=DEVICE, learnable_kweights=False)
     pi_net = deepcopy(agent_dsac.policy)
     q1_net = deepcopy(agent_dsac.q1)
     q2_net = deepcopy(agent_dsac.q1)
@@ -137,9 +153,23 @@ if __name__ == '__main__':
     done_sac = True
     reward_epi_dsac = 0
     reward_epi_sac = 0
+
+    not_saved_dsac = True
+    not_saved_sac = True
+    n_epi_succ_dsac = 0
+    n_epi_succ_sac = 0
+    n_scores_dsac = [0]
+    n_scores_sac = [0]
+
     for i in range(MAX_TOTAL_ITER):
         # Reset DSAC and SAC if dones are reached respectively
         if done_dsac:
+            if reward_epi_dsac == 1:
+                n_epi_succ_dsac += 1
+                n_scores_dsac.append(1)
+            else:
+                n_epi_succ_dsac = 0
+                n_scores_dsac.append(0)
             tb_writer.add_scalar('Reward_DSAC', reward_epi_dsac, n_tot_steps)
             # Calculate smoothed reward and save accordingly
             batch_sm_dsac, smooth_reward_iter_n_dsac, smooth_reward_last_dsac = \
@@ -151,7 +181,7 @@ if __name__ == '__main__':
                 curr_best_score_dsac = smoothed_last_epi_dsac
                 agent_dsac.save_checkpoint(iter_n=n_tot_steps, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                            replay_txt_name=replay_name)
-            print(f'DSAC-Episode {i}, Epi. Reward: {reward_epi_dsac}, Smoothed: {smoothed_last_epi_dsac}')
+            print(f'DSAC @iter {i}, Epi. Reward: {reward_epi_dsac}, Smoothed: {smoothed_last_epi_dsac}')
 
             reward_epi_dsac = 0
             episode_iter_dsac = 0
@@ -159,6 +189,12 @@ if __name__ == '__main__':
             observation_dsac = np.expand_dims(observation_dsac, axis=0)
             done_dsac = False
         if done_sac:
+            if reward_epi_sac == 1:
+                n_epi_succ_sac += 1
+                n_scores_sac.append(1)
+            else:
+                n_epi_succ_sac = 0
+                n_scores_sac.append(0)
             tb_writer.add_scalar('Reward_SAC', reward_epi_sac, n_tot_steps)
             # Calculate smoothed reward and save accordingly
             batch_sm_sac, smooth_reward_iter_n_sac, smooth_reward_last_sac = \
@@ -170,7 +206,7 @@ if __name__ == '__main__':
                 curr_best_score_sac = smoothed_last_epi_sac
                 agent_sac.save_models(iter_n=n_tot_steps, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                       replay_txt_name=replay_name)
-            print(f'SAC-Episode {i}, Epi. Reward: {reward_epi_sac}, Smoothed: {smoothed_last_epi_sac}')
+            print(f'SAC @Iter {i}, Epi. Reward: {reward_epi_sac}, Smoothed: {smoothed_last_epi_sac}')
 
             reward_epi_sac = 0
             episode_iter_sac = 0
@@ -203,29 +239,56 @@ if __name__ == '__main__':
         reward_epi_sac += reward_sac
 
         # Calculate Overestimation per Interval for all cells
-        if n_tot_steps % LOG_Y_DIFF_INTERVAL == 0:
+
+        if STOCHASTICITY_TERMINAL:
+            condition_dsac = not_saved_dsac and ((sum(n_scores_dsac[-SAVE_N_SUCCESS:]) / SAVE_N_SUCCESS)
+                                                 >= (1 - STOCHASTICITY_TERMINAL))
+            condition_sac = not_saved_sac and ((sum(n_scores_sac[-SAVE_N_SUCCESS:]) / SAVE_N_SUCCESS)
+                                               >= (1-STOCHASTICITY_TERMINAL))
+        else:
+            condition_dsac = not_saved_dsac and (n_epi_succ_dsac >= SAVE_N_SUCCESS)
+            condition_sac = not_saved_sac and (n_epi_succ_sac >= SAVE_N_SUCCESS)
+
+        if condition_dsac:
+            print_block('SAVING DSAC Y-DIFF')
             diff_dsac_chk = list()
-            diff_sac_chk = list()
+
+            if RIGHT_GETS_REWARD:
+                optimal_action = ACTION_RIGHT
+            else:
+                optimal_action = ACTION_LEFT
             for cell, true_val in zip(CELL_LIST[1:-1], v_pi_optim):
                 if DOUBLE_Q:
-                    val_dsac1, _, _ = agent_dsac.q1(cell, ACTION_LEFT)
-                    val_dsac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
+                    val_dsac1, _, _ = agent_dsac.q1(cell, optimal_action)
+                    val_dsac2, _, _ = agent_dsac.q2(cell, optimal_action)
                     val_dsac = 0.5 * (val_dsac1 + val_dsac2)
-
-                    val_sac1, _, _ = agent_sac.q1(cell, ACTION_LEFT)
-                    val_sac2, _, _ = agent_dsac.q2(cell, ACTION_LEFT)
-                    val_sac = 0.5 * (val_sac1 + val_sac2)
                 else:
-                    val_dsac = agent_dsac.q1(cell, ACTION_LEFT)
-                    val_sac = agent_sac.q1(cell, ACTION_LEFT)
+                    val_dsac, _, _ = agent_dsac.q1(cell, optimal_action)
 
                 diff_dsac_i = val_dsac - true_val
-                diff_sac_i = val_sac - true_val
-
                 diff_dsac_chk.append(diff_dsac_i.detach().cpu().numpy().squeeze())
-                diff_sac_chk.append(diff_sac_i.detach().cpu().numpy().squeeze())
+
             diff_dsac_hist.append(diff_dsac_chk)
+            not_saved_dsac = False
+
+        if condition_sac:
+            print_block('SAVING SAC Y-DIFF')
+            diff_sac_chk = list()
+            if RIGHT_GETS_REWARD:
+                optimal_action = ACTION_RIGHT
+            else:
+                optimal_action = ACTION_LEFT
+            for cell, true_val in zip(CELL_LIST[1:-1], v_pi_optim):
+                if DOUBLE_Q:
+                    val_sac1, _, _ = agent_sac.q1(cell, optimal_action)
+                    val_sac2, _, _ = agent_dsac.q2(cell, optimal_action)
+                    val_sac = 0.5 * (val_sac1 + val_sac2)
+                else:
+                    val_sac, _, _ = agent_sac.q1(cell, optimal_action)
+                diff_sac_i = val_sac - true_val
+                diff_sac_chk.append(diff_sac_i.detach().cpu().numpy().squeeze())
             diff_sac_hist.append(diff_sac_chk)
+            not_saved_sac = False
 
         tb_info_dsac = agent_dsac.learn(n_learning_iter=N_POL_UPDATE_INTERVAL, step_number=n_tot_steps)
         tb_info_sac = agent_sac.learn()

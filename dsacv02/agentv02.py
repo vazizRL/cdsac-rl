@@ -7,7 +7,7 @@ from copy import deepcopy
 
 
 class Agent:
-    def __init__(self, obs_dim, action_dim, n_kernels_act, n_kernels_cr, learnable_kweights=True,
+    def __init__(self, obs_dim, action_dim, n_kernels_act, n_kernels_cr, learnable_kweights=False,
                  cr_lr_ini=8e-5, cr_lr_fin=1e-6,
                  act_lr_ini=5e-5, act_lr_fin=1e-6, alpha_lr_ini=5e-5, alpha_lr_fin=1e-6,
                  value_min_std=0, value_max_std=5,

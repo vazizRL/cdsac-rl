@@ -2,19 +2,34 @@ import numpy as np
 
 
 class LinearEnv:
-    def __init__(self, size):
+    def __init__(self, size, right_gets_reward=False, stochasticity=None):
         self.size = size
         self.matrix = np.arange(0, self.size, 1)
         self.pos = np.random.choice(self.matrix[1:-1], size=1)
         self.reward_range = [-1, 1]
+        self.stochasticity = stochasticity
+        self.reward_left = 1
+        self.reward_right = -1
+        if right_gets_reward:
+            self.reward_left *= -1
+            self.reward_right *= -1
+        self.rewards_arr = np.asarray([self.reward_left, self.reward_right])
+        self.p_terminal_left = np.asarray([1-stochasticity, stochasticity])
+        self.p_terminal_right = np.asarray([stochasticity, 1-stochasticity])
 
     def step(self, action):
         self.pos += action
         if self.pos == 0:
-            reward = 1
+            if self.stochasticity:
+                reward = np.random.choice(self.rewards_arr, p=self.p_terminal_left).item()
+            else:
+                reward = self.reward_left
             done = True
         elif self.pos == self.size-1:
-            reward = -1
+            if self.stochasticity:
+                reward = np.random.choice(self.rewards_arr, p=self.p_terminal_right).item()
+            else:
+                reward = self.reward_right
             done = True
         else:
             reward = 0
