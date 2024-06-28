@@ -9,9 +9,11 @@ from tools import smoothing
 
 ''' Environment constants '''
 # gym_env = 'Pendulum-v1'
-gym_env = 'CartPole-v1'
+gym_env = 'InvertedPendulum-v4'
+# gym_env = 'CartPole-v1'
 # gym_env = 'Hopper-v4'
 DEVICE = 'cuda:0'
+DISCRETE = False
 
 ''' Agent constants '''
 # Action Space for InvertedPendulum-v4
@@ -34,8 +36,8 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -1.0
-ACTION_HIGH = 1.0
+ACTION_LOW = -3.0
+ACTION_HIGH = 3.0
 # RL parameters
 DOUBLE_Q = True
 BATCH_SIZE = 256
@@ -43,7 +45,7 @@ T_MAX = 5000                     # Old 20000
 TAU = 0.015
 STATIC_ALPHA = 0.3              # Old 0.2
 REWARD_SCALE = 2.0              # Old 0.2
-GAMMA = 0.95                    # Old 0.99
+GAMMA = 0.98                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = True
 ALPHA_INI = 1                  # Old -1
@@ -119,7 +121,10 @@ if __name__ == '__main__':
         interval_reward = 0
         while not done:
             action, prob_action = agent.choose_action(observation)
-            action = 0 if action <= 0 else 1
+            if DISCRETE:
+                action = 0 if action <= 0 else 1
+            else:
+                action = action.squeeze(axis=1)
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)

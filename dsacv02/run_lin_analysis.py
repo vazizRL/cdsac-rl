@@ -13,14 +13,15 @@ from copy import deepcopy
 
 ''' Environment constants '''
 DEVICE = 'cuda:0'
-N_CELLS = 10
+N_CELLS = 50        # 10
 CELL_LIST = torch.tensor([[i] for i in range(N_CELLS)], device=DEVICE).unsqueeze(dim=2)
 ACTION_LEFT = torch.tensor([-1.0], device=DEVICE).unsqueeze(dim=1)
 ACTION_RIGHT = torch.tensor([1.0], device=DEVICE).unsqueeze(dim=1)
 RIGHT_GETS_REWARD = True
-STOCHASTICITY_TERMINAL = 0.1
+STOCHASTICITY_TERMINAL = 0.0
+CONTINUOUS = True
+
 ''' Agent constants '''
-# Action Space for InvertedPendulum-v4
 ACTION_DIM = 1
 OBSERVATION_DIM = 1
 N_KERNELS_ACT = 1
@@ -59,7 +60,7 @@ N_POL_UPDATE_INTERVAL = 1
 Training Parameters
 '''
 n_tot_steps = 1
-MAX_TOTAL_ITER = 12040               # 150000
+MAX_TOTAL_ITER = 32040               # 12040
 MAX_EPISODE_ITER = 500
 LOG_Y_DIFF_INTERVAL = 4000
 
@@ -217,8 +218,13 @@ if __name__ == '__main__':
         # Choose actions with DSAC and SAC
         action_dsac, _ = agent_dsac.choose_action(observation_dsac)
         action_sac = agent_sac.choose_action(observation_sac)
-        action_dsac = -1 if action_dsac <= 0 else 1
-        action_sac = -1 if action_sac <= 0 else 1
+
+        if CONTINUOUS:
+            action_dsac = action_dsac.item()
+            action_sac = action_sac.item()
+        else:
+            action_dsac = -1 if action_dsac <= 0 else 1
+            action_sac = -1 if action_sac <= 0 else 1
 
         # Get experience with DSAC and SAC and reshape
         observation_dsac_next, reward_dsac, done_dsac, info_dsac, _ = env_dsac.step(action_dsac)

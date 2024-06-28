@@ -8,7 +8,7 @@ cntr = 1
 interval = 4000
 
 # Path to Y-Diff
-run_name = 'Y-Diff_1717585487.153794'
+run_name = 'Y-Diff_1718577412.859996'
 curr_dir = os.getcwd() + '/'
 y_diff_dsac_path = curr_dir + run_name + '/' + 'y_diff_dsac.npy'
 y_diff_sac_path = curr_dir + run_name + '/' + 'y_diff_sac.npy'
