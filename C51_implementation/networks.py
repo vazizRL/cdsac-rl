@@ -26,7 +26,7 @@ class ZNetwork(nn.Module):
 
     def forward(self, state_batch, action=None):
         """
-        - Reuturns either an action or if actiton is given, its probability mass function normalized
+        - Reuturns either an action or if action is given, its probability mass function normalized
         :param state_batch: Batch containing various states
         :param action: If specified, the pmf is returned for this action
         :return: action and/or pmf of action
