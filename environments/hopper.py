@@ -9,13 +9,13 @@ from dsacv02.tools import smoothing
 
 ''' Environment constants '''
 # gym_env = 'Pendulum-v1'
-gym_env = 'CartPole-v1'
+gym_env = 'Hopper-v4'
 DEVICE = 'cuda:0'
 
 ''' Agent constants '''
 # Action Space for InvertedPendulum-v4
-ACTION_DIM = 1
-OBSERVATION_DIM = 4
+ACTION_DIM = 3
+OBSERVATION_DIM = 11
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 # Learning Rates
@@ -23,11 +23,11 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 1e-5
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 10.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 100.0
 ACT_MIN_STD, ACT_MAX_STD = 0.01, 0.5
 # Hidden Layers
-CR_HL = (64, 64)
-ACT_HL = (64, 64)
+CR_HL = (128, 128)
+ACT_HL = (128, 128)
 # Activations
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
@@ -36,7 +36,7 @@ ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
 # RL parameters
 BATCH_SIZE = 32
-T_MAX = 500           # Old 20000
+T_MAX = 5000           # Old 20000
 TAU = 0.01
 STATIC_ALPHA = 1        # Old 0.2
 REWARD_SCALE = 2        # Old 0.2
@@ -51,7 +51,7 @@ N_POL_UPDATE_INTERVAL = 1
 Training Parameters
 '''
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 15000
+MAX_TOTAL_ITER = 1500000
 N_GAMES = 250000
 MAX_EPISODE_ITER = 500
 CHK_PROGRESS_INTERVAL = 100
@@ -103,14 +103,14 @@ if __name__ == '__main__':
 
     for i in range(N_GAMES):
         episode_iter = 0
-        observation, _ = env.reset()
+        # In Collab, hopper-v4 will return one list
+        observation = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
         reward_episode = 0
         interval_reward = 0
         while not done:
             action, prob_action = agent.choose_action(observation)
-            action = 0 if action <= 0 else 1
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)

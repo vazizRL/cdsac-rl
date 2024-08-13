@@ -17,7 +17,7 @@ DISCRETE = False
 
 ''' Agent constants '''
 # Action Space for InvertedPendulum-v4
-ACTION_DIM = 1
+ACTION_DIM = 3
 OBSERVATION_DIM = 4
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
