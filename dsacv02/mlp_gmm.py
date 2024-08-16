@@ -10,7 +10,7 @@ class MLPGMM(nn.Module):
         - Network with n means and n stds; n: Number of kernels
         :param arch: Specifies architecture (number of layers and nodes)
         :param activ: Activations per layer
-        :param n_kernels: Number of kernels of the GMM.
+        :param n_kernels: With n=1, the GMM reduces to a Gauss
         :param device: Specifies device on which to run the MLP
         :param multivar: Whether MLP models univariate or multivariate GMM
         """
@@ -118,22 +118,15 @@ class MLPGMM(nn.Module):
             means_logits = torch.cat((means_logits, mean_logit_i), dim=1)
             stds_logits = torch.cat((stds_logits, std_logit_i), dim=1)
 
-        # Rows: Kernels, Columns: Actions
-        means_logits = means_logits.view(-1, self._n_kernels, self._arch[-1])
-        if self.multivar:
-            stds_logits = stds_logits.view(-1, self._n_kernels, self.covar_out_size)
-        else:
-            stds_logits = stds_logits.view(-1, self._n_kernels, self._arch[-1])
-
         if exp:
             means_logits = means_logits.exp()
             stds_logits = stds_logits.exp()
         else:
             stds_logits.abs_()
 
-        kweights = torch.ones((x.shape[0], self._n_kernels), device=self.device) / self._n_kernels
+        # kweights = torch.ones((x.shape[0], 1, 1)) / self._n_kernels
+        kweights = None
 
-        # return means_logits, stds_logits, None
         return means_logits, stds_logits, kweights
 
 

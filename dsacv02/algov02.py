@@ -186,12 +186,12 @@ class RealDSAC:
         """
         # (B, K, Q)
         means, stds, kernel_weights = znet(obs, actions, exp=exp)
-        means.squeeze_(dim=2)
-        stds.squeeze_(dim=2)
+
         stds.abs_()
         if kernel_weights is None:
             mb_size = actions.shape[0]
             kernel_weights = torch.ones(mb_size, self.n_kernels_cr) / self.n_kernels_cr
+            kernel_weights = kernel_weights.to(self.device)
         gmm = self.generate_gmm(means=means, stds=stds, kweights=kernel_weights, multivar=False)
 
         gmm_sample = None
@@ -236,15 +236,18 @@ class RealDSAC:
         next_batch_size = q_means_next.shape[0]
         alpha = self.get_alpha(requires_grad=False)
         # Compute target from mean Q.
+
+        # Format rewards, dones
         rewards.unsqueeze_(dim=1)
         dones.unsqueeze_(dim=1)
+
         q_means_target = rewards + (1 - dones) * self.gamma * (q_means_next - alpha * log_probs_a_next)
         # q_means_target = rewards + (1 - dones) * (q_means_next - alpha * log_probs_a_next)
 
-        stds_next = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
+        stds_target = (1-dones) * stds_next * self.gamma + torch.tensor(1e-55, dtype=torch.float64)
         # stds_next = stds_next * self.gamma # + torch.tensor(1e-55, dtype=torch.float64)
 
-        target_distribution = self.generate_gmm(means=q_means_target, stds=stds_next, kweights=kernel_weights_next)
+        target_distribution = self.generate_gmm(means=q_means_target, stds=stds_target, kweights=kernel_weights_next)
         # Target is always used for gradient calculations, so always rsample
         target_samples = self.rsampler(distr=target_distribution)
 
@@ -269,20 +272,20 @@ class RealDSAC:
 
         # Probability and value of action
         action_means_next, action_stds_next, kweights_pol = self.policy_target(states_next)
-        action_means_next.squeeze_(dim=2)
-        action_stds_next.squeeze_(dim=2)
+
         # The action is only used for Q loss calculation, repara=False, detach from graph
         actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_action_distr(
                                                      locs=action_means_next, stds=action_stds_next,
                                                      kweights=kweights_pol, reparameterization=False)
-        # Important: In-place operations
-        actions_bounded_next.detach_()
-        action_log_probs_next_bounded.detach_()
 
-        # Calculate Q_{\theta}(s',a') according to q1
+        # Important: Detach; log_prob is a "view" and cant be detached in-place
+        actions_bounded_next.detach_()
+        action_log_probs_next_bounded = action_log_probs_next_bounded.detach()
+
         _, zcal1_next, means1_next, stds1_next, kweights1_next = \
             self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q1_target,
                             exp=exp, sample=False, reparameterize=True)
+
         # MOD: Calculate target distribution  according to ONE target network (Q1)
         zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
                                                              q_means_next=means1_next,
@@ -354,12 +357,11 @@ class RealDSAC:
             # means_min = means_min
             # kweights_selected_min = kweights_selected_min.detach()
 
-        gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
+        # gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
+        # # Not calculated according to Z! If Z, reparameterization is needed
+        # gmm_mean.unsqueeze_(dim=1)
 
-        # Not calculated according to Z! If Z, reparameterization is needed
-        gmm_mean.unsqueeze_(dim=1)
-
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - gmm_mean).mean()
+        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min).mean()
         entropy = -log_ps_curr_pol.mean().detach()
 
         return policy_loss, entropy
@@ -387,8 +389,6 @@ class RealDSAC:
         # Construct action distribution with reparameterization trick
         means_act, stds_act, kweights_act = self.policy(obs=states, exp=exp)
 
-        means_act.squeeze_(dim=2)
-        stds_act.squeeze_(dim=2)
         stds_act.abs_()
 
         # NOTE: Only for Tensorbaord; item() returns a Python native type
@@ -437,13 +437,14 @@ class RealDSAC:
             tb_tags["loss_actor"]: loss_policy.detach().item(),
             tb_tags["loss_critic"]: loss_q.detach().item(),
             tb_tags["alg_time"]: (time.time() - start_time) * 1000,
+            "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": 1.0,
+            "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": 1.0
         }
 
-        for i in range(self.n_kernels_act):
-            tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = kweights_act[:, i].mean().detach().item()
-
-        for i in range(self.n_kernels_cr):
-            tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = kweights_cr[:, i].mean().detach().item()
+        # for i in range(self.n_kernels_act):
+        #     tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = kweights_act[:, i].mean().detach().item()
+        # for i in range(self.n_kernels_cr):
+        #     tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = kweights_cr[:, i].mean().detach().item()
 
         return tb_info
 

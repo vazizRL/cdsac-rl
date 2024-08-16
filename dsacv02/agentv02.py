@@ -90,6 +90,11 @@ class Agent:
         self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
+        # Best Practice: Target entropy for singular actions are greater then the dim
+        if action_dim == 1:
+            target_entropy = -3.0
+        else:
+            target_entropy = - action_dim
         # Usually, target entropy is -action_dim
         self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
                              critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
@@ -97,7 +102,7 @@ class Agent:
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=-3.0, n_kernels_act=n_kernels_act,
+                             auto_alpha=self.auto_alpha, target_entropy=target_entropy, n_kernels_act=n_kernels_act,
                              n_kernels_cr=n_kernels_cr, n_supports=self.n_supports, ibf=self.ibf,
                              batch_size=self.batch_size, device=device)
 
@@ -150,12 +155,9 @@ class Agent:
     def choose_action(self, observation):
         # observation = torch.as_tensor(observation)
         action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
-        action_mean.squeeze_(dim=2)
-        action_std.squeeze_(dim=2)
+
         action_std.abs_()
-        # if not self.policy.learnable_weights:
-        #     kernel_weights = (torch.ones(action_mean.shape[1]) / self.policy.n_kernels).to(self.device)
-        #     kernel_weights.unsqueeze_(dim=0)
+
         actions_bounded, probs_bounded = self.dsac.policy.sample_from_action_distr(locs=action_mean,
                                                                                    stds=action_std,
                                                                                    kweights=kernel_weights,

@@ -9,13 +9,13 @@ from dsacv02.tools import smoothing
 from elegantrl import *
 
 '''Environment constants'''
-gym_env = 'LunarLanderContinuous-v2'
+gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 
 ''' Agent constants '''
 # Dimensions
-ACTION_DIM = 1
-OBSERVATION_DIM = 4
+ACTION_DIM = 2
+OBSERVATION_DIM = 8
 # Learning Rates
 CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
@@ -70,14 +70,14 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env)
+    env = gym.make(gym_env, continuous=True)
 
     agent = SAC(policy=MlpPolicy, env=env, gamma=GAMMA, learning_rate=CR_LR_INI, buffer_size=MEM_SIZE,
                 learning_starts=BATCH_SIZE+1, train_freq=TRAIN_INTERVAL, target_update_interval=TARGET_UPDATE_INTERVAL,
                 batch_size=BATCH_SIZE, tau=TAU, ent_coef='auto', action_noise=None, replay_buffer_class=None,
                 replay_buffer_kwargs=None, optimize_memory_usage=False, gradient_steps=GRADIENT_STEPS,
                 target_entropy=TARGET_ENTROPY, use_sde=SDE, use_sde_at_warmup=SDE_AT_START, tensorboard_log=None,
-                device=DEVICE, _init_setup_model=True
+                device=DEVICE, _init_setup_model=True, verbose=1
                 )
 
     agent.learn(total_timesteps=100000)

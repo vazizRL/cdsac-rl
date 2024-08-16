@@ -64,16 +64,17 @@ class Critic(nn.Module):
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2,
+    def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=1,
                  activation=('gelu',), action_min_std=-20, action_max_std=3, action_low_lim=-1, action_up_lim=1,
                  learnable_weights=False, device='cuda:0'):
         """
-        - Modelled as a GMM to follow the GMM of the value distribtion function. Number of kernels must be the same
+        - Modelled as a Gauss
         - Stochastic Policy Function Approximator
         - Std. and Mean share first layers
         :param state_dim: Number of dimensions in observation space
         :param action_dim: Number of dimensions in action space
         :param hidden_layers: Hidden layers, format (l1_n_Nodes, l2_m_Nodes,)
+        :param n_kernels: Deprecated, always set to 1
         :param activation: Activations per layer
         :param action_min_std: Lower bound on std; either as log- or raw-value
         :param action_max_std: Upper bound on std; either as log- or raw-value
@@ -135,25 +136,25 @@ class Actor(nn.Module):
         :param kweights: Kernel weights
         :param reparameterization: Whether reparameterization will be performed or not
         """
-        gmm = ReparameterizedMixtureSameFamilyMod(distr.Categorical(probs=kweights), distr.Normal(locs, stds))
+        # gauss = ReparameterizedMixtureSameFamilyMod(distr.Categorical(probs=kweights), distr.Normal(locs, stds))
+        gauss = distr.Normal(loc=locs, scale=stds)
 
         # Sample from the GMM
         if reparameterization:
-            action = gmm.rsample()
-            action.unsqueeze_(dim=1)
+            action = gauss.rsample()
         else:
-            action = gmm.sample()
-            action.unsqueeze_(dim=1)
+            action = gauss.sample()
 
         # Normalize each action around 0 with tanh
         action_bounded = ((self.action_up_lim - self.action_low_lim) / 2) * torch.tanh(action) + \
                          (self.action_up_lim + self.action_low_lim) / 2
 
         # Calculate log_prob of new action
-        log_prob_bounded = gmm.log_prob(action.squeeze()) - \
-                           torch.log(1 + self.eps - torch.pow(torch.tanh(action), 2)).sum(-1) \
-            - torch.log((self.action_up_lim - self.action_low_lim) / 2).sum(-1)
-        log_prob_bounded.unsqueeze_(dim=1)
+        log_prob_bounded = gauss.log_prob(action) - \
+                           torch.log(1 + self.eps - torch.pow(torch.tanh(action), 2)) \
+            - torch.log((self.action_up_lim - self.action_low_lim) / 2)
+        # Under the assumptions that actions are independent from each other,
+        log_prob_bounded = torch.sum(log_prob_bounded, dim=1).unsqueeze(dim=1)
 
         return action_bounded, log_prob_bounded
 

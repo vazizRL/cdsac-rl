@@ -8,17 +8,17 @@ from tools import smoothing
 
 
 ''' Environment constants '''
+SAVE = False
 # gym_env = 'Pendulum-v1'
-gym_env = 'InvertedPendulum-v4'
-# gym_env = 'CartPole-v1'
-# gym_env = 'Hopper-v4'
+gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-# Action Space for InvertedPendulum-v4
-ACTION_DIM = 3
-OBSERVATION_DIM = 4
+ACTION_DIM = 2
+# ACTION_DIM = 1
+OBSERVATION_DIM = 8
+# OBSERVATION_DIM = 3
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
@@ -30,17 +30,19 @@ EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 100.0            # 0.01, 10.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
-CR_HL = (256, 256)
-ACT_HL = (256, 256)
+CR_HL = (128, 128)
+ACT_HL = (128, 128)
 # Activations
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -3.0
-ACTION_HIGH = 3.0
+ACTION_LOW = -1.0
+# ACTION_LOW = -2.0
+ACTION_HIGH = 1.0
+# ACTION_HIGH = 2.0
 # RL parameters
 DOUBLE_Q = True
-BATCH_SIZE = 256
+BATCH_SIZE = 64
 T_MAX = 5000                     # Old 20000
 TAU = 0.015
 STATIC_ALPHA = 0.3              # Old 0.2
@@ -80,15 +82,16 @@ meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
 # Instantiate tb
-dt = datetime.now()
-ts = datetime.timestamp(dt)
-event_path = curr_dir + f'/event_{ts}'
-os.mkdir(event_path)
-tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
+if SAVE:
+    dt = datetime.now()
+    ts = datetime.timestamp(dt)
+    event_path = curr_dir + f'/event_{ts}'
+    os.mkdir(event_path)
+    tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env)
+    env = gym.make(gym_env, continuous=True)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -122,9 +125,16 @@ if __name__ == '__main__':
         while not done:
             action, prob_action = agent.choose_action(observation)
             if DISCRETE:
-                action = 0 if action <= 0 else 1
+                if ACTION_DIM == 1:
+                    action = 0 if action <= 0 else 1
+                else:
+                    # Single action per time-step for LunarLander-v2
+                    action = np.argmax(action)
             else:
-                action = action.squeeze(axis=1)
+                if ACTION_DIM == 1:
+                    action = action.squeeze(axis=1)
+                else:
+                    action = action.squeeze().tolist()
             observation_, reward, done, info, _ = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
@@ -145,11 +155,12 @@ if __name__ == '__main__':
 
             tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=N_TOT_STEPS)
 
-            for key, value in tb_info.items():
-                tb_writer.add_scalar(key, value, N_TOT_STEPS)
+            if SAVE:
+                for key, value in tb_info.items():
+                    tb_writer.add_scalar(key, value, N_TOT_STEPS)
+                    tb_writer.add_scalar('Reward', reward_episode, i)
             observation = observation_
 
-        tb_writer.add_scalar('Reward', reward_episode, i)
         print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(reward_episode)
 
@@ -158,13 +169,14 @@ if __name__ == '__main__':
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
 
-        smoothed_last_epi = smoothed_total[-1][-1]
-        if smoothed_last_epi > best_score:
-            best_score = smoothed_last_epi
-            agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
-                                  replay_txt_name=replay_name)
-
-        print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f' % smoothed_last_epi)
+        if SAVE:
+            smoothed_last_epi = smoothed_total[-1][-1]
+            if smoothed_last_epi > best_score:
+                best_score = smoothed_last_epi
+                agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
+                                      replay_txt_name=replay_name)
+            print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f'
+                  % smoothed_last_epi)
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
