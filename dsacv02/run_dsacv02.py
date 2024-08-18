@@ -8,7 +8,7 @@ from tools import smoothing
 
 
 ''' Environment constants '''
-SAVE = False
+SAVE = True
 # gym_env = 'Pendulum-v1'
 gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
@@ -27,7 +27,7 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 100.0            # 0.01, 10.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 1.5            # 0.01, 10.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
 CR_HL = (128, 128)
@@ -60,7 +60,7 @@ Training Parameters
 N_TOT_STEPS = 0
 MAX_TOTAL_ITER = 150000000
 N_GAMES = 5500
-MAX_EPISODE_ITER = 500
+MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
 
 ''' Numerical Parameters'''

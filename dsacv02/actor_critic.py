@@ -4,6 +4,8 @@ import torch.distributions as distr
 from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod
 
+STD_INI_VALUE = 1.0
+
 
 class Critic(nn.Module):
     def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2, activ=('gelu',),
@@ -33,10 +35,10 @@ class Critic(nn.Module):
         self.activation = activ
         if self.learnable_weights:
             self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
-                                    multivar=False, std_bias_ini=1.0)       # 1.0
+                                    multivar=False, std_bias_ini=STD_INI_VALUE)       # 1.0
         else:
             self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
-                            multivar=False, std_bias_ini=1.0)               # 1.0
+                            multivar=False, std_bias_ini=STD_INI_VALUE)               # 1.0
         self.min_std = torch.tensor(value_min_std).to(self.q.device)
         self.max_std = torch.tensor(value_max_std).to(self.q.device)
         self.denominator = max(abs(self.min_std), self.max_std)

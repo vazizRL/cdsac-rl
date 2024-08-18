@@ -91,7 +91,7 @@ class Agent:
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
         # Best Practice: Target entropy for singular actions are greater then the dim
-        if action_dim == 1:
+        if action_dim in [1, 2]:
             target_entropy = -3.0
         else:
             target_entropy = - action_dim
@@ -164,6 +164,12 @@ class Agent:
                                                                                    reparameterization=False)
 
         return actions_bounded.cpu().detach().numpy(), probs_bounded.cpu().detach().numpy()
+
+    def choose_deterministic_action(self, observation):
+        # observation = torch.as_tensor(observation)
+        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+
+        return action_mean.cpu().detach().numpy(), action_std.cpu().detach().numpy()
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str):
         """
