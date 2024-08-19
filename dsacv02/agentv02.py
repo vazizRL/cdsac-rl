@@ -16,7 +16,7 @@ class Agent:
                  act_hl=(256, 256, 256, 256, 256), act_activ=('gelu', 'gelu', 'gelu', 'gelu', 'gelu'),
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, static_alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
-                 auto_alpha=True, log_alpha_ini=1, double_q=False, memory_size=int(5e5), n_supports=30, ibf=20,
+                 auto_alpha=True, log_alpha_ini=1.0, double_q=False, memory_size=int(5e5), n_supports=30, ibf=20,
                  device='cuda:0'
                  ):
         """
@@ -170,6 +170,10 @@ class Agent:
         action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
 
         return action_mean.cpu().detach().numpy(), action_std.cpu().detach().numpy()
+
+    def reset_entropy(self, new_log_alpha_val: float):
+        self.log_alpha = nn.Parameter(torch.tensor(new_log_alpha_val, dtype=torch.float64, device=self.device))
+        self.dsac.force_alpha_to_val(self.log_alpha)
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str):
         """

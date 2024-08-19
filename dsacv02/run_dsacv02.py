@@ -27,7 +27,7 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 1.5            # 0.01, 10.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 100.0           # 0.01, 10.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
 CR_HL = (128, 128)
@@ -50,7 +50,7 @@ REWARD_SCALE = 2.0              # Old 0.2
 GAMMA = 0.98                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = True
-ALPHA_INI = 1                  # Old -1
+ALPHA_INI = 1.0                  # Old 1
 MEM_SIZE = 1e6                  # 1e5
 N_TRAIN_INTERVAL = 1
 
@@ -62,6 +62,8 @@ MAX_TOTAL_ITER = 150000000
 N_GAMES = 5500
 MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
+# WARNING: Below is Experimental
+RESET_ENTROPY_ITER = None
 
 ''' Numerical Parameters'''
 N_SUPPORTS = 31                 # 31
@@ -160,6 +162,9 @@ if __name__ == '__main__':
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
                     tb_writer.add_scalar('Reward', reward_episode, i)
             observation = observation_
+
+        # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
+        #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(reward_episode)

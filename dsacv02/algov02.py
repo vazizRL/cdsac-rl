@@ -452,6 +452,13 @@ class RealDSAC:
     /Internally Called 
     """
 
+    def force_alpha_to_val(self, new_alpha: torch.nn.Parameter):
+        curr_lr = self.alpha_lr_schedule.get_lr().pop(0)
+        self.log_alpha = new_alpha
+        self.alpha_optimizer = Adam([self.log_alpha], lr=curr_lr)
+        self.alpha_lr_schedule = lr_scheduler.CosineAnnealingLR(self.alpha_optimizer, T_max=self.t_max,
+                                                                eta_min=self.alpha_lr_fin, last_epoch=-1, verbose=False)
+
     def get_optimizers(self):
         """
         - Necessary for saving and reconstructing the optimizers

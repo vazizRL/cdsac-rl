@@ -21,15 +21,15 @@ Replay Parameters
 N_GAMES = 500
 N_TOT_STEPS = 0
 MAX_TOTAL_ITER = 1500000
-# MAX_EPISODE_ITER = 500
-MAX_EPISODE_ITER = 500000
+MAX_EPISODE_ITER = 1000
+# MAX_EPISODE_ITER = 500000
 CHK_PROGRESS_INTERVAL = 100
 
 '''
 Loading Parameters
 '''
 env_name = 'LunarLander-v2_optim'
-event_name = 'MaxHorizont_1000_CrStdMax_1.5_C'
+event_name = 'ZZZ_ResetEntropy_Z'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
@@ -107,6 +107,7 @@ if __name__ == '__main__':
 
         smoothed_last_epi = smoothed_total[-1][-1]
         print(f'Last episode reward: {reward_episode}; Smoothed reward last episode: {smoothed_last_epi}')
+        print(f'Average reward: {sum(score_history) / len(score_history)}')
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
