@@ -4,7 +4,7 @@ import os
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from tools import smoothing
+from dsacv02.tools import smoothing
 
 
 ''' Environment constants '''
@@ -93,7 +93,7 @@ if SAVE:
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, continuous=True, )
+    env = gym.make(gym_env, continuous=True)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
