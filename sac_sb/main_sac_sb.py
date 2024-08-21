@@ -9,16 +9,17 @@ from dsacv02.tools import smoothing
 from elegantrl import *
 
 '''Environment constants'''
-gym_env = 'LunarLander-v2'
+# gym_env = 'LunarLander-v2'
+gym_env = 'Walker2d-v4'
 DEVICE = 'cuda:0'
 
 ''' Agent constants '''
 # Dimensions
-ACTION_DIM = 2
-OBSERVATION_DIM = 8
+ACTION_DIM = 6
+OBSERVATION_DIM = 17
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4
 # Standard deviations
 ACT_MIN, ACT_MAX = 1e-6, 1.0
 # Hidden Layers
@@ -30,15 +31,15 @@ ACTION_HIGH = 1.0
 # RL parameters
 DOUBLE_Q = True
 BATCH_SIZE = 256
-TAU = 0.015
-STATIC_ALPHA = 0.3              # Old 0.2
-REWARD_SCALE = 2.0              # Old 0.2
-GAMMA = 0.95                    # Old 0.99
+TAU = 0.005
+STATIC_ALPHA = 1.0              # Old 0.2
+REWARD_SCALE = 5.0              # Old 0.2
+GAMMA = 0.99                    # Old 0.99
 TRAIN_INTERVAL = 1
 TARGET_UPDATE_INTERVAL = 1
 GRADIENT_STEPS = 1
-AUTO_ALPHA = True
-TARGET_ENTROPY = -0.3
+AUTO_ALPHA = False
+TARGET_ENTROPY = -ACTION_DIM
 ALPHA_INI = 1                   # Old -1
 MEM_SIZE = int(1e6)             # 1e5
 SDE = False                     # State-Dependent Exploration
@@ -48,9 +49,9 @@ SDE_AT_START = False            # State-Dependent Exploration at start
 Training Parameters
 '''
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 150000000
+MAX_TOTAL_ITER = 1000000
 N_GAMES = 5500
-MAX_EPISODE_ITER = 500
+MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
 
 '''
@@ -70,7 +71,8 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, continuous=True)
+    # env = gym.make(gym_env, continuous=True)
+    env = gym.make(gym_env)
 
     agent = SAC(policy=MlpPolicy, env=env, gamma=GAMMA, learning_rate=CR_LR_INI, buffer_size=MEM_SIZE,
                 learning_starts=BATCH_SIZE+1, train_freq=TRAIN_INTERVAL, target_update_interval=TARGET_UPDATE_INTERVAL,
@@ -80,5 +82,5 @@ if __name__ == '__main__':
                 device=DEVICE, _init_setup_model=True, verbose=1
                 )
 
-    agent.learn(total_timesteps=100000)
+    agent.learn(total_timesteps=MAX_TOTAL_ITER)
 
