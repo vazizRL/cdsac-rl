@@ -28,17 +28,17 @@ CHK_PROGRESS_INTERVAL = 100
 '''
 Loading Parameters
 '''
-env_name = 'LunarLander-v2_optim'
-event_name = 'ZZZ_ResetEntropy_Z'
+env_name = 'LunarLander-v2'
+event_name = '4Ws_A'
 curr_dir = os.getcwd()
-loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
+loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_MultiWs' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
 
 if __name__ == '__main__':
-    render = False
+    render = True
     if render:
         mode = 'human'
     else:
