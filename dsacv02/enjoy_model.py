@@ -5,13 +5,13 @@ from dsacv02.agentv02 import Agent
 from tools import smoothing
 
 ''' Agent'''
-ACTION_DIM = 2
-OBSERVATION_DIM = 8
+ACTION_DIM = 6
+OBSERVATION_DIM = 17
 N_KERNELS = 1
 LEARNABLE_KWEIGHTS = False
 
 ''' Environment constants '''
-gym_env = 'LunarLander-v2'
+gym_env = 'Walker2d-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
@@ -28,10 +28,10 @@ CHK_PROGRESS_INTERVAL = 100
 '''
 Loading Parameters
 '''
-env_name = 'LunarLander-v2'
+env_name = 'Walker2d-v4'
 event_name = '4Ws_A'
 curr_dir = os.getcwd()
-loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_MultiWs' + '/' + env_name + '/' + event_name + '/'
+loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         mode = 'human'
     else:
         mode = None
-    env = gym.make(gym_env, render_mode=mode, continuous=not DISCRETE)
+    env = gym.make(gym_env, render_mode=mode)
     # Highly reduced agent instantiation, since all parameters might be replaced
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1,
                   learnable_kweights=LEARNABLE_KWEIGHTS)

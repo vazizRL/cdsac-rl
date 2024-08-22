@@ -93,7 +93,7 @@ if SAVE:
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, continuous=True, )
+    env = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
