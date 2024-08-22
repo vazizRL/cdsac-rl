@@ -282,14 +282,18 @@ class RealDSAC:
         actions_bounded_next.detach_()
         action_log_probs_next_bounded = action_log_probs_next_bounded.detach()
 
-        _, zcal1_next, means1_next, stds1_next, kweights1_next = \
+        _, _, means1_next, stds1_next, kweights1_next = \
             self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q1_target,
                             exp=exp, sample=False, reparameterize=True)
-        _, zcal2_next, means2_next, stds2_next, kweights2_next = \
-            self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
-                            exp=exp, sample=False, reparameterize=True)
-        means_next_min, stds_next_min, kweights_next_min = get_partial_double_q_selections(means1=means1_next,
-            means2=means2_next, stds1=stds1_next, stds2=stds2_next, kweights1=kweights1_next, kweights2=kweights2_next)
+        if double_q:
+            _, _, means2_next, stds2_next, kweights2_next = \
+                self.evaluate_z(obs=states_next, actions=actions_bounded_next, znet=self.q2_target,
+                                exp=exp, sample=False, reparameterize=True)
+            means_next_min, stds_next_min, kweights_next_min = get_partial_double_q_selections(means1=means1_next,
+                means2=means2_next, stds1=stds1_next, stds2=stds2_next, kweights1=kweights1_next,
+                kweights2=kweights2_next)
+        else:
+            means_next_min, stds_next_min, kweights_next_min = means1_next, stds1_next, kweights1_next
 
         # Calculate target distribution  according to min Q
         zcal_next, z_next = self.compute_target_distribution(rewards=rewards, dones=dones,
