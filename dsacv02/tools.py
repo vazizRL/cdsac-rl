@@ -507,7 +507,7 @@ def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter:
                 action = action.squeeze(axis=1)
             else:
                 action = action.squeeze().tolist()
-        observation_, reward, done, info, _ = env(action)
+        observation_, reward, done, info, _ = env.step(action)
         reward_episode += reward
         observation_ = observation_.reshape((1, obs_dim))
 
