@@ -10,7 +10,7 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 SAVE = True
 # gym_env = 'Pendulum-v1'
-gym_env = 'Walker2d.v4'
+gym_env = 'Walker2d-v4'
 DEVICE = 'cuda:0'
 DISCRETE = False
 

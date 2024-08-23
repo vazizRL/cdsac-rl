@@ -4,34 +4,34 @@ import os
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from dsacv02.tools import smoothing
+from dsacv02.tools import smoothing, eval_agent_colab
 
 
 ''' Environment constants '''
-SAVE = False
+SAVE = True
 # gym_env = 'Pendulum-v1'
-gym_env = 'LunarLander-v2'
+gym_env = 'Walker2d.v4'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 2
+ACTION_DIM = 6
 # ACTION_DIM = 1
-OBSERVATION_DIM = 8
+OBSERVATION_DIM = 17
 # OBSERVATION_DIM = 3
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 6e-4, 6e-4, 6e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 6e-4, 6e-4, 6e-4      # 6e-4, 6e-4, 6e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 100.0           # 0.01, 10.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 100.0           # 0.01, 100.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
-CR_HL = (128, 128)
-ACT_HL = (128, 128)
+CR_HL = (256, 256)
+ACT_HL = (256, 256)
 # Activations
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
@@ -42,14 +42,14 @@ ACTION_HIGH = 1.0
 # ACTION_HIGH = 2.0
 # RL parameters
 DOUBLE_Q = True
-BATCH_SIZE = 64
+BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
-TAU = 0.015
-STATIC_ALPHA = 0.3              # Old 0.2
-REWARD_SCALE = 2.0              # Old 0.2
-GAMMA = 0.98                    # Old 0.99
+TAU = 0.005
+STATIC_ALPHA = 1.0              # Old 0.2
+REWARD_SCALE = 5.0              # Old 0.2
+GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = True
+AUTO_ALPHA = False
 ALPHA_INI = 1.0                  # Old 1
 MEM_SIZE = 1e6                  # 1e5
 N_TRAIN_INTERVAL = 1
@@ -58,12 +58,13 @@ N_TRAIN_INTERVAL = 1
 Training Parameters
 '''
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 150000000
-N_GAMES = 5500
+MAX_TOTAL_ITER = 1000000
+N_GAMES = 5500000000
 MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
+EVAL_INTERVAL = 1000
 
 ''' Numerical Parameters'''
 N_SUPPORTS = 31                 # 31
@@ -93,7 +94,8 @@ if SAVE:
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, continuous=True)
+    env = gym.make(gym_env)
+    env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -119,7 +121,7 @@ if __name__ == '__main__':
 
     for i in range(N_GAMES):
         episode_iter = 0
-        observation, _ = env.reset()
+        observation = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
         reward_episode = 0
@@ -137,7 +139,7 @@ if __name__ == '__main__':
                     action = action.squeeze(axis=1)
                 else:
                     action = action.squeeze().tolist()
-            observation_, reward, done, info, _ = env.step(action)
+            observation_, reward, done, info = env.step(action)
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
@@ -160,8 +162,13 @@ if __name__ == '__main__':
             if SAVE:
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
-                    tb_writer.add_scalar('Reward', reward_episode, i)
+                    tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
             observation = observation_
+
+            if N_TOT_STEPS % EVAL_INTERVAL == 0:
+                reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
+                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
 
         # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
         #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)
@@ -185,10 +192,3 @@ if __name__ == '__main__':
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
-
-
-
-
-
-
-
