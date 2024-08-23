@@ -4,7 +4,7 @@ import os
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from tools import smoothing
+from tools import smoothing, eval_agent
 
 
 ''' Environment constants '''
@@ -27,7 +27,7 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 1000.0           # 0.01, 10.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 100.0           # 0.01, 100.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
 CR_HL = (256, 256)
@@ -64,6 +64,7 @@ MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
+EVAL_INTERVAL = 1000
 
 ''' Numerical Parameters'''
 N_SUPPORTS = 31                 # 31
@@ -94,6 +95,7 @@ if SAVE:
 
 if __name__ == '__main__':
     env = gym.make(gym_env)
+    env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -160,8 +162,13 @@ if __name__ == '__main__':
             if SAVE:
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
-                    tb_writer.add_scalar('Reward', reward_episode, i)
+                    tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
             observation = observation_
+
+            if N_TOT_STEPS % EVAL_INTERVAL == 0:
+                reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
+                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
 
         # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
         #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)

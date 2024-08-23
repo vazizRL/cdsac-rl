@@ -479,6 +479,50 @@ def get_supports(mb, means, sigmas):
     pass
 
 
+def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter: int):
+    """
+    - Evaluation rollout for non-vectorized environment; 1 episode
+    :param env: Environment instance
+    :param agent: RL agent
+    :param discrete: Whether action space is continuous or discrete
+    :param act_dim: Action space dimension
+    :param obs_dim: Observation space dimension
+    :param max_iter: Maximal allowed iterations per episode
+    """
+    done = False
+    observation, _ = env.reset()
+    observation = np.expand_dims(observation, axis=0)
+    reward_episode = 0
+    episode_iter = 0
+    while not done:
+        action, prob_action = agent.choose_deterministic_action(observation)
+        if discrete:
+            if act_dim == 1:
+                action = 0 if action <= 0 else 1
+            else:
+                # Single action per time-step for LunarLander-v2
+                action = np.argmax(action)
+        else:
+            if act_dim == 1:
+                action = action.squeeze(axis=1)
+            else:
+                action = action.squeeze().tolist()
+        observation_, reward, done, info, _ = env(action)
+        reward_episode += reward
+        observation_ = observation_.reshape((1, obs_dim))
+
+        if episode_iter > max_iter:
+            done = True
+
+        episode_iter += 1
+
+    return reward_episode
+
+
+def eval_agent_vec():
+    pass
+
+
 if __name__ == '__main__':
     n_actions = 1
     print(f'The action dim required for {n_actions} action is: {calc_size_co_matrix(n_actions)}')
