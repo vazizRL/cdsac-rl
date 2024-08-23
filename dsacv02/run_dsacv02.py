@@ -162,16 +162,13 @@ if __name__ == '__main__':
             if SAVE:
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
-                    tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
+                tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
             observation = observation_
 
             if N_TOT_STEPS % EVAL_INTERVAL == 0:
                 reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
-
-        # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
-        #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(reward_episode)

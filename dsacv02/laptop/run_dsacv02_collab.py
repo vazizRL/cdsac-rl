@@ -65,6 +65,7 @@ CHK_PROGRESS_INTERVAL = 100
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
 EVAL_INTERVAL = 1000
+TB_CHK_INTER = 5000
 
 ''' Numerical Parameters'''
 N_SUPPORTS = 31                 # 31
@@ -89,9 +90,10 @@ if SAVE:
     dt = datetime.now()
     ts = datetime.timestamp(dt)
     event_path = curr_dir + f'/event_{ts}'
+    event_path_chk = curr_dir + '/event_chk'
     os.mkdir(event_path)
-    tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
-
+    tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
+    tb_writer_chk = SummaryWriter(log_dir=event_path_chk, comment='C-DSAC', flush_secs=20)
 
 if __name__ == '__main__':
     env = gym.make(gym_env)
@@ -162,13 +164,17 @@ if __name__ == '__main__':
             if SAVE:
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
-                    tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
-            observation = observation_
+                tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, i)
+                if N_TOT_STEPS % EVAL_INTERVAL == 0:
+                    reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                                      obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
+                    tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
+                if N_TOT_STEPS % TB_CHK_INTER == 0:
+                    for key, value in tb_info.items():
+                        tb_writer_chk.add_scalar(key, value, N_TOT_STEPS)
+                    tb_writer_chk.add_scalar('Rewards/Reward_Training', reward_episode, i)
 
-            if N_TOT_STEPS % EVAL_INTERVAL == 0:
-                reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
-                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
-                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
+            observation = observation_
 
         # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
         #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)
