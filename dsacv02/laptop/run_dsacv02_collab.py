@@ -10,7 +10,7 @@ from dsacv02.tools import smoothing, eval_agent_colab
 ''' Environment constants '''
 SAVE = True
 # gym_env = 'Pendulum-v1'
-gym_env = 'Walker2d.v4'
+gym_env = 'Walker2d-v4'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
@@ -170,6 +170,7 @@ if __name__ == '__main__':
                                                       obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
                     tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, i)
                 if N_TOT_STEPS % TB_CHK_INTER == 0:
+                    print(f'Printing TB_CHK @ iter {i}')
                     for key, value in tb_info.items():
                         tb_writer_chk.add_scalar(key, value, N_TOT_STEPS)
                     tb_writer_chk.add_scalar('Rewards/Reward_Training', reward_episode, i)
