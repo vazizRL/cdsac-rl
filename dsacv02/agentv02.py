@@ -175,7 +175,8 @@ class Agent:
         self.log_alpha = nn.Parameter(torch.tensor(new_log_alpha_val, dtype=torch.float64, device=self.device))
         self.dsac.force_alpha_to_val(self.log_alpha)
 
-    def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str):
+    def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str,
+                        save_replay=True):
         """
         - Saves: Networks, optimizers, agent meta-parameters and experiences in replay buffer
         :param iter_n: Global iteration number at which the saving is performed
@@ -183,6 +184,7 @@ class Agent:
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
         :param replay_txt_name: Name for numpy file storing experiences
+        :param save_replay: Whether replay buffer is saved or not
         """
         print('Saving checkpoint...')
         complete_tar_file = path + '/' + tar_name
@@ -191,7 +193,6 @@ class Agent:
         # Save network and optimizer parameters
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
         torch.save({
-            'iter_n': iter_n,
             'cr1_state_dict': self.q1.state_dict(),
             'cr1_target_state_dict': self.q1_target.state_dict(),
             'cr1_optim_state_dict': cr1_optim.state_dict(),
@@ -206,7 +207,9 @@ class Agent:
             'policy_lr_schedule_state_dict': self.dsac.pol_lr_schedule.state_dict(),
             'log_alpha_state_dict': self.log_alpha,
             'log_alpha_optim_state_dict': alpha_optim.state_dict(),
-            'alpha_lr_schedule_state_dict': self.dsac.alpha_lr_schedule.state_dict()
+            'alpha_lr_schedule_state_dict': self.dsac.alpha_lr_schedule.state_dict(),
+            'iter_n': iter_n,
+            'mem_count': self.memory.mem_cntr
             },
             complete_tar_file
         )
@@ -227,7 +230,8 @@ class Agent:
             file.write(str(learning_rates))
 
         # Save Replay Experiences
-        self.memory.save_experiences(complete_npy_file)
+        if save_replay:
+            self.memory.save_experiences(complete_npy_file)
 
     def load_checkpoint(self, path, tar_name: str, txt_name: str, replay_npy_name: str, load_experience: bool):
         """
@@ -240,9 +244,9 @@ class Agent:
         :return:
         """
         # Load files
-        complete_checkpoint = path + tar_name
-        complete_meta_data = path + txt_name
-        complete_npy_file = path + replay_npy_name
+        complete_checkpoint = path + '/' + tar_name
+        complete_meta_data = path + '/' + txt_name
+        complete_npy_file = path + '/' + replay_npy_name
         checkpoint = torch.load(complete_checkpoint)
         labels = ('agent_params', 'actor_params', 'critic_params', 'learning_rates')
         data = dict()
@@ -250,6 +254,8 @@ class Agent:
             for label, line in zip(labels, file.readlines()):
                 data[label] = eval(line)
 
+        # Extract iteration number
+        iter_n = checkpoint['iter_n']
         # Extract parameters from checkpoint
         q1_optim_state_dict = checkpoint['cr1_optim_state_dict']
         q2_optim_state_dict = checkpoint['cr2_optim_state_dict']
@@ -312,5 +318,7 @@ class Agent:
 
         if load_experience:
             self.memory.load_experiences(replay_experiences_path=complete_npy_file)
+            self.memory.mem_cntr = checkpoint['mem_count']
 
-        return self
+        # return self, iter_n
+        return iter_n
