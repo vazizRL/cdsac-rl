@@ -133,6 +133,7 @@ class Agent:
         :return: RL learning quantities (losses, rewards, ...etc.)
         """
         if self.memory.mem_cntr < self.batch_size:
+        # if self.memory.mem_cntr < 10000:
             print(f'Batch size of {self.batch_size} > Stored tupels {self.memory.mem_cntr}')
             print(f'Continue without learning')
             tb_info = self.dsac.get_empty_tb_info()

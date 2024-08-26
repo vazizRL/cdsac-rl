@@ -29,7 +29,7 @@ CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
 CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
-CR_MIN_STD, CR_MAX_STD = 0.01, 100.0           # 0.01, 100.0
+CR_MIN_STD, CR_MAX_STD = 0.01, 25.0           # 0.01, 100.0
 ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
 # Hidden Layers
 CR_HL = (256, 256)
@@ -47,8 +47,8 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 0.2              # Old 1.0
-REWARD_SCALE = 1.0              # Old 5.0
+STATIC_ALPHA = 1.0              # Old 0.2
+REWARD_SCALE = 5.0              # Old 1.0
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
