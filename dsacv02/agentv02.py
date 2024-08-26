@@ -167,7 +167,7 @@ class Agent:
 
     def choose_deterministic_action(self, observation):
         # observation = torch.as_tensor(observation)
-        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+        action_mean, action_std, kernel_weights = self.dsac.policy_target.forward(obs=observation, exp=False)
 
         return action_mean.cpu().detach().numpy(), action_std.cpu().detach().numpy()
 

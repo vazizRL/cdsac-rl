@@ -11,7 +11,7 @@ from tools import smoothing, eval_agent
 SAVE = True
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Walker2d-v4"'
+gym_env = 'Walker2d-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
@@ -47,8 +47,8 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 1.0              # Old 0.2
-REWARD_SCALE = 5.0              # Old 0.2
+STATIC_ALPHA = 0.2              # Old 1.0
+REWARD_SCALE = 1.0              # Old 5.0
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
@@ -64,7 +64,7 @@ MAX_TOTAL_ITER = 1000000
 N_GAMES = 5500000000
 MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
-EVAL_INTERVAL = 500
+EVAL_INTERVAL = 1000
 TB_SAVE_INTERVAL = 20
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
@@ -118,8 +118,8 @@ if __name__ == '__main__':
         N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
                                             replay_npy_name='replay_buffer.pkl', load_experience=True)
     best_score = env.reward_range[0]
-    score_history = []
-
+    score_history_train = []
+    score_history_eval = []
     # Reward smoothing variables
     smoothing_weight = 0.85
     smooth_reward_last = 0
@@ -178,13 +178,12 @@ if __name__ == '__main__':
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
 
         print(f'@Iter: {N_TOT_STEPS}')
-        score_history.append(reward_episode)
+        score_history_train.append(reward_episode)
 
         batch_sm, smooth_reward_iter_n, smooth_reward_last = \
             smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
-
         smoothed_last_epi = smoothed_total[-1][-1]
         if smoothed_last_epi > best_score:
             best_score = smoothed_last_epi

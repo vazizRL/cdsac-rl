@@ -48,8 +48,8 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 1.0              # Old 0.2
-REWARD_SCALE = 5.0              # Old 0.2
+STATIC_ALPHA = 0.2              # Old 1.0
+REWARD_SCALE = 1.0              # Old 5.0
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
@@ -69,7 +69,7 @@ CHK_PROGRESS_INTERVAL = 100
 RESET_ENTROPY_ITER = None
 EVAL_INTERVAL = 1000
 # For downloading event-file in Colab
-TB_CHECK_INTERVAL = 250
+TB_CHECK_INTERVAL = 400
 # For reducing the save interval of TB in training
 TB_SAVE_INTERVAL = 20
 
@@ -181,7 +181,7 @@ if __name__ == '__main__':
                                                   obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
             if N_TOT_STEPS % TB_CHECK_INTERVAL == 0:
-                print(f'Printing TB_CHK @ episode {i}')
+                # print(f'Printing TB_CHK @ episode {i}')
                 for key, value in tb_info.items():
                     tb_writer_chk.add_scalar(key, value, N_TOT_STEPS)
                 tb_writer_chk.add_scalar('Rewards/Reward_Training', reward_episode, N_TOT_STEPS)
