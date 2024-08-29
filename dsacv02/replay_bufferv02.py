@@ -10,6 +10,7 @@ class ReplayBuffer:
         self.mem_size = int(max_size)
         # Keeps track of first available memory
         self.mem_cntr = 0
+        self.new_exp = 0
 
         # (s, a, r, s') in separate attributes
         self.state_memory = np.zeros(shape=(self.mem_size, *obs_shape), dtype=np.float64)
@@ -76,31 +77,72 @@ class ReplayBuffer:
 
     def save_experiences(self, path_name: str):
         """
-        - Saves the current state of the replay buffer as a np.ndarray
+        - Appends newly added experiences to the byte stream
         - Expand rewards and dones by one axis for homogeneity
-        :param path_name: Path + name of the .np file; Note: Must end with '.pkl'?
+        :param path_name: Path + name of the .np file; Note: Must end with '.pkl'
         """
-        experiences = (self.state_memory, self.action_memory, self.reward_memory, self.new_state_memory,
-                       self.terminal_memory)
-        with open(path_name, mode='wb') as file:
+
+        experiences = (self.state_memory[self.new_exp:self.mem_cntr],
+                       self.action_memory[self.new_exp:self.mem_cntr],
+                       self.reward_memory[self.new_exp:self.mem_cntr],
+                       self.new_state_memory[self.new_exp:self.mem_cntr],
+                       self.terminal_memory[self.new_exp:self.mem_cntr])
+
+        with open(path_name, mode='ab') as file:
             pickle.dump(experiences, file)
+
+        self.new_exp = self.mem_cntr
 
         return 0
 
     def load_experiences(self, replay_experiences_path):
         """
         - Load all (s,a,r,s',d)
+        - Loads chunks of experience streams and concatenates them
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
-        with open(replay_experiences_path, mode='rb') as file:
-            experiences = pickle.load(file)
-        states, actions, rewards, states_, dones = experiences
-        self.mem_cntr = int(states.shape[0] / 2)
-        self.state_memory = states
-        self.action_memory = actions
-        self.reward_memory = rewards
-        self.new_state_memory = states_
-        self.terminal_memory = dones
+
+        conc = list()
+        with open(replay_experiences_path, 'rb') as file:
+            while True:
+                try:
+                    row = pickle.load(file)
+                    conc.append(row)
+                except EOFError:
+                    break
+
+        states_last = conc[0][0]
+        actions_last = conc[0][1]
+        rewards_last = conc[0][2]
+        states_next_last = conc[0][3]
+        dones_last = conc[0][4]
+        for next_chunk in conc[1:]:
+            states_i, actions_i, rewards_i, states_next_i, dones_i = next_chunk
+
+            states_last = np.concatenate((states_last, states_i))
+            actions_last = np.concatenate((actions_last, actions_i))
+            rewards_last = np.concatenate((rewards_last, rewards_i))
+            states_next_last = np.concatenate((states_next_last, states_next_i))
+            dones_last = np.concatenate((dones_last, dones_i))
+
+        replay_len = states_last.shape[0]
+        # If more than mem_size experiences are stored, make sure that the recent ones are in the buffer
+        if replay_len > self.mem_size:
+            states_last = states_last[-self.mem_size:]
+            actions_last = actions_last[-self.mem_size:]
+            rewards_last = rewards_last[-self.mem_size:]
+            states_next_last = states_next_last[-self.mem_size:]
+            dones_last = dones_last[-self.mem_size:]
+            # For indexing max. value
+            replay_len = self.mem_size
+
+        self.state_memory[:replay_len] = states_last
+        self.action_memory[:replay_len] = actions_last
+        self.reward_memory[:replay_len] = rewards_last
+        self.new_state_memory[:replay_len] = states_next_last
+        self.terminal_memory[:replay_len] = dones_last
+
+        return 0
 
     def clear_buffer(self):
         self.state_memory.fill(0.0)
