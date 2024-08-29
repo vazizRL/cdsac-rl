@@ -5,13 +5,13 @@ from dsacv02.agentv02 import Agent
 from tools import smoothing
 
 ''' Agent'''
-ACTION_DIM = 6
-OBSERVATION_DIM = 17
+ACTION_DIM = 8
+OBSERVATION_DIM = 111
 N_KERNELS = 1
 LEARNABLE_KWEIGHTS = False
 
 ''' Environment constants '''
-gym_env = 'Walker2d-v2'
+gym_env = 'Ant-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
@@ -20,7 +20,7 @@ Replay Parameters
 '''
 N_GAMES = 500
 N_TOT_STEPS = 0
-MAX_TOTAL_ITER = 1500000
+MAX_TOTAL_ITER = 1500000000
 MAX_EPISODE_ITER = 1000
 # MAX_EPISODE_ITER = 500000
 CHK_PROGRESS_INTERVAL = 100
@@ -28,7 +28,7 @@ CHK_PROGRESS_INTERVAL = 100
 '''
 Loading Parameters
 '''
-env_name = 'Walker2d-v4'
+env_name = 'Ant-v2'
 event_name = '4Ws_A'
 curr_dir = os.getcwd()
 loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
