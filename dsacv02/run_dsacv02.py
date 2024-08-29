@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 import os
+import shutil
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
@@ -115,6 +116,7 @@ if __name__ == '__main__':
                   memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, device=DEVICE)
 
     if LOAD_PATH:
+        shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl', event_path + '/')
         N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
                                             replay_npy_name='replay_buffer.pkl', load_experience=True)
     best_score = env.reward_range[0]
