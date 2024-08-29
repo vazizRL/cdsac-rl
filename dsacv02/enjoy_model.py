@@ -11,7 +11,7 @@ N_KERNELS = 1
 LEARNABLE_KWEIGHTS = False
 
 ''' Environment constants '''
-gym_env = 'Ant-v2'
+gym_env = 'Ant-v4'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
@@ -43,7 +43,8 @@ if __name__ == '__main__':
         mode = 'human'
     else:
         mode = None
-    env = gym.make(gym_env, render_mode=mode)
+    # env = gym.make(gym_env, render_mode=mode)
+    env = gym.make(gym_env, render_mode=mode, use_contact_forces=True)
     # Highly reduced agent instantiation, since all parameters might be replaced
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1,
                   learnable_kweights=LEARNABLE_KWEIGHTS)

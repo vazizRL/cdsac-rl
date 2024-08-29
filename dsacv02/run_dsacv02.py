@@ -12,7 +12,7 @@ from tools import smoothing, eval_agent
 SAVE = True
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Ant-v2'
+gym_env = 'Ant-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
@@ -97,10 +97,10 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env)
-    env_eval = gym.make(gym_env)
-    # env = gym.make(gym_env, continuous=True)
-    # env_eval = gym.make(gym_env, continuous=True)
+    # env = gym.make(gym_env)
+    # env_eval = gym.make(gym_env)
+    env = gym.make(gym_env, use_contact_forces=True)
+    env_eval = gym.make(gym_env, use_contact_forces=True)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
