@@ -9,7 +9,7 @@ from tools import smoothing, eval_agent
 
 
 ''' Environment constants '''
-SAVE = True
+SAVE = False
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
 gym_env = 'Ant-v4'
