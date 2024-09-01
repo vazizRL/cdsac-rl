@@ -97,10 +97,10 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=
 
 
 if __name__ == '__main__':
-    # env = gym.make(gym_env)
-    # env_eval = gym.make(gym_env)
-    env = gym.make(gym_env, use_contact_forces=True)
-    env_eval = gym.make(gym_env, use_contact_forces=True)
+    # env = gym.make(gym_env, healthy_z_range=[0.27, 1.0])
+    # env_eval = gym.make(gym_env, healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,

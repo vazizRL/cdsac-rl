@@ -103,10 +103,10 @@ time.sleep(2.1)
 tb_writer_chk = SummaryWriter(log_dir=event_path_chk, comment='C-DSAC_chk', flush_secs=20)
 
 if __name__ == '__main__':
-    # env = gym.make(gym_env)
-    # env_eval = gym.make(gym_env)
-    env = gym.make(gym_env, use_contact_forces=True)
-    env_eval = gym.make(gym_env, use_contact_forces=True)
+    # env = gym.make(gym_env, healthy_z_range=[0.27, 1.0])
+    # env_eval = gym.make(gym_env, healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
 
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
