@@ -190,6 +190,7 @@ class Agent:
         print('Saving checkpoint...')
         complete_tar_file = path + '/' + tar_name
         complete_txt_file = path + '/' + txt_name
+        iter_info_txt_file = path + '/iter_save.txt'
         complete_npy_file = path + '/' + replay_txt_name
         # Save network and optimizer parameters
         cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
@@ -229,6 +230,9 @@ class Agent:
             file.write(str(critic_class_params))
             file.write('\n')
             file.write(str(learning_rates))
+
+        with open(iter_info_txt_file, 'w') as file:
+            file.write(f'Model saved @ {iter_n}')
 
         # Save Replay Experiences
         if save_replay:
