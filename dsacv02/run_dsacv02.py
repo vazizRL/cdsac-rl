@@ -129,7 +129,7 @@ if __name__ == '__main__':
     smooth_reward_last_eval = 0
     smooth_reward_iter_n_eval = 0
     smoothed_total = list()
-    past_model_surpass = 25
+    past_model_surpass = 30
     smoothed_total_eval = [0 for i in range(past_model_surpass)]
 
     for i in range(N_GAMES):
@@ -153,7 +153,7 @@ if __name__ == '__main__':
                 else:
                     action = action.squeeze().tolist()
             observation_, reward, done, info, _ = env.step(action)
-            observation_ = np.concatenate((observation_, np.asarray([int(done)], dtype=np.float64)))
+            # observation_ = np.concatenate((observation_, np.asarray([int(done)], dtype=np.float64)))
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
@@ -191,7 +191,8 @@ if __name__ == '__main__':
                 smooth_reward_last_eval.append(batch_sm_eval)
 
                 perf_indicator = \
-                    [True if i >= smooth_reward_last_eval[-25] else False for i in smooth_reward_last_eval[-24:]]
+                    [True if i >= smooth_reward_last_eval[-past_model_surpass] else False for i in
+                     smooth_reward_last_eval[-past_model_surpass + 1:]]
                 if not any(perf_indicator):
                     # load old model.
                     N_TOT_STEPS = agent.load_checkpoint(path=event_path, tar_name='best_performance.tar',
