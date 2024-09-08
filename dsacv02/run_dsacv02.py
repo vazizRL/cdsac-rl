@@ -130,6 +130,7 @@ if __name__ == '__main__':
     smoothed_total = list()
     past_model_surpass = 30
     smoothed_total_eval = [0 for i in range(past_model_surpass)]
+    smoothed_total_eval_chkpt = [0 for i in range(past_model_surpass)]
 
     for i in range(N_GAMES):
         episode_iter = 0
@@ -198,6 +199,7 @@ if __name__ == '__main__':
                     N_TOT_STEPS = agent.load_checkpoint(path=event_path, tar_name='best_performance.tar',
                                                         txt_name='agent_meta.txt',
                                                         replay_npy_name='replay_buffer.pkl', load_experience=True)
+                    smoothed_total_eval = smoothed_total_eval_chkpt
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history_train.append(reward_episode)
@@ -211,6 +213,7 @@ if __name__ == '__main__':
             best_score = smoothed_last_epi
             agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                   replay_txt_name=replay_name)
+            smoothed_total_eval_chkpt = smoothed_total_eval
         print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f'
               % smoothed_last_epi)
 
