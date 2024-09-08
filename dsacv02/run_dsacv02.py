@@ -9,18 +9,18 @@ from tools import smoothing, eval_agent
 
 
 ''' Environment constants '''
-SAVE = False
+SAVE_BEFORE_FOR = False
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Hopper-v4'
+gym_env = 'Ant-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 3
+ACTION_DIM = 8
 # ACTION_DIM = 2
-OBSERVATION_DIM = 11
+OBSERVATION_DIM = 28
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
@@ -126,7 +126,11 @@ if __name__ == '__main__':
     smoothing_weight = 0.85
     smooth_reward_last = 0
     smooth_reward_iter_n = 0
+    smooth_reward_last_eval = 0
+    smooth_reward_iter_n_eval = 0
     smoothed_total = list()
+    past_model_surpass = 25
+    smoothed_total_eval = [0 for i in range(past_model_surpass)]
 
     for i in range(N_GAMES):
         episode_iter = 0
@@ -149,6 +153,7 @@ if __name__ == '__main__':
                 else:
                     action = action.squeeze().tolist()
             observation_, reward, done, info, _ = env.step(action)
+            observation_ = np.concatenate((observation_, np.asarray([int(done)], dtype=np.float64)))
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
@@ -178,6 +183,20 @@ if __name__ == '__main__':
                 reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
+                score_history_eval.append(reward_rollout)
+                # After 30k @0.85 no improvement, reset the model to last best
+                batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval = \
+                    smoothing(scalars=(reward_rollout,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
+                              last=smooth_reward_last_eval)
+                smooth_reward_last_eval.append(batch_sm_eval)
+
+                perf_indicator = \
+                    [True if i >= smooth_reward_last_eval[-25] else False for i in smooth_reward_last_eval[-24:]]
+                if not any(perf_indicator):
+                    # load old model.
+                    N_TOT_STEPS = agent.load_checkpoint(path=event_path, tar_name='best_performance.tar',
+                                                        txt_name='agent_meta.txt',
+                                                        replay_npy_name='replay_buffer.pkl', load_experience=True)
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history_train.append(reward_episode)

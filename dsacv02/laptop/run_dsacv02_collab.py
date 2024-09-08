@@ -19,7 +19,7 @@ DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 8
+ACTION_DIM = 3
 # ACTION_DIM = 1
 OBSERVATION_DIM = 11
 # OBSERVATION_DIM = 3
@@ -27,8 +27,8 @@ N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-5, 3e-5, 3e-5
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-5, 3e-5, 3e-5      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 1000.0           # 0.01, 1000.0
@@ -49,8 +49,8 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 1.0              # Old 1.0
-REWARD_SCALE = 5.0              # Old 5.0; for ant-v2, ideal between 5-10
+STATIC_ALPHA = 0.2              # Old 1.0
+REWARD_SCALE = 1.0              # Old 5.0; for ant-v2, ideal between 5-10
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
