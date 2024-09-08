@@ -129,7 +129,7 @@ if __name__ == '__main__':
     smooth_reward_iter_n_eval = 0
     smooth_reward_iter_n_eval_chkpt = 0
     smoothed_total = list()
-    past_model_surpass = 30
+    past_model_surpass = 60
     smoothed_total_eval = [0 for i in range(past_model_surpass)]
     smoothed_total_eval_chkpt = [0 for i in range(past_model_surpass)]
 
