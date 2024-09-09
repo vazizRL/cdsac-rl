@@ -441,10 +441,10 @@ class RealDSAC:
         tb_info = {
             "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
             "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
+            "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
             "DSAC2_Grads/critic1_grad": critic1_grad,
             "DSAC2_Grads/critic2_grad": critic2_grad,
             "DSAC2_Grads/actor_grad": actor_grad,
-            "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
             # "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
             "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
@@ -523,10 +523,10 @@ class RealDSAC:
         tb_info = {
             "DSAC2_Vals/gmm_critic_avg_value iter": 0,
             "DSAC2_CrDistr/gmm_critic_avg_std iter": 0,
+            "DSAC2_Vals/gmm_actor_avg_action iter": 0,
             "DSAC2_Grads/critic1_grad": 0,
             "DSAC2_Grads/critic2_grad": 0,
             "DSAC2_Grads/actor_grad": 0,
-            "DSAC2_Vals/gmm_actor_avg_action iter": 0,
             "DSAC2_ActDistr/gmm_actor_avg_std iter": 0,
             "DSAC2_ActDistr/entropy-RL iter": 0,
             "DSAC2_Alpha/alpha-RL iter": 0,
