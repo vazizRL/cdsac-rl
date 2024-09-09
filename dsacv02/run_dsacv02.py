@@ -66,6 +66,7 @@ MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
 EVAL_INTERVAL = 1000
 TB_SAVE_INTERVAL = 20
+PAST_MODEL_SURPASS = 60
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
 
@@ -129,9 +130,8 @@ if __name__ == '__main__':
     smooth_reward_iter_n_eval = 0
     smooth_reward_iter_n_eval_chkpt = 0
     smoothed_total = list()
-    past_model_surpass = 60
-    smoothed_total_eval = [0 for i in range(past_model_surpass)]
-    smoothed_total_eval_chkpt = [0 for i in range(past_model_surpass)]
+    smoothed_total_eval = [0 for i in range(PAST_MODEL_SURPASS)]
+    smoothed_total_eval_chkpt = [0 for i in range(PAST_MODEL_SURPASS)]
 
     for i in range(N_GAMES):
         episode_iter = 0
@@ -192,8 +192,8 @@ if __name__ == '__main__':
                 smoothed_total_eval.append(batch_sm_eval[0])
 
                 perf_indicator = \
-                    [True if i >= smoothed_total_eval[-past_model_surpass] else False for i in
-                     smoothed_total_eval[-past_model_surpass+1:]]
+                    [True if i >= smoothed_total_eval[-PAST_MODEL_SURPASS] else False for i in
+                     smoothed_total_eval[-PAST_MODEL_SURPASS + 1:]]
                 if not any(perf_indicator):
                     print('Destabilization Detected. Load old model . . .')
                     # load old model.
