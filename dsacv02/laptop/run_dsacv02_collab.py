@@ -1,34 +1,32 @@
 import gym
-import time
 import numpy as np
 import os
 import shutil
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from dsacv02.tools import smoothing, eval_agent_colab
+from dsacv02.tools import smoothing, eval_agent
 
 
 ''' Environment constants '''
-SAVE = True
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-# gym_env = 'Pendulum-v1'
 gym_env = 'Hopper-v4'
+# gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
 ACTION_DIM = 3
-# ACTION_DIM = 1
+# ACTION_DIM = 2
 OBSERVATION_DIM = 11
-# OBSERVATION_DIM = 3
+# OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-5, 3e-5, 3e-5
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-5, 3e-5, 3e-5      # 6e-4, 6e-4, 6e-4
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 1000.0           # 0.01, 1000.0
@@ -49,8 +47,8 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 0.2              # Old 1.0
-REWARD_SCALE = 1.0              # Old 5.0; for ant-v2, ideal between 5-10
+STATIC_ALPHA = 0.2              # Old 0.2
+REWARD_SCALE = 1.0              # Old 5.0; for ant-v1, it seems that between 5-10 is ideal
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = False
@@ -66,13 +64,11 @@ MAX_TOTAL_ITER = 1000000
 N_GAMES = 5500000000
 MAX_EPISODE_ITER = 1000
 CHK_PROGRESS_INTERVAL = 100
+EVAL_INTERVAL = 1000
+TB_SAVE_INTERVAL = 20
+PAST_MODEL_SURPASS = 100
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
-EVAL_INTERVAL = 1000
-# For downloading event-file in Colab
-TB_CHECK_INTERVAL = 400
-# For reducing the save interval of TB in training
-TB_SAVE_INTERVAL = 20
 
 ''' Numerical Parameters'''
 N_SUPPORTS = 31                 # 31
@@ -96,18 +92,15 @@ replay_name = 'replay_buffer.pkl'
 dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
-event_path_chk = curr_dir + f'/event_chk'
 os.mkdir(event_path)
-tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
-time.sleep(2.1)
-tb_writer_chk = SummaryWriter(log_dir=event_path_chk, comment='C-DSAC_chk', flush_secs=20)
+tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
+
 
 if __name__ == '__main__':
-    # env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
     # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
     env = gym.make(gym_env)
     env_eval = gym.make(gym_env)
-
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -126,19 +119,23 @@ if __name__ == '__main__':
         shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl', event_path + '/')
         N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
                                             replay_npy_name='replay_buffer.pkl', load_experience=True)
-
     best_score = env.reward_range[0]
-    score_history = []
-
+    score_history_train = []
+    score_history_eval = []
     # Reward smoothing variables
     smoothing_weight = 0.85
     smooth_reward_last = 0
     smooth_reward_iter_n = 0
+    smooth_reward_last_eval = 0
+    smooth_reward_iter_n_eval = 0
+    smooth_reward_iter_n_eval_chkpt = 0
     smoothed_total = list()
+    smoothed_total_eval = [0 for i in range(PAST_MODEL_SURPASS)]
+    smoothed_total_eval_chkpt = [0 for i in range(PAST_MODEL_SURPASS)]
 
     for i in range(N_GAMES):
         episode_iter = 0
-        observation = env.reset()
+        observation, _ = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
         reward_episode = 0
@@ -157,6 +154,7 @@ if __name__ == '__main__':
                 else:
                     action = action.squeeze().tolist()
             observation_, reward, done, info = env.step(action)
+            # observation_ = np.concatenate((observation_, np.asarray([int(done)], dtype=np.float64)))
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
@@ -180,37 +178,54 @@ if __name__ == '__main__':
                 for key, value in tb_info.items():
                     tb_writer.add_scalar(key, value, N_TOT_STEPS)
                 tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, N_TOT_STEPS)
-
-            if N_TOT_STEPS % EVAL_INTERVAL == 0:
-                reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
-                                                  obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
-                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
-            if N_TOT_STEPS % TB_CHECK_INTERVAL == 0:
-                # print(f'Printing TB_CHK @ episode {i}')
-                for key, value in tb_info.items():
-                    tb_writer_chk.add_scalar(key, value, N_TOT_STEPS)
-                tb_writer_chk.add_scalar('Rewards/Reward_Training', reward_episode, N_TOT_STEPS)
-
             observation = observation_
 
-        # if N_TOT_STEPS % RESET_ENTROPY_ITER == 0:
-        #     agent.reset_entropy(new_log_alpha_val=ALPHA_INI)
+            if N_TOT_STEPS % EVAL_INTERVAL == 0:
+                reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
+                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
+                score_history_eval.append(reward_rollout)
+                # After 30k @0.85 no improvement, reset the model to last best
+                batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval = \
+                    smoothing(scalars=(reward_rollout,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
+                              last=smooth_reward_last_eval)
+                smoothed_total_eval.append(batch_sm_eval[0])
+
+                perf_indicator = \
+                    [True if i >= smoothed_total_eval[-PAST_MODEL_SURPASS] else False for i in
+                     smoothed_total_eval[-PAST_MODEL_SURPASS + 1:]]
+                if not any(perf_indicator):
+                    print('Destabilization Detected. Load old model . . .')
+                    # load old model.
+                    N_TOT_STEPS = agent.load_checkpoint(path=event_path, tar_name='best_performance.tar',
+                                                        txt_name='agent_meta.txt',
+                                                        replay_npy_name='replay_buffer.pkl', load_experience=True)
+                    smoothed_total_eval = smoothed_total_eval_chkpt
+                    smooth_reward_iter_n_eval = smooth_reward_iter_n_eval_chkpt
 
         print(f'@Iter: {N_TOT_STEPS}')
-        score_history.append(reward_episode)
+        score_history_train.append(reward_episode)
 
         batch_sm, smooth_reward_iter_n, smooth_reward_last = \
             smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
-
         smoothed_last_epi = smoothed_total[-1][-1]
         if smoothed_last_epi > best_score:
             best_score = smoothed_last_epi
             agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                   replay_txt_name=replay_name)
+            smoothed_total_eval_chkpt = smoothed_total_eval
+            smooth_reward_iter_n_eval_chkpt = smooth_reward_iter_n_eval
         print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f'
               % smoothed_last_epi)
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
+
+
+
+
+
+
+
