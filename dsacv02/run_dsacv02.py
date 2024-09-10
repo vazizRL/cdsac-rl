@@ -11,15 +11,15 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Ant-v4'
+gym_env = 'Hopper-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 8
+ACTION_DIM = 3
 # ACTION_DIM = 2
-OBSERVATION_DIM = 27
+OBSERVATION_DIM = 11
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
