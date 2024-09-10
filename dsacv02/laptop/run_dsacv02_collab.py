@@ -8,6 +8,8 @@ from datetime import datetime
 from dsacv02.tools import smoothing, eval_agent_colab
 from google.colab import files
 
+
+
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
@@ -91,7 +93,7 @@ replay_name = 'replay_buffer.pkl'
 # Instantiate tb
 dt = datetime.now()
 ts = datetime.timestamp(dt)
-event_path = curr_dir + f'/event_{ts}'
+event_path = curr_dir + f'/event_colab}'
 os.mkdir(event_path)
 tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
 
@@ -222,6 +224,9 @@ if __name__ == '__main__':
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
             break
+
+        !zip -r /content/rl_framework/event.zip /content/rl_framework/event_colab
+        files.download('/content/rl_framework/event.zip')
 
 
 
