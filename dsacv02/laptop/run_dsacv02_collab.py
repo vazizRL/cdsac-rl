@@ -5,8 +5,8 @@ import shutil
 from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
-from dsacv02.tools import smoothing, eval_agent
-
+from dsacv02.tools import smoothing, eval_agent_colab
+from google.colab import files
 
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     for i in range(N_GAMES):
         episode_iter = 0
-        observation, _ = env.reset()
+        observation = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
         reward_episode = 0
@@ -181,7 +181,7 @@ if __name__ == '__main__':
             observation = observation_
 
             if N_TOT_STEPS % EVAL_INTERVAL == 0:
-                reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
                 score_history_eval.append(reward_rollout)
