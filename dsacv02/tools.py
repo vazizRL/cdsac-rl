@@ -78,7 +78,7 @@ def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_s
     dy_curr_mb = pdf_curr.cdf(dx_singular_sorted)
     dy_target_mb = pdf_target.cdf(dx_singular_sorted)
 
-    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) + 1e-55
+    cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) # + 1e-55
     # cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
@@ -134,7 +134,7 @@ def cramer_optim_multi(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kerne
     dy_target_mb = pdf_target.cdf_mod(dx_mb_multi)
 
     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_flat.squeeze(dim=1)) + 1e-45
-    cramer_re.sqrt_()
+    # cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
     return cramer_re

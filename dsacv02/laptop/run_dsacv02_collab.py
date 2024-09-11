@@ -2,6 +2,7 @@
 # import numpy as np
 # import os
 # import shutil
+# import time
 # from dsacv02.agentv02 import Agent
 # from torch.utils.tensorboard import SummaryWriter
 # from datetime import datetime
@@ -13,15 +14,15 @@
 # ''' Environment constants '''
 # # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 # LOAD_PATH = None
-# gym_env = 'Hopper-v4'
+# gym_env = 'Ant-v4'
 # # gym_env = 'LunarLander-v2'
 # DEVICE = 'cuda:0'
 # DISCRETE = False
 #
 # ''' Agent constants '''
-# ACTION_DIM = 3
+# ACTION_DIM = 8
 # # ACTION_DIM = 2
-# OBSERVATION_DIM = 11
+# OBSERVATION_DIM = 111
 # # OBSERVATION_DIM = 8
 # N_KERNELS_ACT = 1
 # N_KERNELS_CR = 1
@@ -68,6 +69,7 @@
 # CHK_PROGRESS_INTERVAL = 100
 # EVAL_INTERVAL = 1000
 # TB_SAVE_INTERVAL = 20
+# TB_CHECK_INTERVAL = 400
 # PAST_MODEL_SURPASS = 100
 # # WARNING: Below is Experimental
 # RESET_ENTROPY_ITER = None
@@ -94,15 +96,18 @@
 # dt = datetime.now()
 # ts = datetime.timestamp(dt)
 # event_path = curr_dir + f'event_colab'
+# event_path_chk = curr_dir + f'event_chk'
 # os.mkdir(event_path)
-# tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
-#
+# os.mkdir(event_path_chk)
+# tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
+# time.sleep(2.1)
+# tb_writer_chk = SummaryWriter(log_dir=event_path_chk, comment='C-DSAC_chk', flush_secs=20)
 #
 # if __name__ == '__main__':
-#     # env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
-#     # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-#     env = gym.make(gym_env)
-#     env_eval = gym.make(gym_env)
+#     env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
+#     env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+#     # env = gym.make(gym_env)
+#     # env_eval = gym.make(gym_env)
 #     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
 #                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
 #                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -185,7 +190,13 @@
 #             if N_TOT_STEPS % EVAL_INTERVAL == 0:
 #                 reward_rollout = eval_agent_colab(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
 #                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
+#
 #                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
+#                 # Check TB writer
+#                 for key, value in tb_info.items():
+#                     tb_writer_chk.add_scalar(key, value, N_TOT_STEPS)
+#                 tb_writer_chk.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
+#
 #                 score_history_eval.append(reward_rollout)
 #                 # After 30k @0.85 no improvement, reset the model to last best
 #                 batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval = \
