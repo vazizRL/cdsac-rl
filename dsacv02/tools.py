@@ -85,26 +85,6 @@ def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_s
     return cramer_re
 
 
-def generate_gmm_distr_multi(means, stds, kweights, multivar=False):
-    """
-    TODO: Refactor to avoid if-statement
-    - Generates either a multivariate or standard Gaussian Mxiture Model
-    :param means: Kernel means
-    :param stds: Kernel standard deviations
-    :param kweights: Kernel weights
-    :param multivar: CHANGE! Whether components of GMM are multivariate or not
-    :return: Returns a GMM
-    """
-    mix_distr = torch.distributions.Categorical(probs=kweights)
-    if multivar:
-        comp_distr = torch.distributions.MultivariateNormal(loc=means, covariance_matrix=stds)
-    else:
-        comp_distr = torch.distributions.Normal(loc=means, scale=stds)
-    zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
-
-    return zcal
-
-
 def cramer_optim_multi(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_kernels, standard_supp=None, dev='cpu'):
     """
     - Dynamic Supports
@@ -161,6 +141,26 @@ def rsampler_multi(distr):
     r_sample = distr.rsample()
 
     return r_sample
+
+
+def generate_gmm_distr_multi(means, stds, kweights, multivar=False):
+    """
+    TODO: Refactor to avoid if-statement
+    - Generates either a multivariate or standard Gaussian Mxiture Model
+    :param means: Kernel means
+    :param stds: Kernel standard deviations
+    :param kweights: Kernel weights
+    :param multivar: CHANGE! Whether components of GMM are multivariate or not
+    :return: Returns a GMM
+    """
+    mix_distr = torch.distributions.Categorical(probs=kweights)
+    if multivar:
+        comp_distr = torch.distributions.MultivariateNormal(loc=means, covariance_matrix=stds)
+    else:
+        comp_distr = torch.distributions.Normal(loc=means, scale=stds)
+    zcal = RMM(mixture_distribution=mix_distr, component_distribution=comp_distr)
+
+    return zcal
 
 
 def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bound_factor=10, dev='cuda:0'):
