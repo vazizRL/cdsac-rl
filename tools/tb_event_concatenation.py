@@ -30,12 +30,12 @@ def write_combined_events(output_file_path, combined_events):
 if __name__ == '__main__':
     # Paths to your event files
     PATH_1 = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\rm_colab_run_checkpoint1/".replace("\\", "/")
-    FILE_2 = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\rm_colab_run_checkpoint2/".replace("\\", "/")
+    PATH_2 = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\rm_colab_run_checkpoint2/".replace("\\", "/")
     OUTPUT_DIR = "C:/Users/vanya/OneDrive/Desktop/Temp/TB"
 
     # Load events from both TensorBoard event files
     events_1 = load_events(PATH_1, ["Rewards/Reward_Eval"])
-    events_2 = load_events(FILE_2, ["Rewards/Reward_Eval"])
+    events_2 = load_events(PATH_2, ["Rewards/Reward_Eval"])
 
     # Get only y_values
     events_1_y = list()
