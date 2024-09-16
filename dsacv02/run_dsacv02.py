@@ -11,15 +11,15 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Ant-v4'
+gym_env = 'HalfCheetah-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 8
+ACTION_DIM = 6
 # ACTION_DIM = 2
-OBSERVATION_DIM = 111
+OBSERVATION_DIM = 17
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
@@ -93,14 +93,14 @@ dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'/event_{ts}'
 os.mkdir(event_path)
-tb_writer = SummaryWriter(log_dir=event_path, comment='VanillaDSAC', flush_secs=20)
+tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
-    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    # env = gym.make(gym_env)
-    # env_eval = gym.make(gym_env)
+    # env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
+    # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env)
+    env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
