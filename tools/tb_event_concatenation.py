@@ -3,6 +3,7 @@ Script to concatenate two quantities of TB logging file
 '''
 import os
 import numpy as np
+import pickle
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
@@ -28,35 +29,49 @@ def write_combined_events(output_file_path, combined_events):
 
 
 if __name__ == '__main__':
+    curr_dir = os.getcwd()
     # Paths to your event files
-    PATH_1 = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\rm_colab_run_checkpoint1/".replace("\\", "/")
-    PATH_2 = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\rm_colab_run_checkpoint2/".replace("\\", "/")
-    OUTPUT_DIR = "C:/Users/vanya/OneDrive/Desktop/Temp/TB"
+    PATHS = [
+        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\_Reg_RSMinMax' \
+        r'[0.2,1.0]_HZ[0.27.1.0]_STAR\chkpt1'.replace('\\', '/'),
+        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\_Reg_RSMinMax' \
+        r'[0.2,1.0]_HZ[0.27.1.0]_STAR\chkpt2'.replace('\\', '/')
+    ]
+    SAVE_PATH = curr_dir + '/' + 'rewards_eval.pkl'
 
     # Load events from both TensorBoard event files
-    events_1 = load_events(PATH_1, ["Rewards/Reward_Eval"])
-    events_2 = load_events(PATH_2, ["Rewards/Reward_Eval"])
+    events = list()
+    for path_i in PATHS:
+        events.append(load_events(path_i, ["Rewards/Reward_Eval"]))
 
-    # Get only y_values
-    events_1_y = list()
-    events_2_y = list()
+    # Identify breakpoints
+    events.append(None)
+    breakpoints = list()
+    for i in range(0, len(events), 2):
+        if events[i]:
+            max_curr, _ = max(events[i])
+            if events[i+1]:
+                min_next, _ = min(events[i+1])
+                if max_curr > min_next:
+                    breakpoints.append(min_next)
 
-    # Concatenate
+    print(f'Breakpoints @ {breakpoints}')
 
-    ''' Plot and Save Graphs '''
-    # Plot Varying Mu with Fixed Target
-    plt.rcParams['figure.figsize'] = (30, 12)
-    # for idx, deltas in enumerate(deltas_all_tars):
-    plt.plot(events_1_y, label='C_DSAC')
-    plt.plot(events_2_y, label='SAC')
+    # Convert events to dictionaries
+    events_list_dict = list()
+    for event_i in events[:-1]:
+        events_list_dict.append(dict(event_i))
 
-    plt.title('SAC vs. C-DSAC')
-    plt.xlabel('Episodes')
-    plt.ylabel('Rewards')
-    # plt.ylim(top=520)
-    plt.legend()
-    plt.savefig(OUTPUT_DIR + '/' + 'Rewards.png')
-    plt.show(block=True)
+    # Concatenate at saving points before last
+    events_dict = dict()
+    for idx, break_i in enumerate(breakpoints):
+        for k, v in events_list_dict[idx].items():
+            events_dict[k] = v
+            if k == break_i:
+                break
+    for k, v in events_list_dict[-1].items():
+        events_dict[k] = v
 
-
-
+    # Save the dictionary
+    with open(SAVE_PATH, mode='wb') as file:
+        pickle.dump(events_dict, file)
