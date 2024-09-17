@@ -32,12 +32,10 @@ if __name__ == '__main__':
     curr_dir = os.getcwd()
     # Paths to your event files
     PATHS = [
-        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\_Reg_RSMinMax' \
-        r'[0.2,1.0]_HZ[0.27.1.0]_STAR\chkpt1'.replace('\\', '/'),
-        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\_Reg_RSMinMax' \
-        r'[0.2,1.0]_HZ[0.27.1.0]_STAR\chkpt2'.replace('\\', '/')
+        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\SOTA\p1'.replace('\\', '/'),
+        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\SOTA\p2'.replace('\\', '/'),
     ]
-    SAVE_PATH = curr_dir + '/' + 'rewards_eval.pkl'
+    SAVE_PATH = curr_dir + '/' + 'ant-v4_rewards_eval_r2.pkl'
 
     # Load events from both TensorBoard event files
     events = list()
@@ -64,13 +62,18 @@ if __name__ == '__main__':
 
     # Concatenate at saving points before last
     events_dict = dict()
-    for idx, break_i in enumerate(breakpoints):
-        for k, v in events_list_dict[idx].items():
+    if breakpoints:
+        for idx, break_i in enumerate(breakpoints):
+            for k, v in events_list_dict[idx].items():
+                events_dict[k] = v
+                if k == break_i:
+                    break
+        for k, v in events_list_dict[-1].items():
             events_dict[k] = v
-            if k == break_i:
-                break
-    for k, v in events_list_dict[-1].items():
-        events_dict[k] = v
+    else:
+        for leg in events_list_dict:
+           for k, v in leg.items():
+                events_dict[k] = v
 
     # Save the dictionary
     with open(SAVE_PATH, mode='wb') as file:
