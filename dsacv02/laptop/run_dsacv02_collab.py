@@ -13,15 +13,15 @@ from google.colab import files
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'HalfCheetah-v4'
+gym_env = 'Humanoid-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 6
+ACTION_DIM = 17
 # ACTION_DIM = 2
-OBSERVATION_DIM = 17
+OBSERVATION_DIM = 376
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
@@ -49,7 +49,7 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 0.2             # Old 1.0
+STATIC_ALPHA = 0.05             # Old 1.0
 REWARD_SCALE = 1.0              # Old 5.0; for ant-v1, it seems that between 5-10 is ideal
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
@@ -73,8 +73,8 @@ PAST_MODEL_SURPASS = 1000
 RESET_ENTROPY_ITER = None
 
 ''' Numerical Parameters'''
-N_SUPPORTS = 31                 # 31
-IBF = 15
+N_SUPPORTS = 15                 # 31
+IBF = 10
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:

@@ -6,13 +6,14 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     # Load the dictionaries and store in list
-    path = r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\tools\Ant-v2_res'.replace('\\', '/')
+    path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\tools\Walker-v4_res".replace('\\', '/')
     files_name = os.listdir(path)
     dict_list = list()
     for file_i in files_name:
         file_i = path + '/' + file_i
-        with open(file_i, 'rb') as file:
-            dict_list.append(pickle.load(file))
+        if not os.path.isdir(file_i):
+            with open(file_i, 'rb') as file:
+                dict_list.append(pickle.load(file))
 
     # Create value list for 1M iterations
     complete_values = list()

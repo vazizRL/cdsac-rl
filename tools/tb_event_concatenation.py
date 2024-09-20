@@ -32,10 +32,10 @@ if __name__ == '__main__':
     curr_dir = os.getcwd()
     # Paths to your event files
     PATHS = [
-        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\SOTA\p1'.replace('\\', '/'),
-        r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\SOTA\p2'.replace('\\', '/'),
+        r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Walker2d-v2\fr_run_STAR2".replace('\\', '/'),
+        # r'C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\Ant-v2\SOTA\p2'.replace('\\', '/'),
     ]
-    SAVE_PATH = curr_dir + '/' + 'ant-v4_rewards_eval_r2.pkl'
+    SAVE_PATH = curr_dir + '/' + 'walker2d-v4_rewards_eval_fr_r2.pkl'
 
     # Load events from both TensorBoard event files
     events = list()

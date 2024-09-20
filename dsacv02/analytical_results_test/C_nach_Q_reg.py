@@ -75,7 +75,7 @@ if __name__ == '__main__':
     b_hist = list()
     for std_i_curr in std_range:
         dCdQ, b = partial_c_partial_q(mu_curr=mu_curr_fixed, std_curr=std_i_curr, pdf_tar=distr_tar, supports=supp_var_std,
-                                   lr=1, cramer_supp=supp_cr, nabla=1, dev='cpu')
+                                   lr=learning_rate, cramer_supp=supp_cr, nabla=1, dev='cpu')
         derivatives.append(dCdQ)
         b_hist.append(b)
 
