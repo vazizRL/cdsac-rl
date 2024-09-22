@@ -11,15 +11,15 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'HalfCheetah-v4'
+gym_env = 'Humanoid-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 6
+ACTION_DIM = 17
 # ACTION_DIM = 2
-OBSERVATION_DIM = 17
+OBSERVATION_DIM = 376
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
@@ -38,16 +38,16 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -1.0
+ACTION_LOW = -0.4
 # ACTION_LOW = -2.0
-ACTION_HIGH = 1.0
+ACTION_HIGH = 0.4
 # ACTION_HIGH = 2.0
 # RL parameters
 DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 0.2              # Old 0.2
+STATIC_ALPHA = 0.05              # Old 0.2
 REWARD_SCALE = 1.0              # Old 5.0; for ant-v1, it seems that between 5-10 is ideal
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1

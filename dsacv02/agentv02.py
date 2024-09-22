@@ -177,7 +177,7 @@ class Agent:
         self.dsac.force_alpha_to_val(self.log_alpha)
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str,
-                        save_replay=True):
+                        save_replay=True, save_all=False):
         """
         - Saves: Networks, optimizers, agent meta-parameters and experiences in replay buffer
         :param iter_n: Global iteration number at which the saving is performed
@@ -236,7 +236,7 @@ class Agent:
 
         # Save Replay Experiences
         if save_replay:
-            self.memory.save_experiences(complete_npy_file)
+            self.memory.save_experiences(complete_npy_file, all=save_all)
 
     def load_checkpoint(self, path, tar_name: str, txt_name: str, replay_npy_name: str, load_experience: bool):
         """

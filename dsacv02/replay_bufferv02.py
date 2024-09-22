@@ -75,23 +75,34 @@ class ReplayBuffer:
 
         return states, actions, rewards, states_, dones
 
-    def save_experiences(self, path_name: str):
+    def save_experiences(self, path_name: str, all=False):
         """
         - Appends newly added experiences to the byte stream
         - Expand rewards and dones by one axis for homogeneity
+        :param all: If True, it deactivates the append mode and writes all experiences
         :param path_name: Path + name of the .np file; Note: Must end with '.pkl'
         """
 
-        experiences = (self.state_memory[self.new_exp:self.mem_cntr],
-                       self.action_memory[self.new_exp:self.mem_cntr],
-                       self.reward_memory[self.new_exp:self.mem_cntr],
-                       self.new_state_memory[self.new_exp:self.mem_cntr],
-                       self.terminal_memory[self.new_exp:self.mem_cntr])
+        if all:
+            experiences = (self.state_memory[0:self.mem_cntr],
+                           self.action_memory[0:self.mem_cntr],
+                           self.reward_memory[0:self.mem_cntr],
+                           self.new_state_memory[0:self.mem_cntr],
+                           self.terminal_memory[0:self.mem_cntr])
 
-        with open(path_name, mode='ab') as file:
-            pickle.dump(experiences, file)
+            with open(path_name, mode='wb') as file:
+                pickle.dump(experiences, file)
+        else:
+            experiences = (self.state_memory[self.new_exp:self.mem_cntr],
+                           self.action_memory[self.new_exp:self.mem_cntr],
+                           self.reward_memory[self.new_exp:self.mem_cntr],
+                           self.new_state_memory[self.new_exp:self.mem_cntr],
+                           self.terminal_memory[self.new_exp:self.mem_cntr])
 
-        self.new_exp = self.mem_cntr
+            with open(path_name, mode='ab') as file:
+                pickle.dump(experiences, file)
+
+            self.new_exp = self.mem_cntr
 
         return 0
 

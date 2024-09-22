@@ -40,9 +40,9 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -1.0
-# ACTION_LOW = -2.0
-ACTION_HIGH = 1.0
+ACTION_LOW = -0.4
+# ACTION_LOW = -1.0
+ACTION_HIGH = 0.4
 # ACTION_HIGH = 2.0
 # RL parameters
 DOUBLE_Q = True
@@ -69,6 +69,8 @@ CHK_PROGRESS_INTERVAL = 100
 EVAL_INTERVAL = 1000
 TB_SAVE_INTERVAL = 20
 PAST_MODEL_SURPASS = 1000
+# Save checkpoint every CHECKPOINT_SAVE_INTERVAL
+CHK_SAVE_INTERVAL = 50_000 # 100_000
 # WARNING: Below is Experimental
 RESET_ENTROPY_ITER = None
 
@@ -87,14 +89,18 @@ Saving options
 '''
 curr_dir = os.getcwd() + '/'
 tar_name = 'best_performance.tar'
+tar_name_bkup = 'best_performance_bkup.tar'
 meta_name = 'agent_meta.txt'
+meta_name_bkup = 'agent_meta_bkup.txt'
 replay_name = 'replay_buffer.pkl'
+replay_name_bkup = 'replay_buffer_bkup.pkl'
 
 # Instantiate tb
 dt = datetime.now()
 ts = datetime.timestamp(dt)
 event_path = curr_dir + f'event_colab'
 event_path_chk = curr_dir + f'event_chk'
+
 os.mkdir(event_path)
 os.mkdir(event_path_chk)
 tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
@@ -134,6 +140,7 @@ if __name__ == '__main__':
     smooth_reward_last_eval = 0
     smooth_reward_iter_n_eval = 0
     smooth_reward_iter_n_eval_chkpt = 0
+    bkup_nr = 0
     smoothed_total = list()
     smoothed_total_eval = [0 for i in range(PAST_MODEL_SURPASS)]
     smoothed_total_eval_chkpt = [0 for i in range(PAST_MODEL_SURPASS)]
@@ -213,6 +220,26 @@ if __name__ == '__main__':
                                                         replay_npy_name='replay_buffer.pkl', load_experience=True)
                     smoothed_total_eval = smoothed_total_eval_chkpt
                     smooth_reward_iter_n_eval = smooth_reward_iter_n_eval_chkpt
+
+                if N_TOT_STEPS % CHK_SAVE_INTERVAL == 0:
+                    print(' . . .    Saving Backup Files    . . .')
+                    bkup_nr += 1
+                    event_path_save_chk = curr_dir + f'event_save_chk_{bkup_nr}'
+                    event_path_save_chk_zip = curr_dir + f'event_save_chk_{bkup_nr}.zip'
+                    os.mkdir(event_path_save_chk)
+                    # Todo: Add copy of TB event.
+                    agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path_save_chk, tar_name=tar_name_bkup,
+                                          txt_name=meta_name_bkup,
+                                          replay_txt_name=replay_name_bkup+f'{bkup_nr}',
+                                          save_replay=True,
+                                          save_all=True)
+                    all_files = os.listdir(event_path)
+                    for file_i in all_files:
+                        if file_i[:6] == 'events':
+                            target_file = file_i
+                    shutil.copy(event_path + '/' + target_file, event_path_save_chk + '/')
+                    !zip -r {event_path_save_chk_zip} {event_path_save_chk}
+                    # files.download(f'{event_path_save_chk_zip}')
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history_train.append(reward_episode)
