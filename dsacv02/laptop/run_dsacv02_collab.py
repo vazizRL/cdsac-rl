@@ -75,8 +75,8 @@ CHK_SAVE_INTERVAL = 50_000 # 100_000
 RESET_ENTROPY_ITER = None
 
 ''' Numerical Parameters'''
-N_SUPPORTS = 15                 # 31
-IBF = 10
+N_SUPPORTS = 31                 # 31
+IBF = 15
 
 # Exponentiate hyperparameters if networks output is exponentiated
 if EXPONENTIATE:
