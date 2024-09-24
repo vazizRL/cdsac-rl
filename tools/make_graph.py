@@ -2,7 +2,10 @@ import pickle
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
+
+sns.set_style("darkgrid", {'axes.grid': True, 'axes.edgecolor':'black'})
 
 if __name__ == '__main__':
     # Load the dictionaries and store in list
@@ -35,11 +38,11 @@ if __name__ == '__main__':
     # Plot Varying Mu with Fixed Target
     plt.rcParams['figure.figsize'] = (30, 12)
     # for idx, deltas in enumerate(deltas_all_tars):
-    plt.plot(x_supports, means, label=f'C-DSAC', color='red')
-    plt.fill_between(x_supports, means - (stds / 2), means + (stds / 2), color='pink', alpha=0.6)
+    plt.plot(x_supports, means, label=f'C-DSAC', color='darkorange')
+    plt.fill_between(x_supports, means - (stds / 2), means + (stds / 2), color='orange', alpha=0.6)
 
     plt.title(f'Average Reward')
-    plt.xlabel('Iterations')
+    plt.xlabel('Million Iterations')
     plt.ylabel('Episodic Reward')
     # plt.ylim((-5, 0))
     plt.legend()
