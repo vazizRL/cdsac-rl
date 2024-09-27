@@ -32,7 +32,7 @@ def partial_c_partial_q(mu_curr, std_curr, pdf_tar, supports, lr, cramer_supp, n
     frac = b
     print(f'b is {b}')
 
-    return - (1/std_curr) * frac * lr * nabla, b
+    return - (2/std_curr) * frac * lr * nabla, b
 
 
 if __name__ == '__main__':

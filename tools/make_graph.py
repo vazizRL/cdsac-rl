@@ -9,7 +9,7 @@ sns.set_style("darkgrid", {'axes.grid': True, 'axes.edgecolor':'black'})
 
 if __name__ == '__main__':
     # Load the dictionaries and store in list
-    path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\tools\Ant-v2_res".replace('\\', '/')
+    path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\tools\HalfCheetah-v2_res".replace('\\', '/')
     files_name = os.listdir(path)
     dict_list = list()
     for file_i in files_name:
