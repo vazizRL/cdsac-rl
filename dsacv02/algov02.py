@@ -261,6 +261,7 @@ class RealDSAC:
         - One Z target model
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
+        :param double_q: Whether logits are exponentiated
         :return: Q-loss attached to functional graph for gradient calculation
         """
         states, old_actions, rewards, states_next, dones = batch
@@ -272,7 +273,7 @@ class RealDSAC:
         dones = torch.as_tensor(dones, dtype=torch.float64).to(self.device)
 
         # Probability and value of action
-        action_means_next, action_stds_next, kweights_pol = self.policy_target(states_next)
+        action_means_next, action_stds_next, kweights_pol = self.policy_target(obs=states_next, exp=exp)
 
         # The action is only used for Q loss calculation, repara=False, detach from graph
         actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_action_distr(
@@ -363,14 +364,6 @@ class RealDSAC:
                 self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1, sample=False, exp=exp,
                                 reparameterize=False)
 
-            # means_min = means_min.detach()
-            # means_min = means_min
-            # kweights_selected_min = kweights_selected_min.detach()
-
-        # gmm_mean = (means_min * kweights_selected_min).sum(dim=1)
-        # # Not calculated according to Z! If Z, reparameterization is needed
-        # gmm_mean.unsqueeze_(dim=1)
-
         policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min).mean()
         entropy = -log_ps_curr_pol.mean().detach()
 
@@ -399,7 +392,7 @@ class RealDSAC:
         # Construct action distribution with reparameterization trick
         means_act, stds_act, kweights_act = self.policy(obs=states, exp=exp)
 
-        stds_act.abs_()
+        # stds_act.abs_()
 
         # NOTE: Only for Tensorbaord; item() returns a Python native type
         policy_mean = means_act.mean().detach().item()
@@ -412,9 +405,8 @@ class RealDSAC:
 
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()
-
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=False)
+        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
         loss_q.backward()
         critic1_grad = list(self.q1.q.parameters())[-8].grad.mean()
         critic2_grad = list(self.q2.q.parameters())[-8].grad.mean()
@@ -430,7 +422,8 @@ class RealDSAC:
             self.switch_autograd_logging(require_grad=False, models=models)
             self.policy_optimizer.zero_grad()
             loss_policy, entropy = self.compute_policy_loss(states=states, actions_curr_pol=action_bounded_curr,
-                                                            log_ps_curr_pol=prob_bounded_curr, double_q=double_q)
+                                                            log_ps_curr_pol=prob_bounded_curr, double_q=double_q,
+                                                            exp=exp)
             loss_policy.backward()
             actor_grad = list(self.policy.parameters())[-8].grad.mean()
             # Switch back on autograd after calculation of policy
@@ -492,16 +485,17 @@ class RealDSAC:
         return self.q_lr_ini, self.q_lr_fin, self.policy_lr_ini, self.policy_lr_fin, self.alpha_lr_ini, \
             self.alpha_lr_fin
 
-    def update(self, batch: tuple, iteration: int, double_q=False):
+    def update(self, batch: tuple, iteration: int, double_q=False, exp=False):
         """
         - Wrapper; Calculate gradient and perform network optimization step
         - Perform lr scheduler step
         :param batch: Mini-batch
         :param iteration: Iteration number, necessary to determine update-interval
         :param double_q: Whether two Q networks
+        :param exp: Whether logits are exponentiated
         :return: Dict containing quantities for logging in tensorboard
         """
-        tb_info = self.compute_gradient(batch=batch, iteration=iteration, double_q=double_q)
+        tb_info = self.compute_gradient(batch=batch, iteration=iteration, double_q=double_q, exp=exp)
         self.update_networks(iteration)
         self.update_lrs()
 

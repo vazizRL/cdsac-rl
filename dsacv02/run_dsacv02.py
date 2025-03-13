@@ -172,7 +172,7 @@ if __name__ == '__main__':
             N_TOT_STEPS += 1
             episode_iter += 1
 
-            tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=N_TOT_STEPS)
+            tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=N_TOT_STEPS, exp=EXPONENTIATE)
 
             if N_TOT_STEPS % TB_SAVE_INTERVAL == 0:
                 for key, value in tb_info.items():

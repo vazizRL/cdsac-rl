@@ -120,7 +120,7 @@ class Agent:
         """
         self.memory.store_transition(state, action, reward, state_, done)
 
-    def learn(self, n_learning_iter: int, step_number: int):
+    def learn(self, n_learning_iter: int, step_number: int, exp=False):
         """
         - Chain of method revokes: learn->Update->compute_gradients -> compute_z_loss
                                                                     -> compute_policy_loss
@@ -130,6 +130,7 @@ class Agent:
                                 Note that the value networks are always fitted, the fitting of the policy depends on
                                 step_number
         :param step_number: Total train step number from main_sac_sb.py
+        :param exp: Whether logits in policy class are exponentiated after sampling
         :return: RL learning quantities (losses, rewards, ...etc.)
         """
         if self.memory.mem_cntr < self.batch_size:
@@ -140,7 +141,7 @@ class Agent:
         else:
             for learning_iter_i in range(n_learning_iter):
                 batch_i = self.memory.sample_buffer(batch_size=self.batch_size)
-                tb_info = self.dsac.update(batch=batch_i, iteration=step_number, double_q=self.double_q)
+                tb_info = self.dsac.update(batch=batch_i, iteration=step_number, double_q=self.double_q, exp=exp)
 
         return tb_info
 
