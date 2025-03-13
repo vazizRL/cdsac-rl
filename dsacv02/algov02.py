@@ -417,6 +417,8 @@ class RealDSAC:
         loss_q.backward()
         critic1_grad = list(self.q1.q.parameters())[-8].grad.mean()
         critic2_grad = list(self.q2.q.parameters())[-8].grad.mean()
+        # critic1_grad = list(self.q1.q.parameters())[-6].grad.mean()
+        # critic2_grad = list(self.q2.q.parameters())[-6].grad.mean()
 
         loss_policy, entropy = None, None
         if iteration % self.update_interval == 0:

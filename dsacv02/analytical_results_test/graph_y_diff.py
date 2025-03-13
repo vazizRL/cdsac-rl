@@ -8,7 +8,7 @@ cntr = 1
 interval = 4000
 
 # Path to Y-Diff
-run_name = 'Y-Diff_1718577412.859996'
+run_name = 'Y-Diff_1727745352.393538'
 curr_dir = os.getcwd() + '/'
 y_diff_dsac_path = curr_dir + run_name + '/' + 'y_diff_dsac.npy'
 y_diff_sac_path = curr_dir + run_name + '/' + 'y_diff_sac.npy'
@@ -17,7 +17,7 @@ y_diff_sac_path = curr_dir + run_name + '/' + 'y_diff_sac.npy'
 y_diff_dsac_hist = np.load(y_diff_dsac_path)
 y_diff_sac_hist = np.load(y_diff_sac_path)
 # For x-axis values
-x_ticks = [i+1 for i in range(8)]
+x_ticks = [i+1 for i in range(23)]
 
 # Graph
 for dsac_curve, sac_curve in zip(y_diff_dsac_hist, y_diff_sac_hist):

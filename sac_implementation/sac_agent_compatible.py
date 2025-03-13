@@ -118,8 +118,8 @@ class Agent:
         """
         state = T.tensor(observation).to(self.policy.device)
         means, stds, _ = self.policy(state)
-        means.squeeze_(dim=2)
-        stds.squeeze_(dim=2)
+        # means.squeeze_(dim=2)
+        # stds.squeeze_(dim=2)
         stds.abs_()
         actions, _ = self.policy.sample_from_action_distr(locs=means, stds=stds, kweights=self.generic_kw_single,
                                                           reparameterization=False)
@@ -164,15 +164,15 @@ class Agent:
         dones.unsqueeze_(dim=1)
         with T.no_grad():
             actions_next_mean, actions_next_std, _ = self.policy_target(states_next)
-            actions_next_mean.squeeze_(dim=2)
-            actions_next_std.squeeze_(dim=2).abs_()
+            # actions_next_mean.squeeze_(dim=2)
+            # actions_next_std.squeeze_(dim=2).abs_()
             actions_next, actions_next_log = self.policy_target.sample_from_action_distr(locs=actions_next_mean,
                                                                                          stds=actions_next_std,
                                                                                          kweights=self.generic_kw_batch,
                                                                                          reparameterization=False)
 
             q_val_next, _, _ = self.q_target(states_next, actions_next)
-            q_val_next.squeeze_(dim=2)
+            # q_val_next.squeeze_(dim=2)
             omega = self.get_temperature(detach=True)
 
         target = rewards + (1 - dones) * self.gamma * (q_val_next - omega * actions_next_log)
@@ -203,10 +203,10 @@ class Agent:
         q_hat = self.get_soft_value_target(rewards=reward, states_next=state_next, dones=done)
 
         q1_old_policy, _, _ = self.q1(state, old_actions)
-        q1_old_policy.squeeze_(dim=2)
+        # q1_old_policy.squeeze_(dim=2)
         if self.double_q:
             q2_old_policy, _, _ = self.q2(state, old_actions)
-            q2_old_policy.squeeze_(dim=2)
+            # q2_old_policy.squeeze_(dim=2)
             critic_1_loss = 0.5 * F.mse_loss(q1_old_policy, q_hat)
             critic_2_loss = 0.5 * F.mse_loss(q2_old_policy, q_hat)
             critic_loss = critic_1_loss + critic_2_loss
@@ -227,8 +227,8 @@ class Agent:
 
         self.policy_optimizer.zero_grad()
         actions_mean, actions_std, _ = self.policy(state)
-        actions_mean.squeeze_(dim=2)
-        actions_std.squeeze_(dim=2).abs_()
+        # actions_mean.squeeze_(dim=2)
+        # actions_std.squeeze_(dim=2).abs_()
         actions_online, actions_online_log = self.policy.sample_from_action_distr(
             locs=actions_mean,
             stds=actions_std,
@@ -240,7 +240,7 @@ class Agent:
             q1_online_pol, _, _ = self.q1(state, actions_online)
             q2_online_pol, _, _ = self.q2(state, actions_online)
             q_online_pol_min = T.min(q1_online_pol, q2_online_pol)
-            q_online_pol_min.squeeze_(dim=2)
+            # q_online_pol_min.squeeze_(dim=2)
         else:
             # Min value is standard Q-value of singular network
             q_online_pol_min, _, _ = self.q1(state, actions_online)

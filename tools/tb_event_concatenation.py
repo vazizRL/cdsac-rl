@@ -32,10 +32,10 @@ if __name__ == '__main__':
     curr_dir = os.getcwd()
     # Paths to your event files
     PATHS = [
-        r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\HalfCheetah-v4\SOTA\events.out.tfevents.1726571945.z-force.35964.0".replace('\\', '/'),
-        # r"".replace('\\', '/'),
+        r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\HalfCheetah-v4\_SAC_Baseline\_UniCr_HalfCheetah_r4\chkpt1".replace('\\', '/'),
+        r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\HalfCheetah-v4\_SAC_Baseline\_UniCr_HalfCheetah_r4\chkpt2".replace('\\', '/'),
     ]
-    SAVE_PATH = curr_dir + '/' + 'halfcheetah-v4_rewards_eval_fl_SOTA_3.pkl'
+    SAVE_PATH = curr_dir + '/' + 'HalfCheetah_SAC_r4.pkl'
 
     # Load events from both TensorBoard event files
     events = list()

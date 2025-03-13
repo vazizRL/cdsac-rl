@@ -13,13 +13,14 @@ from copy import deepcopy
 
 ''' Environment constants '''
 DEVICE = 'cuda:0'
-N_CELLS = 50        # 10
+N_CELLS = 25        # 10
 CELL_LIST = torch.tensor([[i] for i in range(N_CELLS)], device=DEVICE).unsqueeze(dim=2)
 ACTION_LEFT = torch.tensor([-1.0], device=DEVICE).unsqueeze(dim=1)
 ACTION_RIGHT = torch.tensor([1.0], device=DEVICE).unsqueeze(dim=1)
 RIGHT_GETS_REWARD = True
 STOCHASTICITY_TERMINAL = 0.0
-CONTINUOUS = True
+# CONTINUOUS = True
+CONTINUOUS = False
 
 ''' Agent constants '''
 ACTION_DIM = 1
@@ -27,8 +28,8 @@ OBSERVATION_DIM = 1
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 # Learning Rates
-CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 5e-4, 5e-4, 5e-4
-CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 5e-4, 5e-4, 1e-5
+CR_LR_INI, ACT_LR_INI, ALPHA_LR_INI = 3e-4, 3e-4, 3e-4
+CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4
 # Standard deviations
 EXPONENTIATE = False
 CR_MIN_STD, CR_MAX_STD = 0.01, 100.0            # 0.01, 100.0
@@ -43,13 +44,13 @@ ACT_ACTIV = ('relu', 'relu')
 ACTION_LOW = -1.0
 ACTION_HIGH = 1.0
 # RL parameters
-DOUBLE_Q = False
+DOUBLE_Q = True
 BATCH_SIZE = 16
 T_MAX = N_CELLS*10
 TAU = 0.85
 STATIC_ALPHA = 0.1                     # 1.0
-REWARD_SCALE = 2
-GAMMA = 0.95
+REWARD_SCALE = 1
+GAMMA = 0.98
 UPDATE_INTERVAL = 1
 AUTO_ALPHA = True
 ALPHA_INI = -2.0                    # GIVEN AS x; e**x
@@ -60,7 +61,7 @@ N_POL_UPDATE_INTERVAL = 1
 Training Parameters
 '''
 n_tot_steps = 1
-MAX_TOTAL_ITER = 32040               # 12040
+MAX_TOTAL_ITER = 32040               # 32040
 MAX_EPISODE_ITER = 500
 LOG_Y_DIFF_INTERVAL = 4000
 
@@ -80,7 +81,7 @@ if EXPONENTIATE:
 '''
 Saving options
 '''
-SAVE_N_SUCCESS = 150
+SAVE_N_SUCCESS = 50
 curr_dir = os.getcwd() + '/' + 'analytical_results_test' + '/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
@@ -113,8 +114,11 @@ def print_block(string: str):
 
 
 if __name__ == '__main__':
+    # eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter: int)
     env_dsac = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
+    env_dsac_eval = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
     env_sac = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
+    env_sac_eval = LinearEnv(size=N_CELLS, right_gets_reward=RIGHT_GETS_REWARD, stochasticity=STOCHASTICITY_TERMINAL)
     diff_dsac_hist = list()
     diff_sac_hist = list()
 
@@ -313,6 +317,9 @@ if __name__ == '__main__':
         if n_tot_steps >= MAX_TOTAL_ITER:
             break
 
+        if not not_saved_dsac and not not_saved_sac:
+            break
+
     # Convert to np.ndarray and create .npy file names
     print('\n')
     print(' . . . Saving Y-Diffs . . .')
@@ -323,10 +330,4 @@ if __name__ == '__main__':
     # Save
     np.save(file=y_diff_path_dsac, arr=y_diff_dsac_npy)
     np.save(file=y_diff_path_sac, arr=y_diff_sac_npy)
-
-
-
-
-
-
 
