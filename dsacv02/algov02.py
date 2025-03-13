@@ -17,6 +17,7 @@ class RealDSAC:
                  n_kernels_cr=1,  n_supports=30, ibf=20, batch_size=None, device='cuda:0'):
         """
         - Implements DSACv0.2, based on DRL, Cramèr Distance and GMMs
+        - Cramer II
         :param critic1: First q-network in the double-Q setting
         :param critic2: Second q-network in the double-Q setting
         :param critic1_target: First q-target
