@@ -222,7 +222,8 @@ class RealDSAC:
                 self.soft_avg_update(self.q2, self.q2_target)
                 self.soft_avg_update(self.policy, self.policy_target)
 
-    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights_next, log_probs_a_next):
+    def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights_next,
+                                    log_probs_a_next):
         """
         - Calculates the entropy-regularized target distribution \mathcal{Z}_H(\cdot|s,a) as a GMM
         - Note: Standard deviations are set to 0 for terminal states

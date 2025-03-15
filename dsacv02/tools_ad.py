@@ -29,11 +29,12 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
     graph_names = ['DSAC2_ActDistr/entropy-RL iter', *kernel_names_act, 'DSAC2_ActDistr/gmm_actor_avg_std iter',
                    'DSAC2_Alpha/alpha-RL iter', *kernel_names_cr, 'DSAC2_CrDistr/gmm_critic_avg_std iter',
                    'DSAC2_Vals/gmm_actor_avg_action iter', 'DSAC2_Vals/gmm_critic_avg_value iter',
-                   'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Reward', 'Time/Algorithm time [ms]-RL iter'
+                   'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Rewards/Reward_Eval',
+                   'Rewards/Reward_Training', 'Time/Algorithm time [ms]-RL iter'
                    ]
     file_save_names = ['Actor_Loss.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
                        *kernel_names_cr_output, 'Critic_Std.png', 'Actor_Val.png', 'Critic_Val.png', 'Actor_Loss.png',
-                       'Critic_Loss.png', 'Reward.png', 'Time_per_Iter.png']
+                       'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training', 'Time_per_Iter.png']
 
     for graph_name, file_save_name in zip(graph_names, file_save_names):
         values_i = list()
@@ -67,12 +68,3 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
     print('Finished')
 
 
-if __name__ == '__main__':
-    N_KERNELS_ACT = 1
-    N_KERNELS_CR = 1
-    curr_dir = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim\CartPole-v1_optim\1k\r6_CrMin0.01_Initial1_AutoAlpha_C"
-    output_dir = curr_dir + r"\graphs"
-    plt.rcParams['figure.figsize'] = (30, 12)           # Old: (20, 8)
-    # Example usage:
-    logdir = curr_dir
-    save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)

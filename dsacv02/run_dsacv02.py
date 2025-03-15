@@ -11,16 +11,16 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Humanoid-v4'
-# gym_env = 'LunarLander-v2'
+# gym_env = 'Humanoid-v4'
+gym_env = 'Ant-v4'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 17
-# ACTION_DIM = 2
-OBSERVATION_DIM = 376
-# OBSERVATION_DIM = 8
+# ACTION_DIM = 17
+ACTION_DIM = 8
+# OBSERVATION_DIM = 376
+OBSERVATION_DIM = 27
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
@@ -38,10 +38,10 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -0.4
-# ACTION_LOW = -2.0
-ACTION_HIGH = 0.4
-# ACTION_HIGH = 2.0
+# ACTION_LOW = -0.4
+ACTION_LOW = -1.0
+# ACTION_HIGH = 0.4
+ACTION_HIGH = 1.0
 # RL parameters
 DOUBLE_Q = True
 BATCH_SIZE = 256
