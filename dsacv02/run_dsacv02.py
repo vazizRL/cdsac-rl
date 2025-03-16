@@ -9,8 +9,8 @@ from tools import smoothing, eval_agent
 
 
 ''' Environment constants '''
-# LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
-LOAD_PATH = None
+LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\cramer_ii\Critic_Parameterizatoin_Test_Ant".replace('\\', '/')
+# LOAD_PATH = None
 # gym_env = 'Humanoid-v4'
 gym_env = 'Ant-v4'
 DEVICE = 'cuda:0'
