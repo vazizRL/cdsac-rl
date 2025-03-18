@@ -38,7 +38,7 @@ if __name__ == '__main__':
     HIDDEN = (256, 256)
     ACTIVE = ('relu', 'relu')
     # Batch
-    BATCH_SIZE = 1
+    BATCH_SIZE = 256
     # Standard supports
     N_SUPPORTS, IBF = 32, 15
     STANDARD_SUPP = get_normal_supports(batch_size=BATCH_SIZE, n_kernels=1, n_supp=N_SUPPORTS,
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     TAR_STD_CONST = t.tensor(1e-4, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
     # TAR_STD_CONST = t.tensor(20.0, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
 
-    tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    # tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
 
     for iter in range(ITERATIONS):
         # Get Means
@@ -76,13 +76,14 @@ if __name__ == '__main__':
         pred_cr_means, pred_cr_stds, _ = critic(observation=obs, action=acts, exp=False)
         pred_cr_distr = generate_gauss_distr(means=pred_cr_means, stds=pred_cr_stds, multivar=False, kweights=None)
         # Calculate curr. target
-        # tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
+        tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
         tar_stds_var = quadratic(x=iter, a=1.3e-7, h=10000, k=13, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
-        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
-        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
+        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
+        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
 
         loss_var = cramer_optim_1k(pdf_target=tar_cr_distr_var, pdf_curr=pred_cr_distr,
                                    standard_supp=STANDARD_SUPP, n_kernels=1, dev=DEV)
+        cr_adam.zero_grad()
         loss_var.backward()
         cr_adam.step()
 
