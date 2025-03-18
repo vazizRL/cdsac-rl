@@ -1,5 +1,5 @@
 """
-Testing effect of updating with high-entrpoy vs. low-entropy target
+- Testing effect of updating with high-entrpoy vs. low-entropy target
 """
 import torch
 import torch.optim as optim

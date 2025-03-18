@@ -166,27 +166,30 @@ if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     # Train parameters
-    learning_rate = 0.001
+    # learning_rate = 0.001
+    learning_rate = 0.0003
     epochs = 7                  # Old: 7
     epochs_low_e = 5           # Old: 10
     epochs_high_e = 5          # Old: 10
-    mb_size = 50
+    mb_size = 256
     # Network parameters
     arch = (1, 256, 256, 1)
     activ = ('relu', 'relu')
     n_kernels = 1
-    multivar = True
-    learnable_weights = True
+    # multivar = True
+    # learnable_weights = True
+    multivar = False
+    learnable_weights = False
     kweights_fix = torch.ones(n_kernels, dtype=torch.float64) / n_kernels
     kweights_fix.to(device)
     # Number of Supports per Kernel
-    n_eval_points = 30
-    ibf = 10
+    n_eval_points = 32
+    ibf = 15
     standard_supports = get_normal_supports(batch_size=mb_size, n_kernels=n_kernels, n_supp=n_eval_points,
                                             integral_bound_factor=ibf, dev=device)
     graph_spacing = 0.01
-    graph_l = -40
-    graph_u = 85
+    graph_l = -50
+    graph_u = 95
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
@@ -228,7 +231,8 @@ if __name__ == '__main__':
     optimizer_ref_high_e = optim.Adam(norm_approx_ref_high_e.parameters(), lr=learning_rate)
 
     # Initialize input
-    n_datapoints = 6000
+    # n_datapoints = 6000
+    n_datapoints = 25600
     n_mb = int(n_datapoints / mb_size)
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
