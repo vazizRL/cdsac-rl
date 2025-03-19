@@ -52,18 +52,19 @@ if __name__ == '__main__':
                                                   t.tensor(0.13, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
 
     # Instantiate Critic
-    CRITIC_MIN_STD = 0.01
+    CRITIC_MIN_STD = 0.0000000001
     CRITIC_MAX_STD = 1000
+    EXPONENTIATE = False
     critic = Critic(state_dim=OBS_N, action_dim=ACT_N, hidden_layers=HIDDEN, n_kernels=1, activ=ACTIVE,
                     value_min_std=CRITIC_MIN_STD, value_max_std=CRITIC_MAX_STD, learnable_weights=False, device=DEV)
     # NN Optimizer
     cr_adam = Adam(critic.parameters(), lr=LR)
 
     # Target Distribution
-    TAR_STD_CONST = t.tensor(1e-4, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
-    # TAR_STD_CONST = t.tensor(20.0, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    # TAR_STD_CONST = t.tensor(1e-3, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    TAR_STD_CONST = t.tensor(20, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
 
-    # tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
 
     for iter in range(ITERATIONS):
         # Get Means
@@ -73,13 +74,14 @@ if __name__ == '__main__':
         obs = gauss(mean=obs_mean, std=OBS_STD, dev=DEV)
         acts = gauss(mean=acts_mean, std=ACT_STD, dev=DEV)
         # Get batch-wise prediction
-        pred_cr_means, pred_cr_stds, _ = critic(observation=obs, action=acts, exp=False)
+        pred_cr_means, pred_cr_stds, _ = critic(observation=obs, action=acts, exp=EXPONENTIATE)
         pred_cr_distr = generate_gauss_distr(means=pred_cr_means, stds=pred_cr_stds, multivar=False, kweights=None)
         # Calculate curr. target
-        tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
-        tar_stds_var = quadratic(x=iter, a=1.3e-7, h=10000, k=13, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
-        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
-        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
+        # tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
+        # tar_stds_var = quadratic(x=iter, a=1.3e-7, h=10000, k=13, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
+        tar_stds_var = quadratic(x=iter, a=1e-8, h=10000, k=1, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
+        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
+        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
 
         loss_var = cramer_optim_1k(pdf_target=tar_cr_distr_var, pdf_curr=pred_cr_distr,
                                    standard_supp=STANDARD_SUPP, n_kernels=1, dev=DEV)
@@ -99,6 +101,7 @@ if __name__ == '__main__':
     for j in range(ITERATIONS):
         means_true.append(quadratic(x=j, a=1.8e-6, h=10000, k=180, batch_size=1, dev='cpu').item())
         stds_true.append(quadratic(x=j, a=1.3e-7, h=10000, k=13, batch_size=1, dev='cpu').item() + 1e-10)
+        # stds_true.append(quadratic(x=j, a=1e-8, h=10000, k=1, batch_size=1, dev='cpu').item() + 1e-10)
 
     # Plot Cr Loss
     plt.plot(cr_loss, label='Critic Loss')
