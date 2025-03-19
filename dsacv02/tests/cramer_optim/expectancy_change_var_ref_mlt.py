@@ -7,10 +7,10 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 one_kernel = True
 curr_path = os.getcwd()
 main_dir = '/VAR_REF_OPTI'
-dir_name = 'test'
-loading_path = curr_path + '/' + main_dir + '/' + dir_name
-# loading_path = curr_path + '/' + dir_name
-smoothing_weight_means = 0.85
+dir_name = '1742427547.1381917'
+# loading_path = curr_path + '/' + main_dir + '/' + dir_name
+loading_path = curr_path + '/' + dir_name
+smoothing_weight_means = 0.0
 
 # Load low-low Values
 means_history_low_low = torch.load(loading_path + '/' + 'means_history_low_low').cpu().detach().numpy()
@@ -220,7 +220,7 @@ plt.title('Change in Cramer Loss - From Low-E Ref.')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'Loss_From_L.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes Losses for h-l and h-h
@@ -236,7 +236,7 @@ plt.title('Change in Cramer Loss - From High-E Ref')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'Loss_From_H.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes in Means for l-l and h-l
@@ -258,7 +258,7 @@ plt.title('Change in Expectancy - From L/H to L-Target')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'Means_LH_to_L.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes in Means for l-h and h-h
@@ -281,7 +281,7 @@ plt.legend()
 # Show the plot
 # Show the plot
 plt.savefig(loading_path + '/' + 'Means_LH_to_H.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes in Stds for l-l and h-l
@@ -304,7 +304,7 @@ plt.legend()
 # Show the plot
 # Show the plot
 plt.savefig(loading_path + '/' + 'STDs_LH_to_L.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes in Stds for l-h and h-h
@@ -326,7 +326,7 @@ plt.title('Change in Stds - From L/H to H-Target')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'STDs_LH_to_H.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Changes in Kweights for l-l and h-l
@@ -383,7 +383,7 @@ plt.title('CDF: Reference with Targets - After Ref. Fitting')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'CDFPre.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Show Low-H CDF post training
@@ -400,7 +400,7 @@ plt.title('CDF - From L/H Ref to Low Target')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'CDFPost_LH_to_L.png')
-plt.show(block=False)
+# plt.show(block=False)
 
 '''
 Show High-H CDF post training
@@ -416,7 +416,8 @@ plt.title('CDF - From L/H Ref to High Target')
 plt.legend()
 # Show the plot
 plt.savefig(loading_path + '/' + 'CDFPost_LH_to_H.png')
-plt.show(block=True)
+# plt.show(block=False)
+print('Finished Operation')
 
 
 

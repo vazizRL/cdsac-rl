@@ -166,8 +166,8 @@ if __name__ == '__main__':
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     # Train parameters
-    # learning_rate = 0.001
-    learning_rate = 0.0003
+    learning_rate = 0.001
+    # learning_rate = 0.0003
     epochs = 7                  # Old: 7
     epochs_low_e = 5           # Old: 10
     epochs_high_e = 5          # Old: 10
@@ -188,8 +188,8 @@ if __name__ == '__main__':
     standard_supports = get_normal_supports(batch_size=mb_size, n_kernels=n_kernels, n_supp=n_eval_points,
                                             integral_bound_factor=ibf, dev=device)
     graph_spacing = 0.01
-    graph_l = -50
-    graph_u = 95
+    graph_l = -120
+    graph_u = 120
 
     # Reference distribution - Low E
     mean_ref_low_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
@@ -201,7 +201,7 @@ if __name__ == '__main__':
     # Reference distribution - High E
     mean_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([0.0], dtype=torch.float64).to(device)
     mean_ref_high_e.unsqueeze_(dim=1)
-    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([10.0], dtype=torch.float64).to(device)
+    std_ref_high_e = torch.ones(size=(mb_size,)).to(device) * torch.tensor([30.0], dtype=torch.float64).to(device)
     std_ref_high_e.unsqueeze_(dim=1)
     distr_ref_high_e = generate_norm_distr(locs=mean_ref_high_e, scales=std_ref_high_e)
 
@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     # Initialize input
     # n_datapoints = 6000
-    n_datapoints = 25600
+    n_datapoints = 6144
     n_mb = int(n_datapoints / mb_size)
     input_total = torch.randn(size=(n_datapoints, 1)).to(device)
     batches = input_total.view(n_mb, mb_size, 1)
@@ -246,8 +246,8 @@ if __name__ == '__main__':
         for batch in batches:
             pred_means_ref_low_e, pred_stds_ref_low_e, kweights_ref_low_e = norm_approx_ref_low_e(batch)
             pred_stds_ref_low_e.abs_()
-            pred_means_ref_low_e.squeeze_(dim=2)
-            pred_stds_ref_low_e.squeeze_(dim=2)
+            # pred_means_ref_low_e.squeeze_(dim=2)
+            # pred_stds_ref_low_e.squeeze_(dim=2)
             if learnable_weights:
                 pred_norm_ref_low_e = generate_norm_distr(locs=pred_means_ref_low_e,
                                                           scales=pred_stds_ref_low_e,
@@ -287,8 +287,8 @@ if __name__ == '__main__':
         for batch in batches:
             pred_means_ref_high_e, pred_stds_ref_high_e, kweights_ref_high_e = norm_approx_ref_high_e(batch)
             pred_stds_ref_high_e.abs_()
-            pred_means_ref_high_e.squeeze_(dim=2)
-            pred_stds_ref_high_e.squeeze_(dim=2)
+            # pred_means_ref_high_e.squeeze_(dim=2)
+            # pred_stds_ref_high_e.squeeze_(dim=2)
             if learnable_weights:
                 pred_norm_ref_high_e = generate_norm_distr(locs=pred_means_ref_high_e,
                                                            scales=pred_stds_ref_high_e,
@@ -348,12 +348,12 @@ if __name__ == '__main__':
             # kweights = None
             pred_means_low_low, pred_stds_low_low, kweights_low_low = norm_approx_low_e_from_low_ref(batch)
             pred_stds_low_low.abs_()
-            pred_means_low_low.squeeze_(dim=2)
-            pred_stds_low_low.squeeze_(dim=2)
+            # pred_means_low_low.squeeze_(dim=2)
+            # pred_stds_low_low.squeeze_(dim=2)
             # Log preds
             means_history_batch_low_low = torch.cat((means_history_batch_low_low, pred_means_low_low), dim=0)
             stds_history_batch_low_low = torch.cat((stds_history_batch_low_low, pred_stds_low_low), dim=0)
-            kweights_history_batch_low_low = torch.cat((kweights_history_batch_low_low, kweights_low_low), dim=0)
+            # kweights_history_batch_low_low = torch.cat((kweights_history_batch_low_low, kweights_low_low), dim=0)
 
             if learnable_weights:
                 pred_norm_low_low = generate_norm_distr(locs=pred_means_low_low,
@@ -404,12 +404,12 @@ if __name__ == '__main__':
             # kweights = None
             pred_means_high_low, pred_stds_high_low, kweights_high_low = norm_approx_low_e_from_high_ref(batch)
             pred_stds_high_low.abs_()
-            pred_means_high_low.squeeze_(dim=2)
-            pred_stds_high_low.squeeze_(dim=2)
+            # pred_means_high_low.squeeze_(dim=2)
+            # pred_stds_high_low.squeeze_(dim=2)
             # Log preds
             means_history_batch_high_low = torch.cat((means_history_batch_high_low, pred_means_high_low), dim=0)
             stds_history_batch_high_low = torch.cat((stds_history_batch_high_low, pred_stds_high_low), dim=0)
-            kweights_history_batch_high_low = torch.cat((kweights_history_batch_high_low, kweights_high_low), dim=0)
+            # kweights_history_batch_high_low = torch.cat((kweights_history_batch_high_low, kweights_high_low), dim=0)
 
             if learnable_weights:
                 pred_norm_high_low = generate_norm_distr(locs=pred_means_high_low,
@@ -459,12 +459,12 @@ if __name__ == '__main__':
 
             pred_means_low_high, pred_stds_low_high, kweights_low_high = norm_approx_high_e_from_low_ref(batch)
             pred_stds_low_high.abs_()
-            pred_means_low_high.squeeze_(dim=2)
-            pred_stds_low_high.squeeze_(dim=2)
+            # pred_means_low_high.squeeze_(dim=2)
+            # pred_stds_low_high.squeeze_(dim=2)
             # Log preds
             means_history_batch_low_high = torch.cat((means_history_batch_low_high, pred_means_low_high), dim=0)
             stds_history_batch_low_high = torch.cat((stds_history_batch_low_high, pred_stds_low_high), dim=0)
-            kweights_history_batch_low_high = torch.cat((kweights_history_batch_low_high, kweights_low_high), dim=0)
+            # kweights_history_batch_low_high = torch.cat((kweights_history_batch_low_high, kweights_low_high), dim=0)
 
             if learnable_weights:
                 pred_norm_low_high = generate_norm_distr(locs=pred_means_low_high,
@@ -515,12 +515,12 @@ if __name__ == '__main__':
 
             pred_means_high_high, pred_stds_high_high, kweights_high_high = norm_approx_high_e_from_high_ref(batch)
             pred_stds_high_high.abs_()
-            pred_means_high_high.squeeze_(dim=2)
-            pred_stds_high_high.squeeze_(dim=2)
+            # pred_means_high_high.squeeze_(dim=2)
+            # pred_stds_high_high.squeeze_(dim=2)
             # Log preds
             means_history_batch_high_high = torch.cat((means_history_batch_high_high, pred_means_high_high), dim=0)
             stds_history_batch_high_high = torch.cat((stds_history_batch_high_high, pred_stds_high_high), dim=0)
-            kweights_history_batch_high_high = torch.cat((kweights_history_batch_high_high, kweights_high_high), dim=0)
+            # kweights_history_batch_high_high = torch.cat((kweights_history_batch_high_high, kweights_high_high), dim=0)
 
             if learnable_weights:
                 pred_norm_high_high = generate_norm_distr(locs=pred_means_high_high,
