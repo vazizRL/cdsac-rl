@@ -24,10 +24,24 @@ def gauss(mean, std, dev='cpu'):
     return t.normal(mean=mean, std=std)
 
 
+def MSE_1k(pdf_target: t.tensor, pdf_curr: t.tensor):
+    """
+    - Test Method calculating the MSE
+    """
+    # Dynamically Determine Supports for Current + Target
+    batch_size = pdf_target.loc.shape[0]
+    difference = pdf_curr.loc - pdf_target.loc
+    difference_mean = difference**2 / batch_size
+    mse = difference_mean.sum()
+
+    return mse
+
+
 if __name__ == '__main__':
     DEV = 'cuda:0'
     # Training parameters
     ITERATIONS = 10000
+    # ITERATIONS = 19999
     LR = 3e-4
     # Log elements
     LOG_FREQ = 1
@@ -53,18 +67,19 @@ if __name__ == '__main__':
 
     # Instantiate Critic
     CRITIC_MIN_STD = 0.0000000001
-    CRITIC_MAX_STD = 1000
-    EXPONENTIATE = False
+    # CRITIC_MAX_STD = 1000
+    CRITIC_MAX_STD = 10000000000
+    EXPONENTIATE = True
     critic = Critic(state_dim=OBS_N, action_dim=ACT_N, hidden_layers=HIDDEN, n_kernels=1, activ=ACTIVE,
                     value_min_std=CRITIC_MIN_STD, value_max_std=CRITIC_MAX_STD, learnable_weights=False, device=DEV)
     # NN Optimizer
     cr_adam = Adam(critic.parameters(), lr=LR)
 
     # Target Distribution
-    # TAR_STD_CONST = t.tensor(1e-3, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
-    TAR_STD_CONST = t.tensor(20, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
-
-    tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    TAR_STD_CONST = t.tensor(1e-3, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    # tar_means = t.tensor(100, device=DEV).expand(BATCH_SIZE).unsqueeze(dim=1)
+    if EXPONENTIATE:
+        TAR_STD_CONST = t.nn.functional.softplus(input=TAR_STD_CONST, beta=1, threshold=2)
 
     for iter in range(ITERATIONS):
         # Get Means
@@ -75,16 +90,27 @@ if __name__ == '__main__':
         acts = gauss(mean=acts_mean, std=ACT_STD, dev=DEV)
         # Get batch-wise prediction
         pred_cr_means, pred_cr_stds, _ = critic(observation=obs, action=acts, exp=EXPONENTIATE)
-        pred_cr_distr = generate_gauss_distr(means=pred_cr_means, stds=pred_cr_stds, multivar=False, kweights=None)
-        # Calculate curr. target
-        # tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
+
+        tar_means = quadratic(x=iter, a=1.8e-6, h=10000, k=180, batch_size=BATCH_SIZE, dev=DEV)
+        # tar_means = quadratic(x=iter, a=1e-4, h=10000, k=10500, batch_size=BATCH_SIZE, dev=DEV) # Steep!
         # tar_stds_var = quadratic(x=iter, a=1.3e-7, h=10000, k=13, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
-        tar_stds_var = quadratic(x=iter, a=1e-8, h=10000, k=1, batch_size=BATCH_SIZE, dev=DEV) + 1e-10
-        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
-        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
+        tar_stds_var = quadratic(x=iter, a=1e-8, h=10000, k=1, batch_size=BATCH_SIZE, dev=DEV) + 1e-10  # Very flat
+
+        if EXPONENTIATE:
+            pred_cr_means = t.nn.functional.softplus(input=pred_cr_means, beta=1, threshold=2)
+            pred_cr_stds = t.nn.functional.softplus(input=pred_cr_stds, beta=1, threshold=2)
+            tar_means = t.nn.functional.softplus(input=tar_means, beta=1, threshold=2)
+            tar_stds_var = t.nn.functional.softplus(input=tar_stds_var, beta=1, threshold=2)
+
+        # Distributions
+        pred_cr_distr = generate_gauss_distr(means=pred_cr_means, stds=pred_cr_stds, multivar=False, kweights=None)
+        # tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=TAR_STD_CONST, multivar=False, kweights=None)
+        tar_cr_distr_var = generate_gauss_distr(means=tar_means, stds=tar_stds_var, multivar=False, kweights=None)
 
         loss_var = cramer_optim_1k(pdf_target=tar_cr_distr_var, pdf_curr=pred_cr_distr,
                                    standard_supp=STANDARD_SUPP, n_kernels=1, dev=DEV)
+        # loss_var = MSE_1k(pdf_target=tar_cr_distr_var, pdf_curr=pred_cr_distr)
+
         cr_adam.zero_grad()
         loss_var.backward()
         cr_adam.step()
@@ -99,9 +125,17 @@ if __name__ == '__main__':
     means_true = list()
     stds_true = list()
     for j in range(ITERATIONS):
-        means_true.append(quadratic(x=j, a=1.8e-6, h=10000, k=180, batch_size=1, dev='cpu').item())
-        stds_true.append(quadratic(x=j, a=1.3e-7, h=10000, k=13, batch_size=1, dev='cpu').item() + 1e-10)
-        # stds_true.append(quadratic(x=j, a=1e-8, h=10000, k=1, batch_size=1, dev='cpu').item() + 1e-10)
+        means_true_i = quadratic(x=j, a=1.8e-6, h=10000, k=180, batch_size=1, dev='cpu')
+        # means_true_i = quadratic(x=j, a=1e-4, h=10000, k=10500, batch_size=1, dev='cpu') # Steep!
+        # stds_true_i = t.tensor(0.001, device='cpu')
+        # stds_true_i = quadratic(x=j, a=1.3e-7, h=10000, k=13, batch_size=1, dev='cpu')
+        stds_true_i = quadratic(x=j, a=1e-8, h=10000, k=1, batch_size=1, dev='cpu') + 1e-10
+        if EXPONENTIATE:
+            means_true_i = t.nn.functional.softplus(input=means_true_i, beta=1, threshold=2)
+            stds_true_i = t.nn.functional.softplus(input=stds_true_i, beta=1, threshold=2)
+
+        means_true.append(means_true_i.item())
+        stds_true.append(stds_true_i.item())
 
     # Plot Cr Loss
     plt.plot(cr_loss, label='Critic Loss')
