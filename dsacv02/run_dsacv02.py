@@ -11,15 +11,15 @@ from tools import smoothing, eval_agent
 ''' Environment constants '''
 # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1724545362.311958".replace('\\', '/')
 LOAD_PATH = None
-gym_env = 'Humanoid-v4'
+gym_env = 'Ant-v4'
 # gym_env = 'LunarLander-v2'
 DEVICE = 'cuda:0'
 DISCRETE = False
 
 ''' Agent constants '''
-ACTION_DIM = 17
+ACTION_DIM = 8
 # ACTION_DIM = 2
-OBSERVATION_DIM = 376
+OBSERVATION_DIM = 111
 # OBSERVATION_DIM = 8
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
@@ -38,9 +38,9 @@ ACT_HL = (256, 256)
 CR_ACTIV = ('relu', 'relu')     # ('gelu', 'gelu')
 ACT_ACTIV = ('relu', 'relu')    # ('gelu', 'gelu')
 # Action boundaries
-ACTION_LOW = -0.4
+ACTION_LOW = -1.0
 # ACTION_LOW = -2.0
-ACTION_HIGH = 0.4
+ACTION_HIGH = 1.0
 # ACTION_HIGH = 2.0
 # RL parameters
 DOUBLE_Q = True
@@ -51,8 +51,8 @@ STATIC_ALPHA = 0.05              # Old 0.2
 REWARD_SCALE = 1.0              # Old 5.0; for ant-v1, it seems that between 5-10 is ideal
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
-AUTO_ALPHA = False
-ALPHA_INI = 1.0                  # Old 1
+AUTO_ALPHA = True
+ALPHA_INI = -2.9                  # Old 1
 MEM_SIZE = 1e6                  # 1e5
 N_TRAIN_INTERVAL = 1
 
@@ -97,10 +97,10 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
 
 if __name__ == '__main__':
-    # env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
-    # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    env = gym.make(gym_env)
-    env_eval = gym.make(gym_env)
+    env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
+    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env = gym.make(gym_env)
+    # env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
