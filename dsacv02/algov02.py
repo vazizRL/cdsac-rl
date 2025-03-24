@@ -1,3 +1,6 @@
+'''
+Scale Policy Update with Std
+'''
 import torch
 import torch.nn as nn
 import torch.distributions as distr
