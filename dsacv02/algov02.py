@@ -374,7 +374,8 @@ class RealDSAC:
         # # Not calculated according to Z! If Z, reparameterization is needed
         # gmm_mean.unsqueeze_(dim=1)
 
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min).mean()
+        policy_loss = ((self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min).mean() /
+                       stds_selected_min.mean())
         entropy = -log_ps_curr_pol.mean().detach()
 
         return policy_loss, entropy
