@@ -34,7 +34,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
                    ]
     file_save_names = ['Actor_Entropy.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
                        *kernel_names_cr_output, 'Critic_Std.png', 'Actor_Val.png', 'Critic_Val.png', 'Actor_Loss.png',
-                       'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training', 'Actor_Grad_Mag', 'Time_per_Iter.png']
+                       'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training', 'Actor_Grad', 'Time_per_Iter.png']
 
     for graph_name, file_save_name in zip(graph_names, file_save_names):
         values_i = list()
@@ -71,7 +71,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 if __name__ == '__main__':
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
-    curr_dir = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_II/auto_alpha_ini-2.9"
+    curr_dir = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_II/auto_alpha_ini1.0"
     output_dir = curr_dir + r"/graphs"
     plt.rcParams['figure.figsize'] = (30, 12)           # Old: (20, 8)
     # Example usage:
