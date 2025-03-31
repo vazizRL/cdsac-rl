@@ -32,7 +32,7 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
                    'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Rewards/Reward_Eval',
                    'Rewards/Reward_Training', 'Time/Algorithm time [ms]-RL iter'
                    ]
-    file_save_names = ['Actor_Loss.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
+    file_save_names = ['Actor_Entropy.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
                        *kernel_names_cr_output, 'Critic_Std.png', 'Actor_Val.png', 'Critic_Val.png', 'Actor_Loss.png',
                        'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training', 'Time_per_Iter.png']
 
@@ -68,3 +68,8 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
     print('Finished')
 
 
+if __name__ == '__main__':
+    log_path = ''
+    output_path = log_path + '/' + 'graphs'
+    save_tensorboard_graphs(logdir=log_path, output_dir=output_path, n_kernels_act=1, n_kernels_cr=1)
+    print('Finished')
