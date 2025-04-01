@@ -565,6 +565,19 @@ def eval_agent_vec():
     pass
 
 
+def cosine_grad_similarity(grad_curr: torch.tensor, grad_last: torch.tensor):
+    """
+    - Function to calculate the cosine gradient similarity
+    :param grad_curr:
+    :param grad_last: Last
+    :return: torch.tensor
+    """
+    if grad_last is not None:
+        return (torch.dot(grad_curr, grad_last)) / (torch.norm(grad_curr) * torch.norm(grad_last))
+    else:
+        return 1
+
+
 if __name__ == '__main__':
     n_actions = 1
     print(f'The action dim required for {n_actions} action is: {calc_size_co_matrix(n_actions)}')
