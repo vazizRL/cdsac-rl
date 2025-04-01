@@ -69,7 +69,6 @@ def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1)
 
 
 if __name__ == '__main__':
-    log_path = ''
-    output_path = log_path + '/' + 'graphs'
+    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1743463315.314567"
+    output_path = log_path + r'/' + 'graphs'
     save_tensorboard_graphs(logdir=log_path, output_dir=output_path, n_kernels_act=1, n_kernels_cr=1)
-    print('Finished')
