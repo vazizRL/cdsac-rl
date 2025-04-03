@@ -409,10 +409,6 @@ class RealDSAC:
         # Compute Z-Loss, NOTE: Check exponentiation
         loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
         loss_q.backward()
-        critic1_grad = list(self.q1.q.parameters())[-8].grad.mean()
-        critic2_grad = list(self.q2.q.parameters())[-8].grad.mean()
-        # critic1_grad = list(self.q1.q.parameters())[-6].grad.mean()
-        # critic2_grad = list(self.q2.q.parameters())[-6].grad.mean()
 
         loss_policy, entropy = None, None
         if iteration % self.update_interval == 0:
@@ -426,7 +422,6 @@ class RealDSAC:
                                                             log_ps_curr_pol=prob_bounded_curr, double_q=double_q,
                                                             exp=exp)
             loss_policy.backward()
-            actor_grad = list(self.policy.parameters())[-8].grad.mean()
             # Switch back on autograd after calculation of policy
             self.switch_autograd_logging(require_grad=True, models=models)
 
@@ -439,9 +434,6 @@ class RealDSAC:
             "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
             "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
             "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
-            "DSAC2_Grads/critic1_grad": critic1_grad,
-            "DSAC2_Grads/critic2_grad": critic2_grad,
-            "DSAC2_Grads/actor_grad": actor_grad,
             # "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
             "DSAC2_ActDistr/entropy-RL iter": entropy.detach().item(),
@@ -522,9 +514,6 @@ class RealDSAC:
             "DSAC2_Vals/gmm_critic_avg_value iter": 0,
             "DSAC2_CrDistr/gmm_critic_avg_std iter": 0,
             "DSAC2_Vals/gmm_actor_avg_action iter": 0,
-            "DSAC2_Grads/critic1_grad": 0,
-            "DSAC2_Grads/critic2_grad": 0,
-            "DSAC2_Grads/actor_grad": 0,
             "DSAC2_ActDistr/gmm_actor_avg_std iter": 0,
             "DSAC2_ActDistr/entropy-RL iter": 0,
             "DSAC2_Alpha/alpha-RL iter": 0,
