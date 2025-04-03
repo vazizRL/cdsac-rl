@@ -263,7 +263,7 @@ class RealDSAC:
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
         :param double_q: Whether logits are exponentiated
-        :return: Q-loss attached to functional graph for gradient calculation
+        :return: Q-loss mean attached to functional graph, means, stds, kweights
         """
         states, old_actions, rewards, states_next, dones = batch
         # Convert to tensors, since in main_sac_sb.py, they are stored as Python datatypes
@@ -318,7 +318,7 @@ class RealDSAC:
             stds = 0.5 * (stds1 + stds2)
             kweights = 0.5 * (kweights1 + kweights2)
             c_loss = 0.5 * (c_loss1 + c_loss2)
-            return c_loss.mean(), means.mean(), stds.mean(), kweights
+            return c_loss.mean(), means, stds, kweights
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
@@ -329,7 +329,7 @@ class RealDSAC:
             q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
                                       standard_supp=self.standard_supp, dev=self.device)
 
-            return q_loss.mean(), means1.mean(), stds1.mean(), kweights1
+            return q_loss.mean(), means1, stds1, kweights1
 
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
@@ -407,7 +407,7 @@ class RealDSAC:
         self.q1_optimizer.zero_grad()
         self.q2_optimizer.zero_grad()
         # Compute Z-Loss, NOTE: Check exponentiation
-        loss_q, mean_q, std_mean, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
+        loss_q, means_q, stds, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
         loss_q.backward()
 
         loss_policy, entropy = None, None
@@ -431,8 +431,9 @@ class RealDSAC:
                 loss_alpha.backward()
 
         tb_info = {
-            "DSAC2_Vals/gmm_critic_avg_value iter": mean_q.detach().item(),
-            "DSAC2_CrDistr/gmm_critic_avg_std iter": std_mean.detach().item(),
+            "DSAC2_Vals/gmm_critic_avg_value iter": means_q.mean().detach().item(),
+            "DSAC2_CrDistr/gmm_critic_avg_std iter": stds.mean().detach().item(),
+            "DSAC2_CrDistr/gmm_critic_std_std iter": stds.std().detach().item(),
             "DSAC2_Vals/gmm_actor_avg_action iter": policy_mean,
             # "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": kweights_act.mean().detach().item(),
             "DSAC2_ActDistr/gmm_actor_avg_std iter": policy_std,
@@ -444,11 +445,6 @@ class RealDSAC:
             "DSAC2_ActDistr/gmm_actor_avg_k1_weight iter": 1.0,
             "DSAC2_CrDistr/gmm_critic_avg_k1_weight iter": 1.0
         }
-
-        # for i in range(self.n_kernels_act):
-        #     tb_info[f"DSAC2_ActDistr/gmm_actor_avg_k{i+1}_weight iter"] = kweights_act[:, i].mean().detach().item()
-        # for i in range(self.n_kernels_cr):
-        #     tb_info[f"DSAC2_CrDistr/gmm_critic_avg_k{i+1}_weight iter"] = kweights_cr[:, i].mean().detach().item()
 
         return tb_info
 
@@ -513,6 +509,7 @@ class RealDSAC:
         tb_info = {
             "DSAC2_Vals/gmm_critic_avg_value iter": 0,
             "DSAC2_CrDistr/gmm_critic_avg_std iter": 0,
+            "DSAC2_CrDistr/gmm_critic_std_std iter": 0,
             "DSAC2_Vals/gmm_actor_avg_action iter": 0,
             "DSAC2_ActDistr/gmm_actor_avg_std iter": 0,
             "DSAC2_ActDistr/entropy-RL iter": 0,
