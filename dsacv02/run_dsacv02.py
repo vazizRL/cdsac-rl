@@ -186,7 +186,7 @@ if __name__ == '__main__':
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
                 score_history_eval.append(reward_rollout)
                 # After 30k @0.85 no improvement, reset the model to last best
-                batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval = \
+                batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
                     smoothing(scalars=(reward_rollout,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
                               last=smooth_reward_last_eval)
                 smoothed_total_eval.append(batch_sm_eval[0])
@@ -206,7 +206,7 @@ if __name__ == '__main__':
         print(f'@Iter: {N_TOT_STEPS}')
         score_history_train.append(reward_episode)
 
-        batch_sm, smooth_reward_iter_n, smooth_reward_last = \
+        batch_sm, smooth_reward_iter_n, smooth_reward_last, _ = \
             smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
