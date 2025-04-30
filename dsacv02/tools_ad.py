@@ -1,21 +1,11 @@
 import os
 import matplotlib.pyplot as plt
-import numpy as np
 from tools import smoothing
 from tensorboard.backend.event_processing import event_accumulator
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
-def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels_cr=1):
-    """
-    - Tool to graph TB logs
-    :param logdir: path to log dir
-    :param output_dir: Name of graph dir to be created
-    :param iter: Number of iterations
-    :param n_kernels_act: n kernels actor
-    :param n_kernels_cr: n kernels critic
-
-    """
+def save_tensorboard_graphs(logdir, output_dir, n_kernels_act=1, n_kernels_cr=1):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir)
 
@@ -38,14 +28,13 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
 
     graph_names = ['DSAC2_ActDistr/entropy-RL iter', *kernel_names_act, 'DSAC2_ActDistr/gmm_actor_avg_std iter',
                    'DSAC2_Alpha/alpha-RL iter', *kernel_names_cr, 'DSAC2_CrDistr/gmm_critic_avg_std iter',
-                   'DSAC2_CrDistr/gmm_critic_std_std iter', 'DSAC2_Vals/gmm_actor_avg_action iter',
-                   'DSAC2_Vals/gmm_critic_avg_value iter', 'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter',
-                   'Rewards/Reward_Eval', 'Rewards/Reward_Training', 'Time/Algorithm time [ms]-RL iter'
+                   'DSAC2_Vals/gmm_actor_avg_action iter', 'DSAC2_Vals/gmm_critic_avg_value iter',
+                   'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter', 'Rewards/Reward_Eval',
+                   'Rewards/Reward_Training', 'DSAC2_Grads/actor_grad', 'Time/Algorithm time [ms]-RL iter'
                    ]
     file_save_names = ['Actor_Entropy.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
-                       *kernel_names_cr_output, 'Critic_Std.png', 'Critic_Std_Std.png', 'Actor_Val.png',
-                       'Critic_Val.png', 'Actor_Loss.png', 'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training',
-                       'Time_per_Iter.png']
+                       *kernel_names_cr_output, 'Critic_Std.png', 'Actor_Val.png', 'Critic_Val.png', 'Actor_Loss.png',
+                       'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training', 'Actor_Grad', 'Time_per_Iter.png']
 
     for graph_name, file_save_name in zip(graph_names, file_save_names):
         values_i = list()
@@ -55,15 +44,8 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
             x_label = 'Episode'
         for data_i in graph:
             values_i.append(data_i.value)
-        smoothed_values, _, _, smoothed_list = smoothing(scalars=values_i, weight=0.99, iter=0, last=0)
-        # step_size from iters and generation of supports
-        step_size = int(iter / len(values_i))
-        supps = np.arange(0, iter, step_size)
-        # Ticks
-        plt.xlim(0, iter)
-        plt.xticks(np.linspace(0, iter, 10, dtype=int))
-        # plot
-        plt.plot(supps, smoothed_list)
+        smoothed_values, _, _ = smoothing(scalars=values_i, weight=0.99, iter=0, last=0)
+        plt.plot(smoothed_values)
         plt.grid(visible=True, which='both', color='grey', linewidth=0.3)
         # Add labels and legend
         plt.xlabel(x_label)
@@ -73,11 +55,7 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
         plt.savefig(output_dir + '/' + file_save_name)
         plt.figure()
 
-        # Ticks
-        plt.xlim(0, iter)
-        plt.xticks(np.linspace(0, iter, 10, dtype=int))
-        # plot
-        plt.plot(supps, values_i)
+        plt.plot(values_i)
         plt.grid(visible=True, which='both', color='grey', linewidth=0.3)
         # Add labels and legend
         plt.xlabel(x_label)
@@ -91,7 +69,11 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
 
 
 if __name__ == '__main__':
-    ITERATIONS = int(4.5*1e4)
-    log_path = r"C:\Users\vanya\OneDrive\Desktop\mnt_remote\event_temp"
-    output_path = log_path + r'/' + 'graphs'
-    save_tensorboard_graphs(logdir=log_path, output_dir=output_path, iter=ITERATIONS, n_kernels_act=1, n_kernels_cr=1)
+    N_KERNELS_ACT = 1
+    N_KERNELS_CR = 1
+    curr_dir = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_II/auto_alpha_ini1.0"
+    output_dir = curr_dir + r"/graphs"
+    plt.rcParams['figure.figsize'] = (30, 12)           # Old: (20, 8)
+    # Example usage:
+    logdir = curr_dir
+    save_tensorboard_graphs(logdir, output_dir, n_kernels_act=N_KERNELS_ACT, n_kernels_cr=N_KERNELS_CR)
