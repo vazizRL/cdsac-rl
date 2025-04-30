@@ -92,6 +92,6 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
 
 if __name__ == '__main__':
     ITERATIONS = int(4.5*1e4)
-    log_path = r"C:\Users\vanya\OneDrive\Desktop\mnt_remote\event_temp"
+    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_Vec\haw_remote\walker2d-v4\Cramer_200Envs_10GPUs_Replay1e7_45k_r1"
     output_path = log_path + r'/' + 'graphs'
     save_tensorboard_graphs(logdir=log_path, output_dir=output_path, iter=ITERATIONS, n_kernels_act=1, n_kernels_cr=1)
