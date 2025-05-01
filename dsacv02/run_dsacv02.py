@@ -20,7 +20,7 @@ DISCRETE = False
 # ACTION_DIM = 17
 ACTION_DIM = 8
 # OBSERVATION_DIM = 376
-OBSERVATION_DIM = 27
+OBSERVATION_DIM = 111
 N_KERNELS_ACT = 1
 N_KERNELS_CR = 1
 LEARNABLE_KWEIGHTS = False
@@ -47,7 +47,7 @@ DOUBLE_Q = True
 BATCH_SIZE = 256
 T_MAX = 5000                     # Old 20000
 TAU = 0.005
-STATIC_ALPHA = 0.05              # Old 0.2
+STATIC_ALPHA = 0.2             # Old 0.2
 REWARD_SCALE = 1.0              # Old 5.0; for ant-v1, it seems that between 5-10 is ideal
 GAMMA = 0.99                    # Old 0.99
 UPDATE_INTERVAL = 1
@@ -97,7 +97,7 @@ tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
 
 if __name__ == '__main__':
-    env = gym.make(gym_env, use_contact_forces=True,healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
     env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
     # env = gym.make(gym_env)
     # env_eval = gym.make(gym_env)
@@ -186,10 +186,10 @@ if __name__ == '__main__':
                 tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
                 score_history_eval.append(reward_rollout)
                 # After 30k @0.85 no improvement, reset the model to last best
-                batch_sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
+                sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
                     smoothing(scalars=(reward_rollout,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
                               last=smooth_reward_last_eval)
-                smoothed_total_eval.append(batch_sm_eval[0])
+                smoothed_total_eval.append(sm_eval)
 
                 perf_indicator = \
                     [True if i >= smoothed_total_eval[-PAST_MODEL_SURPASS] else False for i in
@@ -210,7 +210,7 @@ if __name__ == '__main__':
             smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
-        smoothed_last_epi = smoothed_total[-1][-1]
+        smoothed_last_epi = smoothed_total[-1]
         if smoothed_last_epi > best_score:
             best_score = smoothed_last_epi
             agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,

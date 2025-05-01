@@ -405,22 +405,11 @@ def get_partial_double_q_selections(means1, means2, stds1, stds2, kweights1, kwe
     :param kweights2: Kernel weights 2
 
     """
-    # Calculate min. Q and average of stds
-    stack_means = torch.stack([means1, means2])
-    means_min, means_min_idx = torch.min(stack_means, dim=0)
-    means_min_idx = torch.as_tensor(means_min_idx, dtype=torch.bool)
+    means_min = torch.min(means1, means2)
+    mask = means1 < means2
+    stds_selected_min = torch.where(mask, stds1, stds2)
 
-    # Get stds and kweights corresponding to mean_min and mean_next_min
-    # Reverse stack, 1 = 2nd array; 0 = 1st array
-    stds_selected_min = torch.zeros_like(stds1)
-    stds_selected_min[means_min_idx] = stds2[means_min_idx]
-    stds_selected_min[~means_min_idx] = stds1[~means_min_idx]
-
-    kweights_selected_min = torch.zeros_like(kweights1)
-    kweights_selected_min[means_min_idx] = kweights2[means_min_idx]
-    kweights_selected_min[~means_min_idx] = kweights1[~means_min_idx]
-
-    return means_min, stds_selected_min, kweights_selected_min
+    return means_min, stds_selected_min, kweights1
 
 
 def calc_size_co_matrix(n_actions: int):
