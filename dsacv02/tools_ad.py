@@ -46,7 +46,6 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
                        *kernel_names_cr_output, 'Critic_Std.png', 'Critic_Std_Std.png', 'Actor_Val.png',
                        'Critic_Val.png', 'Actor_Loss.png', 'Critic_Loss.png', 'Reward_Eval.png', 'Reward_Training',
                        'Time_per_Iter.png']
-
     for graph_name, file_save_name in zip(graph_names, file_save_names):
         values_i = list()
         graph = event_acc.Scalars(graph_name)
@@ -57,8 +56,14 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
             values_i.append(data_i.value)
         smoothed_values, _, _, smoothed_list = smoothing(scalars=values_i, weight=0.99, iter=0, last=0)
         # step_size from iters and generation of supports
-        step_size = int(iter / len(values_i))
+        values_i_len = len(values_i)
+        step_size = iter / values_i_len
         supps = np.arange(0, iter, step_size)
+
+        # Initiate smooth figures
+        plt.figure(figsize=(10, 6))
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0), useOffset=None, useLocale=None,
+                             useMathText=True)
         # Ticks
         plt.xlim(0, iter)
         plt.xticks(np.linspace(0, iter, 10, dtype=int))
@@ -71,8 +76,11 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
         plt.title(graph_name)
         plt.legend()
         plt.savefig(output_dir + '/' + file_save_name)
-        plt.figure()
 
+        # Initiate raw figures
+        plt.figure(figsize=(10, 6))
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0), useOffset=None, useLocale=None,
+                             useMathText=True)
         # Ticks
         plt.xlim(0, iter)
         plt.xticks(np.linspace(0, iter, 10, dtype=int))
@@ -85,13 +93,13 @@ def save_tensorboard_graphs(logdir, output_dir, iter, n_kernels_act=1, n_kernels
         plt.title(graph_name)
         plt.legend()
         plt.savefig(output_dir + '/' + file_save_name[:-4] + '_Raw.png')
-        plt.figure()
 
     print('Finished')
 
 
 if __name__ == '__main__':
-    ITERATIONS = int(4.5*1e4)
-    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_Vec\haw_remote\walker2d-v4\Cramer_200Envs_10GPUs_Replay1e7_45k_r1"
+    ITERATIONS = int(2e4)
+    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_Vec\haw_remote\ant-v4\baselines\pim_sc_std_en_500Envs_14GPUs_Replay1e7_20k"
     output_path = log_path + r'/' + 'graphs'
+    # output_path = log_path + r'/' + 'graphs' + f'{str(np.random.rand())}'
     save_tensorboard_graphs(logdir=log_path, output_dir=output_path, iter=ITERATIONS, n_kernels_act=1, n_kernels_cr=1)
