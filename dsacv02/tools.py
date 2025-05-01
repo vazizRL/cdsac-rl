@@ -56,11 +56,12 @@ def rsampler_1k(distr):
     return r_sample
 
 
-def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None, dev='cpu'):
+def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_supp, n_kernels=None,
+                    not_reg=False, dev='cpu'):
     """
     - Dynamic Supports for 1-Kernel
     - Batch-wise
-    - Padding in method cdf() of RMM is deactivate, do not add additional dimension to dx
+    - Padding in method cdf() of RMM is deactivated, do not add additional dimension to dx
     - Implementation:
         1. Define the supports with constant n_steps
         2. Calculate the difference squared
@@ -79,7 +80,8 @@ def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_s
     dy_target_mb = pdf_target.cdf(dx_singular_sorted)
 
     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) # + 1e-55
-    # cramer_re.sqrt_()
+    if not_reg:
+        cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
     return cramer_re
@@ -199,34 +201,6 @@ def get_normal_supports(batch_size: int, n_kernels: int, n_supp=30, integral_bou
         dx_mb_normal.squeeze_(dim=1)
 
     return dx_mb_normal
-
-
-def cramer_torch_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, int_l, int_u, spacing, dev='cpu'):
-    """
-    - WARNING: DEPRECATED
-    - The integration limits should NOT be too far off form the lowest and highest point of the function!
-    - Optional: Define an interval to focus on, in case of rapid
-    - Implementation:
-        1. Define the supports
-        2. Calculate the difference squared
-        3. Integrate over all dx
-    """
-    # Discretize for numerical integration
-    steps = int((int_u - int_l) / spacing)
-    dx = torch.linspace(int_l, int_u, steps=steps).to(dev)
-    dx.unsqueeze_(dim=1).unsqueeze_(dim=2)
-
-    if pdf_curr.batch_shape.__len__():
-        batch_size = pdf_curr.batch_shape[0]
-    else:
-        batch_size = 1
-    dy_curr_cdf_re = pdf_curr.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    dy_target_cdf_re = pdf_target.cdf(dx).reshape(batch_size, 1, dx.shape[0])
-    cramer_re = torch.trapz((dy_target_cdf_re - dy_curr_cdf_re)**2, dx=spacing) + 1e-55
-    cramer_re.sqrt_()
-    cramer_re = cramer_re.mean()
-
-    return cramer_re
 
 
 def cramer_optim_deac(pdf_target: torch.tensor, pdf_curr: torch.tensor, n_supp, n_kernels, integral_bound_factor=10,

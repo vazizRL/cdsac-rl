@@ -310,9 +310,9 @@ class RealDSAC:
             _, zcal2, means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q2,
                                                                  exp=exp, sample=False, reparameterize=True)
             c_loss1 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
-                                       standard_supp=self.standard_supp, dev=self.device)
+                                       standard_supp=self.standard_supp, note_reg=False, dev=self.device)
             c_loss2 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal2, n_kernels=self.n_kernels_cr,
-                                       standard_supp=self.standard_supp, dev=self.device)
+                                       standard_supp=self.standard_supp, not_reg=False, dev=self.device)
             means = 0.5 * (means1 + means2)
             stds = 0.5 * (stds1 + stds2)
             kweights = 0.5 * (kweights1 + kweights2)
@@ -326,7 +326,7 @@ class RealDSAC:
 
             # Batch-wise, dynamically supported Cràmer distance between two PDFs
             q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
-                                      standard_supp=self.standard_supp, dev=self.device)
+                                      standard_supp=self.standard_supp, not_reg=False, dev=self.device)
 
             return q_loss.mean(), means1, stds1, kweights1
 
