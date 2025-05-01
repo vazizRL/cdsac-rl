@@ -262,8 +262,7 @@ class RealDSAC:
         - One Z target model
         :param batch: Sampled batch to learn from
         :param double_q: Whether to apply double-Q for overestimation mitigation (not cla)
-        :param double_q: Whether logits are exponentiated
-        :return: Q-loss mean attached to functional graph, means, stds, kweights
+        :return: Q-loss attached to functional graph for gradient calculation
         """
         states, old_actions, rewards, states_next, dones = batch
         # Convert to tensors, since in main_sac_sb.py, they are stored as Python datatypes
@@ -409,6 +408,7 @@ class RealDSAC:
         # Compute Z-Loss, NOTE: Check exponentiation
         loss_q, means_q, stds, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
         loss_q.backward()
+
 
         loss_policy, entropy = None, None
         if iteration % self.update_interval == 0:
