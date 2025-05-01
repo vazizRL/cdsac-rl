@@ -310,7 +310,7 @@ class RealDSAC:
             _, zcal2, means2, stds2, kweights2 = self.evaluate_z(obs=states, actions=old_actions, znet=self.q2,
                                                                  exp=exp, sample=False, reparameterize=True)
             c_loss1 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
-                                       standard_supp=self.standard_supp, note_reg=False, dev=self.device)
+                                       standard_supp=self.standard_supp, not_reg=False, dev=self.device)
             c_loss2 = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal2, n_kernels=self.n_kernels_cr,
                                        standard_supp=self.standard_supp, not_reg=False, dev=self.device)
             means = 0.5 * (means1 + means2)
