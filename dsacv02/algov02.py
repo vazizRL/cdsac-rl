@@ -317,7 +317,7 @@ class RealDSAC:
             stds = 0.5 * (stds1 + stds2)
             kweights = 0.5 * (kweights1 + kweights2)
             c_loss = 0.5 * (c_loss1 + c_loss2)
-            return c_loss.mean(), means, stds, kweights
+            return c_loss, means, stds, kweights
         else:
             # Calculate current and target distributions, NOTE: Evaluation for \mathcal{Z}(|,s',a') already done
             # before If-statement
@@ -325,10 +325,10 @@ class RealDSAC:
                                                                  exp=exp, sample=False, reparameterize=True)
 
             # Batch-wise, dynamically supported Cràmer distance between two PDFs
-            q_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
+            c_loss = self.cramer_loss(pdf_target=zcal_next, pdf_curr=zcal1, n_kernels=self.n_kernels_cr,
                                       standard_supp=self.standard_supp, not_reg=False, dev=self.device)
 
-            return q_loss.mean(), means1, stds1, kweights1
+            return c_loss, means1, stds1, kweights1
 
     def compute_policy_loss(self, states, actions_curr_pol, log_ps_curr_pol, double_q=False, exp=False):
         """
