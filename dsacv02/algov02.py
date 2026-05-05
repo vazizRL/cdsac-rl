@@ -10,7 +10,7 @@ from dsacv02.tools import cramer_optim_multi, cramer_optim_1k, get_normal_suppor
 
 
 class RealDSAC:
-    def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy, policy_target,
+    def __init__(self, critic1, critic2, critic1_target, critic2_target, cr_lr_ini, cr_lr_fin, policy,
                  actor_lr_ini, actor_lr_fin, log_alpha, alpha_lr_ini, alpha_lr_fin, t_max=50, tau=0.001,
                  static_alpha=0.2,
                  reward_scale=0.2, gamma=0.99, update_interval=2, auto_alpha=True, target_entropy=-1, n_kernels_act=1,
@@ -25,7 +25,6 @@ class RealDSAC:
         :param cr_lr_ini: Initial learning rate of both q-networks
         :param cr_lr_fin: Final learning rate of both q-networks
         :param policy: Actor network
-        :param policy_target: Target actor network
         :param log_alpha: Temperament, can be learnable or static
         :param actor_lr_ini: Actor initial learning rate
         :param actor_lr_fin: Actor learning rate at the end of the period
@@ -54,13 +53,12 @@ class RealDSAC:
         self.q2_target: nn.Module = critic2_target
 
         self.policy: nn.Module = policy
-        self.policy_target: nn.Module = policy_target
 
         self.n_kernels_act = n_kernels_act
         self.n_kernels_cr = n_kernels_cr
 
         # Do not track gradients for target networks; could be done with context manager
-        self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target, self.policy_target])
+        self.switch_autograd_logging(require_grad=False, models=[self.q1_target, self.q2_target])
 
         # NOTE: log_alpha is already given as a torch tensor in LOG form, with initial value specified in agentv02.py
         self.log_alpha = log_alpha
@@ -220,7 +218,6 @@ class RealDSAC:
                 # Alternatively, q1_target can be updated with min(q1,q2)
                 self.soft_avg_update(self.q1, self.q1_target)
                 self.soft_avg_update(self.q2, self.q2_target)
-                self.soft_avg_update(self.policy, self.policy_target)
 
     def compute_target_distribution(self, rewards, dones, q_means_next, stds_next, kernel_weights_next,
                                     log_probs_a_next):
@@ -273,10 +270,10 @@ class RealDSAC:
         dones = torch.as_tensor(dones, dtype=torch.float64).to(self.device)
 
         # Probability and value of action
-        action_means_next, action_stds_next, kweights_pol = self.policy_target(obs=states_next, exp=exp)
+        action_means_next, action_stds_next, kweights_pol = self.policy(obs=states_next, exp=exp)
 
         # The action is only used for Q loss calculation, repara=False, detach from graph
-        actions_bounded_next, action_log_probs_next_bounded = self.policy_target.sample_from_action_distr(
+        actions_bounded_next, action_log_probs_next_bounded = self.policy.sample_from_action_distr(
                                                      locs=action_means_next, stds=action_stds_next,
                                                      kweights=kweights_pol, reparameterization=False)
 
@@ -408,7 +405,6 @@ class RealDSAC:
         # Compute Z-Loss, NOTE: Check exponentiation
         loss_q, means_q, stds, kweights_cr = self.compute_z_loss(batch=batch, double_q=double_q, exp=exp)
         loss_q.backward()
-
 
         loss_policy, entropy = None, None
         if iteration % self.update_interval == 0:

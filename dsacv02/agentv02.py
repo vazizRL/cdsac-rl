@@ -87,7 +87,6 @@ class Agent:
                                        activation=act_activ, action_min_std=act_min_std, action_max_std=act_max_std,
                                        action_low_lim=action_low, action_up_lim=action_up, device=device,
                                        learnable_weights=learnable_kweights, n_kernels=n_kernels_act)
-        self.policy_target = deepcopy(self.policy)
         self.log_alpha = nn.Parameter(torch.tensor(log_alpha_ini, dtype=torch.float64, device=device))
 
         # Best Practice: Target entropy for singular actions are greater then the dim
@@ -98,7 +97,7 @@ class Agent:
         # Usually, target entropy is -action_dim
         self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
                              critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
-                             policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
+                             policy=self.policy, log_alpha=self.log_alpha,
                              actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
                              alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
                              reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
@@ -169,7 +168,7 @@ class Agent:
 
     def choose_deterministic_action(self, observation):
         # observation = torch.as_tensor(observation)
-        action_mean, action_std, kernel_weights = self.dsac.policy_target.forward(obs=observation, exp=False)
+        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
 
         return action_mean.cpu().detach().numpy(), action_std.cpu().detach().numpy()
 
@@ -205,7 +204,6 @@ class Agent:
             'cr2_optim_state_dict': cr2_optim.state_dict(),
             'cr2_lr_schedule_state_dit': self.dsac.q2_lr_schedule.state_dict(),
             'policy_state_dict': self.policy.state_dict(),
-            'policy_target_state_dict': self.policy_target.state_dict(),
             'policy_optim_state_dict': pol_optim.state_dict(),
             'policy_lr_schedule_state_dict': self.dsac.pol_lr_schedule.state_dict(),
             'log_alpha_state_dict': self.log_alpha,
@@ -296,19 +294,11 @@ class Agent:
 
         # Load network, tensor params and learning rate schedule
         self.policy.load_state_dict(checkpoint['policy_state_dict'])
-        self.policy_target.load_state_dict(checkpoint['policy_target_state_dict'])
         self.q1.load_state_dict(checkpoint['cr1_state_dict'])
         self.q1_target.load_state_dict(checkpoint['cr1_target_state_dict'])
         self.q2.load_state_dict(checkpoint['cr2_state_dict'])
         self.q2_target.load_state_dict(checkpoint['cr2_target_state_dict'])
         self.log_alpha = checkpoint['log_alpha_state_dict']
-
-        # self.dsac = DSAC(self.q1, self.q2, self.q1_target, self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
-        #                  policy=self.policy, policy_target=self.policy_target, log_alpha=self.log_alpha,
-        #                  actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
-        #                  alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, alpha=self.static_alpha,
-        #                  reward_scale=self.reward_scale, gamma=self.gamma, up_interval=self.update_interval,
-        #                  auto_alpha=self.auto_alpha, target_entropy=-action_dim)
 
         self.dsac.q1_optimizer.load_state_dict(q1_optim_state_dict)
         self.dsac.q2_optimizer.load_state_dict(q2_optim_state_dict)
