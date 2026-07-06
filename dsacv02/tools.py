@@ -369,8 +369,7 @@ def get_double_q_selections(means1, means2, means1_next, means2_next, stds1, std
 
 def get_partial_double_q_selections(means1, means2, stds1, stds2, kweights1, kweights2):
     """
-    - Calculates min. values per entry from two pairs of Q-arrays (means, means_next) and selects entries of other
-      four pairs (stds, stds_next, kweights, kweights_next) according to selection
+    - Calculates min. values per entry from two pairs of Q-arrays (mean1, means2)
     :param means1: Q1
     :param means2: Q2
     :param stds1: Std. dev. 1
@@ -384,6 +383,17 @@ def get_partial_double_q_selections(means1, means2, stds1, stds2, kweights1, kwe
     stds_selected_min = torch.where(mask, stds1, stds2)
 
     return means_min, stds_selected_min, kweights1
+
+
+def get_partial_min_q(means1, means2):
+    """
+    - Calculates min. values per entry from two pairs of Q-arrays (means1,means2)
+    :param means1: Q1 preds
+    :param means2: Q2 preds
+    """
+    means_min = torch.min(means1, means2)
+
+    return means_min
 
 
 def calc_size_co_matrix(n_actions: int):

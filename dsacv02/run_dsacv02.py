@@ -17,6 +17,9 @@ def run_experient():
     REPLAY_BUFFER_DEVICE = 'cuda:0'
     DISCRETE = False
 
+    ''' Algo: distributional -> C-DSAC, else SAC'''
+    distributional = False
+
     ''' Agent constants '''
     # ACTION_DIM = 17
     ACTION_DIM = 8
@@ -71,7 +74,7 @@ def run_experient():
     # WARNING: Below is Experimental
     RESET_ENTROPY_ITER = None
 
-    ''' Numerical Parameters'''
+    ''' Numerical Parameters for C-DSAC'''
     N_SUPPORTS = 31                 # 31
     IBF = 15
 
@@ -112,7 +115,7 @@ def run_experient():
                   t_max=T_MAX, tau=TAU, static_alpha=STATIC_ALPHA, log_alpha_ini=ALPHA_INI,
                   reward_scale=REWARD_SCALE, gamma=GAMMA,
                   update_interval=UPDATE_INTERVAL, auto_alpha=AUTO_ALPHA, double_q=DOUBLE_Q,
-                  memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, device=DEVICE)
+                  memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, distributional=False, device=DEVICE)
 
     if LOAD_PATH:
         shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl', event_path + '/')

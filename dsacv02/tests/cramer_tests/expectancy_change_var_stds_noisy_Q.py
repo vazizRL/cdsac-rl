@@ -8,7 +8,7 @@ import torch.distributions as distr
 import os
 import time
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod as RMM
-from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
+from dsacv02.neural_networks import MLPGMM, MLPGMMWeighted
 from copy import deepcopy
 
 

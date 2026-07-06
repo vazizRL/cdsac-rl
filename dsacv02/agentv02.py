@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from dsacv02.algov02 import RealDSAC
+from dsacv02.sacv02 import SAC
 from dsacv02.actor_critic import Critic, Actor
 from dsacv02.replay_bufferv02 import ReplayBuffer
 from copy import deepcopy
@@ -17,7 +18,7 @@ class Agent:
                  action_low=-1, action_up=1,
                  batch_size=50, t_max=50, tau=0.001, static_alpha=0.2, reward_scale=0.2, gamma=0.99, update_interval=1,
                  auto_alpha=True, log_alpha_ini=1.0, double_q=False, memory_size=int(5e5), n_supports=30, ibf=20,
-                 device='cuda:0'
+                 distributional=True, device='cuda:0'
                  ):
         """
         :param obs_dim: Observation dimension
@@ -53,8 +54,9 @@ class Agent:
         :param double_q: Whether Multiple Q networks are used
         :param memory_size: Max. replay buffer size
         :param n_supports: Number of supports to approximate each kernel in the GMM. Total number of supports: Tot=4n
-        :param ibf: Integral bound factor for numerical calculation of the Cramer distance
-        :param device: Device on which networks are running
+        :param ibf: Integral Bound factor for numerical calculation of the Cramer distance
+        :param distributional: Distributional or scalar critic
+        :param device: Device On which networks are running
         """
         self.n_kernels_act = n_kernels_act
         self.n_kernels_cr = n_kernels_cr
@@ -76,11 +78,13 @@ class Agent:
                              self.auto_alpha, self.static_alpha)
 
         self.q1: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
-                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels_cr)
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ,
+                                    multi_output=distributional, device=device, learnable_weights=learnable_kweights,
+                                    n_kernels=self.n_kernels_cr)
         self.q2: nn.Module = Critic(state_dim=obs_dim, action_dim=action_dim, value_min_std=value_min_std,
-                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ, device=device,
-                                    learnable_weights=learnable_kweights, n_kernels=self.n_kernels_cr)
+                                    value_max_std=value_max_std, hidden_layers=cr_hl, activ=cr_activ,
+                                    multi_output=distributional, device=device, learnable_weights=learnable_kweights,
+                                    n_kernels=self.n_kernels_cr)
         self.q1_target: nn.Module = deepcopy(self.q1)
         self.q2_target: nn.Module = deepcopy(self.q2)
         self.policy: nn.Module = Actor(state_dim=obs_dim, action_dim=action_dim, hidden_layers=act_hl,
@@ -95,15 +99,29 @@ class Agent:
         else:
             target_entropy = - action_dim
         # Usually, target entropy is -action_dim
-        self.dsac = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
-                             critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
-                             policy=self.policy, log_alpha=self.log_alpha,
-                             actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
-                             alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau, static_alpha=self.static_alpha,
-                             reward_scale=self.reward_scale, gamma=self.gamma, update_interval=self.update_interval,
-                             auto_alpha=self.auto_alpha, target_entropy=target_entropy, n_kernels_act=n_kernels_act,
-                             n_kernels_cr=n_kernels_cr, n_supports=self.n_supports, ibf=self.ibf,
-                             batch_size=self.batch_size, device=device)
+        if distributional:
+            self.learning_algo = RealDSAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
+                                          critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+                                          policy=self.policy, log_alpha=self.log_alpha,
+                                          actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
+                                          alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau,
+                                          static_alpha=self.static_alpha, reward_scale=self.reward_scale,
+                                          gamma=self.gamma, update_interval=self.update_interval,
+                                          auto_alpha=self.auto_alpha, target_entropy=target_entropy,
+                                          n_kernels_act=n_kernels_act, n_kernels_cr=n_kernels_cr,
+                                          n_supports=self.n_supports, ibf=self.ibf, batch_size=self.batch_size,
+                                          device=device)
+        else:
+            self.learning_algo = SAC(critic1=self.q1, critic2=self.q2, critic1_target=self.q1_target,
+                                     critic2_target=self.q2_target, cr_lr_ini=cr_lr_ini, cr_lr_fin=cr_lr_fin,
+                                     policy=self.policy, log_alpha=self.log_alpha,
+                                     actor_lr_ini=act_lr_ini, actor_lr_fin=act_lr_fin, alpha_lr_ini=alpha_lr_ini,
+                                     alpha_lr_fin=alpha_lr_fin, t_max=t_max, tau=self.tau,
+                                     static_alpha=self.static_alpha, reward_scale=self.reward_scale,
+                                     gamma=self.gamma, update_interval=self.update_interval,
+                                     auto_alpha=self.auto_alpha, target_entropy=target_entropy,
+                                     batch_size=self.batch_size, device=device
+                                     )
 
         self.memory = ReplayBuffer(max_size=memory_size, obs_shape=(obs_dim,), n_actions=action_dim)
 
@@ -136,11 +154,11 @@ class Agent:
         # if self.memory.mem_cntr < 10000:
             print(f'Batch size of {self.batch_size} > Stored tupels {self.memory.mem_cntr}')
             print(f'Continue without learning')
-            tb_info = self.dsac.get_empty_tb_info()
+            tb_info = self.learning_algo.get_empty_tb_info()
         else:
             for learning_iter_i in range(n_learning_iter):
                 batch_i = self.memory.sample_buffer(batch_size=self.batch_size)
-                tb_info = self.dsac.update(batch=batch_i, iteration=step_number, double_q=self.double_q, exp=exp)
+                tb_info = self.learning_algo.update(batch=batch_i, iteration=step_number, double_q=self.double_q, exp=exp)
 
         return tb_info
 
@@ -155,26 +173,26 @@ class Agent:
 
     def choose_action(self, observation):
         # observation = torch.as_tensor(observation)
-        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+        action_mean, action_std, kernel_weights = self.learning_algo.policy.forward(obs=observation, exp=False)
 
         action_std.abs_()
 
-        actions_bounded, probs_bounded = self.dsac.policy.sample_from_action_distr(locs=action_mean,
-                                                                                   stds=action_std,
-                                                                                   kweights=kernel_weights,
-                                                                                   reparameterization=False)
+        actions_bounded, probs_bounded = self.learning_algo.policy.sample_from_action_distr(locs=action_mean,
+                                                                                            stds=action_std,
+                                                                                            kweights=kernel_weights,
+                                                                                            reparameterization=False)
 
         return actions_bounded.cpu().detach().numpy(), probs_bounded.cpu().detach().numpy()
 
     def choose_deterministic_action(self, observation):
         # observation = torch.as_tensor(observation)
-        action_mean, action_std, kernel_weights = self.dsac.policy.forward(obs=observation, exp=False)
+        action_mean, action_std, kernel_weights = self.learning_algo.policy.forward(obs=observation, exp=False)
 
         return action_mean.cpu().detach().numpy(), action_std.cpu().detach().numpy()
 
     def reset_entropy(self, new_log_alpha_val: float):
         self.log_alpha = nn.Parameter(torch.tensor(new_log_alpha_val, dtype=torch.float64, device=self.device))
-        self.dsac.force_alpha_to_val(self.log_alpha)
+        self.learning_algo.force_alpha_to_val(self.log_alpha)
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str,
                         save_replay=True, save_all=False):
@@ -193,22 +211,22 @@ class Agent:
         iter_info_txt_file = path + '/iter_save.txt'
         complete_npy_file = path + '/' + replay_txt_name
         # Save network and optimizer parameters
-        cr1_optim, cr2_optim, pol_optim, alpha_optim = self.dsac.get_optimizers()
+        cr1_optim, cr2_optim, pol_optim, alpha_optim = self.learning_algo.get_optimizers()
         torch.save({
             'cr1_state_dict': self.q1.state_dict(),
             'cr1_target_state_dict': self.q1_target.state_dict(),
             'cr1_optim_state_dict': cr1_optim.state_dict(),
-            'cr1_lr_schedule_state_dit': self.dsac.q1_lr_schedule.state_dict(),
+            'cr1_lr_schedule_state_dit': self.learning_algo.q1_lr_schedule.state_dict(),
             'cr2_state_dict': self.q2.state_dict(),
             'cr2_target_state_dict': self.q2_target.state_dict(),
             'cr2_optim_state_dict': cr2_optim.state_dict(),
-            'cr2_lr_schedule_state_dit': self.dsac.q2_lr_schedule.state_dict(),
+            'cr2_lr_schedule_state_dit': self.learning_algo.q2_lr_schedule.state_dict(),
             'policy_state_dict': self.policy.state_dict(),
             'policy_optim_state_dict': pol_optim.state_dict(),
-            'policy_lr_schedule_state_dict': self.dsac.pol_lr_schedule.state_dict(),
+            'policy_lr_schedule_state_dict': self.learning_algo.pol_lr_schedule.state_dict(),
             'log_alpha_state_dict': self.log_alpha,
             'log_alpha_optim_state_dict': alpha_optim.state_dict(),
-            'alpha_lr_schedule_state_dict': self.dsac.alpha_lr_schedule.state_dict(),
+            'alpha_lr_schedule_state_dict': self.learning_algo.alpha_lr_schedule.state_dict(),
             'iter_n': iter_n,
             'mem_count': self.memory.mem_cntr
             },
@@ -220,7 +238,7 @@ class Agent:
                            self.mem_size, self.n_supports, self.ibf, self.device)
         actor_class_params = self.policy.get_class_info()
         critic_class_params = self.q1.get_class_info()
-        learning_rates = self.dsac.get_lr_info()
+        learning_rates = self.learning_algo.get_lr_info()
         with open(complete_txt_file, 'w') as file:
             file.write(str(agent_meta_data))
             file.write('\n')
@@ -300,17 +318,17 @@ class Agent:
         self.q2_target.load_state_dict(checkpoint['cr2_target_state_dict'])
         self.log_alpha = checkpoint['log_alpha_state_dict']
 
-        self.dsac.q1_optimizer.load_state_dict(q1_optim_state_dict)
-        self.dsac.q2_optimizer.load_state_dict(q2_optim_state_dict)
-        self.dsac.policy_optimizer.load_state_dict(policy_optim_state_dict)
-        self.dsac.alpha_optimizer.load_state_dict(log_alpha_optim_state_dict)
+        self.learning_algo.q1_optimizer.load_state_dict(q1_optim_state_dict)
+        self.learning_algo.q2_optimizer.load_state_dict(q2_optim_state_dict)
+        self.learning_algo.policy_optimizer.load_state_dict(policy_optim_state_dict)
+        self.learning_algo.alpha_optimizer.load_state_dict(log_alpha_optim_state_dict)
 
-        self.dsac.q1_lr_schedule.load_state_dict(checkpoint['cr1_optim_state_dict'])
-        self.dsac.q2_lr_schedule.load_state_dict(checkpoint['cr2_optim_state_dict'])
-        self.dsac.pol_lr_schedule.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
-        self.dsac.alpha_lr_schedule.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
+        self.learning_algo.q1_lr_schedule.load_state_dict(checkpoint['cr1_optim_state_dict'])
+        self.learning_algo.q2_lr_schedule.load_state_dict(checkpoint['cr2_optim_state_dict'])
+        self.learning_algo.pol_lr_schedule.load_state_dict(checkpoint['policy_lr_schedule_state_dict'])
+        self.learning_algo.alpha_lr_schedule.load_state_dict(checkpoint['alpha_lr_schedule_state_dict'])
 
-        self.dsac.log_alpha = self.log_alpha
+        self.learning_algo.log_alpha = self.log_alpha
 
         if load_experience:
             self.memory.load_experiences(replay_experiences_path=complete_npy_file)

@@ -77,6 +77,7 @@ class ReplayBuffer:
 
     def save_experiences(self, path_name: str, all=False):
         """
+        Todo: Do not pickle, save arrays with numpy.savez() for less mem usage
         - Appends newly added experiences to the byte stream
         - Expand rewards and dones by one axis for homogeneity
         :param all: If True, it deactivates the append mode and writes all experiences
@@ -108,6 +109,7 @@ class ReplayBuffer:
 
     def load_experiences(self, replay_experiences_path):
         """
+        Todo: Save method change, change load method
         - Load all (s,a,r,s',d)
         - Loads chunks of experience streams and concatenates them
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name

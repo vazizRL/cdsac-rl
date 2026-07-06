@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.distributions as distr
-from dsacv02.mlp_gmm import MLPGMM, MLPGMMWeighted
+from dsacv02.neural_networks import MLPGMM, MLPGMMWeighted, SingleOutputNN
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod
 
-STD_INI_VALUE = 1.0
+STD_INI_VALUE = 100.0
 
 
 class Critic(nn.Module):
     def __init__(self, state_dim: int, action_dim: int, hidden_layers=(256, 256), n_kernels=2, activ=('gelu',),
-                 value_min_std=-0.1, value_max_std=5, learnable_weights=False, device='cuda:0'
-                ):
+                 value_min_std=-0.1, value_max_std=5, learnable_weights=False, multi_output=True, device='cuda:0'
+                 ):
         """
         - Modelling Q distribution as a Gaussian Mixed Model.
         :param state_dim: Dimension of observation space
@@ -21,6 +21,7 @@ class Critic(nn.Module):
         :param value_min_std: Minimum permissible standard deviation of the Gaussian kernels
         :param value_max_std: Maximum permissible standard deviation of the Gaussian kernels
         :param learnable_weights: Whether kernel weights of the GMMs are learnable or not
+        :param multi_output: For non-distributional critics
         :param device: Device on which Critic is running on
         """
         super().__init__()
@@ -33,12 +34,16 @@ class Critic(nn.Module):
         self.n_kernels = n_kernels
         self.arch = tuple(inp_dim + list(self.hidden_layers) + [1])
         self.activation = activ
-        if self.learnable_weights:
-            self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
-                                    multivar=False, std_bias_ini=STD_INI_VALUE)       # 1.0
+        if multi_output:
+            if self.learnable_weights:
+                self.q = MLPGMMWeighted(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
+                                        multivar=False, std_bias_ini=STD_INI_VALUE)       # 1.0
+            else:
+                self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
+                                multivar=False, std_bias_ini=STD_INI_VALUE)               # 1.0
         else:
-            self.q = MLPGMM(arch=self.arch, activ=self.activation, n_kernels=self.n_kernels, device=device,
-                            multivar=False, std_bias_ini=STD_INI_VALUE)               # 1.0
+            self.q = SingleOutputNN(arch=self.arch, activ=self.activation, device=device)
+
         self.min_std = torch.tensor(value_min_std).to(self.q.device)
         self.max_std = torch.tensor(value_max_std).to(self.q.device)
         self.denominator = max(abs(self.min_std), self.max_std)
@@ -60,9 +65,11 @@ class Critic(nn.Module):
         logits = self.q(torch.cat([observation, action], dim=-1), exp=exp)
         value_mean, stds, weights = logits
 
-        value_std = torch.clamp(stds, self.min_std, self.max_std)
+        # Todo: Either delete or funnel, no clamping
+        # value_std = torch.clamp(stds, self.min_std, self.max_std)
 
-        return value_mean, value_std, weights
+        # return value_mean, value_std, weights
+        return value_mean, stds, weights
 
 
 class Actor(nn.Module):

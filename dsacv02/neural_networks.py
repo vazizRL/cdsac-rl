@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Adam
 from dsacv02.tools import calc_size_co_matrix
 
 
@@ -213,61 +214,146 @@ class MLPGMMWeighted(MLPGMM):
         return means_logits, stds_logits, k_weights_soft
 
 
+class SingleOutputNN(nn.Module):
+    def __init__(self, arch: tuple, activ: tuple, device: str):
+        super().__init__()
+        self.module_dict = nn.ModuleDict()
+        self._arch = arch
+        self._activ = activ
+        self._layers = list()
+        self.check_arch()
+        self.device = device
+        self.build_layers()
+        self.to(self.device)
+
+    @staticmethod
+    def get_activ_func_from_str(act_name: str):
+        if hasattr(F, act_name):
+            return getattr(F, act_name)
+        else:
+            raise ValueError(f'Activation functionw "{act_name}" not known')
+
+    def check_arch(self):
+        """
+        - Checks if number of activations matches with the architecture
+        - Note that last nodes shouldn't be funneled!
+        """
+        if len(self._arch) - 2 != len(self._activ):
+            raise AssertionError(f'Number of layers and specified activations do not match!')
+
+    def build_layers(self):
+        nn_depth = len(self._arch)
+        for idx in range(nn_depth - 1):
+            layer_i = torch.nn.Linear(self._arch[idx], self._arch[idx+1], dtype=torch.float64)
+            self._layers.append(layer_i)
+            self.module_dict.update({f'layer_{idx}': layer_i})
+
+        return 0
+
+    def forward(self, inp, exp=False):
+        # Convert to torch.array and Send to GPU
+        ffd = torch.as_tensor(inp, dtype=torch.float64).to(self.device)
+        for act_idx, layer_i in enumerate(self._layers[:-1]):
+            func = self.get_activ_func_from_str(self._activ[act_idx])
+            ffd = func(layer_i(ffd))
+        ffd = self._layers[-1](ffd)
+
+        return ffd, -1, None
+
+
 if __name__ == '__main__':
     from torchsummary import summary
 
     dev = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    critic_arch = (11, 64, 32, 1)          # 11 is the batch size
-    activations = ('relu', 'relu')
-    n_kernels = 5
+    test_single = False
+    test_multi = False
+    test_weighted = False
+    test_single_output = True
+
+    n_kernels = 1
 
     # Define some input
     inp = torch.ones(11, 11) * torch.arange(11)
     inp = inp.to(dev)
     # Create random tensor with shape 11x11
-    inp_rnd = torch.randn(11, 11)
+    x = torch.randn(11, 11)
 
     '''
     Test for one dimensional output
     '''
-    critic = MLPGMM(arch=critic_arch, activ=activations, n_kernels=n_kernels, device=dev)
+    if test_single:
+        critic_arch = (11, 64, 32, 1)  # 11 is the batch size
+        activations = ('relu', 'relu')
+        critic_z = MLPGMM(arch=critic_arch, activ=activations, n_kernels=n_kernels, device=dev)
 
-    # Output of model
-    means, stds, _ = critic(inp)
+        # Output of model
+        means, stds, _ = critic_z(inp)
 
-    # Print Shapes of outputs
-    print(f'Shape of means: {means.shape} \n {means} \n')
-    print(f'Shape of stds: {stds.shape} \n {stds} \n')
+        # Print Shapes of outputs
+        print(f'Shape of means: {means.shape} \n {means} \n')
+        print(f'Shape of stds: {stds.shape} \n {stds} \n')
 
-    print(f'Critic summary: {summary(critic, (11,))}\nCritic Activation: {critic.activ_str}\n')
+        print(f'Critic summary: {summary(critic_z, (11,))}\nCritic Activation: {critic_z.activ_str}\n')
 
     '''
     Test for multi-dimensional output-
     '''
-    # Rows: Kernels, Actions: dim. 2
-    arch_mulo = (11, 64, 32, 3)
-    activ_mulo = ('relu', 'relu')
-    actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels, device=dev)
-    means_mulo, stds_mulo, _ = actor(inp)
+    if test_multi:
+        # Rows: Kernels, Actions: dim. 2
+        arch_mulo = (11, 64, 32, 3)
+        activ_mulo = ('relu', 'relu')
+        actor = MLPGMM(arch=arch_mulo, activ=activ_mulo, n_kernels=n_kernels, device=dev)
+        means_mulo, stds_mulo, _ = actor(inp)
 
-    # Print Shapes of outputs
-    print(f'Shape of means_mulo: {means_mulo.shape} \n {means_mulo} \n')
-    print(f'Shape of stds_mulo: {stds_mulo.shape} \n {stds_mulo} \n')
+        # Print Shapes of outputs
+        print(f'Shape of means_mulo: {means_mulo.shape} \n {means_mulo} \n')
+        print(f'Shape of stds_mulo: {stds_mulo.shape} \n {stds_mulo} \n')
 
-    print(f'Actor summary: {summary(actor, (11,))}\nActor Activation: {actor.activ_str}')
+        print(f'Actor summary: {summary(actor, (11,))}\nActor Activation: {actor.activ_str}')
 
     '''
     Test MLPGMMWeighted
     '''
-    arch_mulo_w = (11, 64, 32, 3)
-    active_mulo_w = ('gelu', 'gelu')
-    actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels, device=dev)
-    means_mulo_w, stds_mulo_w, weights = actor_w(inp)
-    # Print Shapes of outputs
-    print(f'Shape of means_mulo (version with weight output): {means_mulo_w.shape} \n {means_mulo_w} \n')
-    print(f'Shape of stds_mulo (version with weight output): {stds_mulo_w.shape} \n {stds_mulo_w} \n')
-    print(f'Shape of kernel weights: {weights.shape} \n{weights}')
-    print(f'Actor summary (version with weight output): {summary(actor_w, (arch_mulo_w[0],))}'
-          f'\nActor Activation: {actor_w.activ_str}')
+    if test_multi:
+        arch_mulo_w = (11, 64, 32, 3)
+        active_mulo_w = ('gelu', 'gelu')
+        actor_w = MLPGMMWeighted(arch=arch_mulo_w, activ=active_mulo_w, n_kernels=n_kernels, device=dev)
+        means_mulo_w, stds_mulo_w, weights = actor_w(inp)
+        # Print Shapes of outputs
+        print(f'Shape of means_mulo (version with weight output): {means_mulo_w.shape} \n {means_mulo_w} \n')
+        print(f'Shape of stds_mulo (version with weight output): {stds_mulo_w.shape} \n {stds_mulo_w} \n')
+        print(f'Shape of kernel weights: {weights.shape} \n{weights}')
+        print(f'Actor summary (version with weight output): {summary(actor_w, (arch_mulo_w[0],))}'
+              f'\nActor Activation: {actor_w.activ_str}')
 
-
+    '''
+    Test SingleOutput NN
+    '''
+    if test_single_output:
+        inp_dim = 20
+        arch_q = (inp_dim, 64, 64, 1)
+        activations_q = ('relu', 'relu')
+        critic_q = SingleOutputNN(arch=arch_q, activ=activations_q, device=dev)
+        # Train loop
+        learning_rate = 0.001
+        optim_q = Adam(critic_q.parameters(), lr=learning_rate)
+        optim_q.zero_grad()
+        n_data = 50
+        batch_s = 5
+        iterations = 1000
+        curr_iter = 0
+        labels = torch.unsqueeze(torch.arange(n_data, dtype=torch.float64), dim=1).to(dev)
+        x = torch.randn(n_data, inp_dim, dtype=torch.float64)
+        while curr_iter < iterations:
+            rnd_sample_idx = torch.randint(0, n_data, (batch_s,))
+            x_batch = x[rnd_sample_idx]
+            y_batch = labels[rnd_sample_idx]
+            pred, std, kw = critic_q(x_batch)
+            loss = F.mse_loss(pred, y_batch)
+            loss.backward()
+            optim_q.step()
+            optim_q.zero_grad()
+            curr_iter += 1
+        idx_samples = torch.as_tensor([5, 10, 44])
+        pred = critic_q(x[idx_samples])
+        print(f'Label: {idx_samples}, prediction. {pred.cpu()}')
