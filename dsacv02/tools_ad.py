@@ -184,13 +184,101 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
     print('Finished')
 
 
+def compute_avg_rewards(logdir, output_dir):
+    """
+    - Computes the avg. rewards up to min(len(rewards))
+    :param logdir:
+    :param output_dir:
+    """
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir)
+
+    # Get event dirs
+    event_dirs = find_event_files(root_dir=logdir)
+
+    event_accs = list()
+    iter_list = list()
+    for event_dir_i in event_dirs:
+        # Load TensorBoard log files
+        event_acc = event_accumulator.EventAccumulator(event_dir_i, compression_bps=None)
+        # event_acc = event_accumulator.EventAccumulator(logdir, size_guidance=(15000,))
+        event_acc.Reload()
+        # Append to events list
+        event_accs.append(event_acc)
+
+    graph_names = ['Rewards/Reward_Eval', 'Rewards/Reward_Training']
+    file_save_names = ['Avg_Reward_Eval.png', 'Avg_Reward_Training.png']
+
+    color_idx = 2
+    # Each graph per n events
+    for graph_name, file_save_name in zip(graph_names, file_save_names):
+        # Shape: (n_events x values)
+        curve_names = list()
+        all_values = list()
+        min_len = float('inf')
+        # Fix graphs for all events
+        for event_acc_i, event_dir_i in zip(event_accs, event_dirs):
+            curve_name_event_i = event_dir_i.split('\\')[-1]
+            curve_names.append(curve_name_event_i)
+            values_i = list()
+            if graph_name not in event_acc_i.Tags()['scalars']:
+                print(f'{graph_name} not found in {event_dir_i}. . . Continue . . .')
+                continue
+            graph = event_acc_i.Scalars(graph_name)
+            for data_i in graph:
+                values_i.append(data_i.value)
+            # Convert
+            values_i = np.asarray(values_i)
+            all_values.append(values_i)
+            # Get supports
+            min_len = min(min_len, len(values_i))
+        # Smallest value cut-off
+        for idx in range(len(all_values)):
+            all_values[idx] = all_values[idx][:min_len]
+        all_values = np.asarray(all_values)
+        # Smallest element determines cut-off
+        # all_values = all_values[:, :min_len]
+        # Compute average
+        mean_values = all_values.mean(axis=0)
+        mean_values_len = mean_values.shape[0]
+        iter_n = event_acc.Scalars('Rewards/Reward_Eval')[-1].step
+        step_size = iter_n / mean_values_len
+        supps = np.arange(0, iter_n, step_size)
+
+        # Get colormap, alt: 'jet', 'rainbow', 'cool'
+        cmap = plt.cm.get_cmap('jet')
+
+        # Instantiate figures
+        plt.figure(figsize=(10, 6))
+        plt.ticklabel_format(axis='x', style='sci', scilimits=(0, 0), useOffset=None, useLocale=None,
+                             useMathText=True)
+        # Tick
+        plt.xlim(0, iter_n)
+        plt.xticks(np.linspace(0, iter_n, 10, dtype=int))
+        color_val = cmap(1 / color_idx)
+        color_idx += 1
+        # Graph average curve
+        plt.plot(supps, mean_values, label=graph_name, color=color_val)
+        plt.grid(visible=True, which='both', color='black', linewidth=0.3)
+        # Add labels and legend
+        plt.xlabel(xlabel='Iterations')
+        plt.ylabel('Avg_Value')
+        plt.title(graph_name)
+        plt.legend()
+        plt.savefig(output_dir + '/' + file_save_name)
+
+    print('Finished')
+
+
 if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
-    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1773351198.24972"
+    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_III\ant-v4_sac"
     output_path_lib = log_path + r'/' + 'graphs'
+    output_path_lib_avg = log_path + r'/' + 'average_rewards'
     output_path_cons = log_path + r'/' + 'graphs_filtered'
-    save_tb_graphs(logdir=log_path, output_dir=output_path_lib, n_kernels_act=1, n_kernels_cr=1,
-                   std_thld=std_threshold_lib)
-    save_tb_graphs(logdir=log_path, output_dir=output_path_cons, n_kernels_act=1, n_kernels_cr=1,
-                   std_thld=std_threshold_cons)
+    # save_tb_graphs(logdir=log_path, output_dir=output_path_lib, n_kernels_act=1, n_kernels_cr=1,
+    #                std_thld=std_threshold_lib)
+    # save_tb_graphs(logdir=log_path, output_dir=output_path_cons, n_kernels_act=1, n_kernels_cr=1,
+    #                std_thld=std_threshold_cons)
+    compute_avg_rewards(logdir=log_path, output_dir=output_path_lib_avg)
