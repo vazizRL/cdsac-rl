@@ -80,8 +80,8 @@ def cramer_optim_1k(pdf_target: torch.tensor, pdf_curr: torch.tensor, standard_s
     dy_target_mb = pdf_target.cdf(dx_singular_sorted)
 
     cramer_re = torch.trapz(y=(dy_target_mb - dy_curr_mb) ** 2, x=dx_singular_sorted) # + 1e-55
-    if not_reg:
-        cramer_re.sqrt_()
+    # if not_reg:
+    #     cramer_re.sqrt_()
     cramer_re = cramer_re.mean()
 
     return cramer_re

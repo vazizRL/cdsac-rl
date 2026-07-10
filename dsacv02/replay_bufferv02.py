@@ -85,23 +85,18 @@ class ReplayBuffer:
         """
 
         if all:
-            experiences = (self.state_memory[0:self.mem_cntr],
-                           self.action_memory[0:self.mem_cntr],
-                           self.reward_memory[0:self.mem_cntr],
-                           self.new_state_memory[0:self.mem_cntr],
-                           self.terminal_memory[0:self.mem_cntr])
+            np.savez(path_name, state_mem=self.state_memory[0:self.mem_cntr],
+                    action_mem=self.action_memory[0:self.mem_cntr],
+                    reward_mem=self.reward_memory[0:self.mem_cntr],
+                    state_next_mem=self.new_state_memory[0:self.mem_cntr],
+                    terminal_mem=self.terminal_memory[0:self.mem_cntr])
 
-            with open(path_name, mode='wb') as file:
-                pickle.dump(experiences, file)
         else:
-            experiences = (self.state_memory[self.new_exp:self.mem_cntr],
-                           self.action_memory[self.new_exp:self.mem_cntr],
-                           self.reward_memory[self.new_exp:self.mem_cntr],
-                           self.new_state_memory[self.new_exp:self.mem_cntr],
-                           self.terminal_memory[self.new_exp:self.mem_cntr])
-
-            with open(path_name, mode='ab') as file:
-                pickle.dump(experiences, file)
+            np.savez(path_name, state_mem=self.state_memory[self.new_exp:self.mem_cntr],
+                    action_mem=self.action_memory[self.new_exp:self.mem_cntr],
+                    reward_mem=self.reward_memory[self.new_exp:self.mem_cntr],
+                    state_next_mem=self.new_state_memory[self.new_exp:self.mem_cntr],
+                    terminal_mem=self.terminal_memory[self.new_exp:self.mem_cntr])
 
             self.new_exp = self.mem_cntr
 
@@ -115,45 +110,15 @@ class ReplayBuffer:
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
 
-        conc = list()
-        with open(replay_experiences_path, 'rb') as file:
-            while True:
-                try:
-                    row = pickle.load(file)
-                    conc.append(row)
-                except EOFError:
-                    break
+        with np.load(replay_experiences_path) as data:
+            loaded_size = len(data['state_mem'])
+            self.state_memory[:loaded_size] = data['state_mem']
+            self.action_memory[:loaded_size] = data['action_mem']
+            self.reward_memory[:loaded_size] = data['reward_mem']
+            self.new_state_memory[:loaded_size] = data['state_next_mem']
+            self.terminal_memory[:loaded_size] = data['terminal_mem']
 
-        states_last = conc[0][0]
-        actions_last = conc[0][1]
-        rewards_last = conc[0][2]
-        states_next_last = conc[0][3]
-        dones_last = conc[0][4]
-        for next_chunk in conc[1:]:
-            states_i, actions_i, rewards_i, states_next_i, dones_i = next_chunk
-
-            states_last = np.concatenate((states_last, states_i))
-            actions_last = np.concatenate((actions_last, actions_i))
-            rewards_last = np.concatenate((rewards_last, rewards_i))
-            states_next_last = np.concatenate((states_next_last, states_next_i))
-            dones_last = np.concatenate((dones_last, dones_i))
-
-        replay_len = states_last.shape[0]
-        # If more than mem_size experiences are stored, make sure that the recent ones are in the buffer
-        if replay_len > self.mem_size:
-            states_last = states_last[-self.mem_size:]
-            actions_last = actions_last[-self.mem_size:]
-            rewards_last = rewards_last[-self.mem_size:]
-            states_next_last = states_next_last[-self.mem_size:]
-            dones_last = dones_last[-self.mem_size:]
-            # For indexing max. value
-            replay_len = self.mem_size
-
-        self.state_memory[:replay_len] = states_last
-        self.action_memory[:replay_len] = actions_last
-        self.reward_memory[:replay_len] = rewards_last
-        self.new_state_memory[:replay_len] = states_next_last
-        self.terminal_memory[:replay_len] = dones_last
+        self.mem_cntr = loaded_size
 
         return 0
 

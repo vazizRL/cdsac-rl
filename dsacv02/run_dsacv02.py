@@ -10,21 +10,21 @@ from tools import smoothing, eval_agent
 
 def run_experient():
     ''' Environment constants '''
-    LOAD_PATH = None
-    # gym_env = 'Humanoid-v4'
-    gym_env = 'Ant-v4'
+    # LOAD_PATH = None
+    LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1783655536.002026"
+    gym_env = 'Walker2d-v4'
+    # gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
-    REPLAY_BUFFER_DEVICE = 'cuda:0'
     DISCRETE = False
 
     ''' Algo: distributional -> C-DSAC, else SAC'''
-    distributional = False
+    distributional = True
 
     ''' Agent constants '''
-    # ACTION_DIM = 17
-    ACTION_DIM = 8
-    # OBSERVATION_DIM = 376
-    OBSERVATION_DIM = 111
+    ACTION_DIM = 6
+    # ACTION_DIM = 8
+    OBSERVATION_DIM = 17
+    # OBSERVATION_DIM = 111
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
     LEARNABLE_KWEIGHTS = False
@@ -99,10 +99,10 @@ def run_experient():
     os.mkdir(event_path)
     tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
-    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    # env = gym.make(gym_env)
-    # env_eval = gym.make(gym_env)
+    # env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env)
+    env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -118,9 +118,9 @@ def run_experient():
                   memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, distributional=distributional, device=DEVICE)
 
     if LOAD_PATH:
-        shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl.npz', event_path + '/')
         N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
-                                            replay_npy_name='replay_buffer.pkl', load_experience=True)
+                                            replay_npy_name='replay_buffer.pkl.npz', load_experience=True)
     best_score = env.reward_range[0]
     score_history_train = []
     score_history_eval = []

@@ -195,7 +195,7 @@ class Agent:
         self.learning_algo.force_alpha_to_val(self.log_alpha)
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str,
-                        save_replay=True, save_all=False):
+                        save_replay=True, save_all=True):
         """
         - Saves: Networks, optimizers, agent meta-parameters and experiences in replay buffer
         :param iter_n: Global iteration number at which the saving is performed

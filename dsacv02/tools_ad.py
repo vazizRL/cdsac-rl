@@ -254,7 +254,7 @@ def compute_avg_rewards(logdir, output_dir):
                              useMathText=True)
         # Tick
         plt.xlim(0, iter_n)
-        plt.xticks(np.linspace(0, iter_n, 10, dtype=int))
+        plt.xticks(np.linspace(0, iter_n, 11, dtype=int))
         color_val = cmap(1 / color_idx)
         color_idx += 1
         # Graph average curve
