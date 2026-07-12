@@ -4,6 +4,7 @@ import numpy as np
 from scipy.stats import zscore as zscore_calc
 from tools import smoothing
 from tensorboard.backend.event_processing import event_accumulator
+from torch.utils.tensorboard import SummaryWriter
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
@@ -270,6 +271,22 @@ def compute_avg_rewards(logdir, output_dir):
     print('Finished')
 
 
+def concatenate_tb_logs(ev_accs_path, output_dir, offset=0):
+    writer = SummaryWriter(output_dir)
+    for ev_acc_path_i in ev_accs_path:
+        ev_acc_i = event_accumulator.EventAccumulator(ev_acc_path_i,
+                                                     size_guidance={'scalars': 0},
+                                                     compression_bps=None)
+        ev_acc_i.Reload()
+        for tag in ev_acc_i.Tags().get("scalars", []):
+            for e in ev_acc_i.Scalars(tag):
+                writer.add_scalar(tag, e.value, e.step + offset, walltime=e.wall_time)
+
+    writer.close()
+
+    return 0
+
+
 if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
@@ -281,4 +298,8 @@ if __name__ == '__main__':
     #                std_thld=std_threshold_lib)
     # save_tb_graphs(logdir=log_path, output_dir=output_path_cons, n_kernels_act=1, n_kernels_cr=1,
     #                std_thld=std_threshold_cons)
-    compute_avg_rewards(logdir=log_path, output_dir=output_path_lib_avg)
+    # compute_avg_rewards(logdir=log_path, output_dir=output_path_lib_avg)
+
+    tb_events_path = [r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1783802260.177389",
+                 r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1783802387.601975"]
+    concatenate_tb_logs(tb_events_path, r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02", offset=0)
