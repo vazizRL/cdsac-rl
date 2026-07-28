@@ -186,7 +186,7 @@ class RealDSAC:
         # (B, K, Q)
         means, stds, kernel_weights = znet(obs, actions, exp=exp)
 
-        stds.abs_()
+        # stds.abs_()
         if kernel_weights is None:
             mb_size = actions.shape[0]
             kernel_weights = torch.ones(mb_size, self.n_kernels_cr) / self.n_kernels_cr
@@ -361,7 +361,8 @@ class RealDSAC:
                 self.evaluate_z(obs=states, actions=actions_curr_pol, znet=self.q1, sample=False, exp=exp,
                                 reparameterize=False)
 
-        policy_loss = (self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min).mean()
+        policy_loss = \
+            (self.get_alpha(requires_grad=False) * log_ps_curr_pol - means_min) .mean()
         entropy = -log_ps_curr_pol.mean().detach()
 
         return policy_loss, entropy

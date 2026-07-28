@@ -4,7 +4,7 @@ import torch.distributions as distr
 from dsacv02.neural_networks import MLPGMM, MLPGMMWeighted, SingleOutputNN
 from dsacv02.gmm_reparameterization.mixture_same_family import ReparameterizedMixtureSameFamilyMod
 
-STD_INI_VALUE = 100.0
+STD_INI_VALUE = -80.0
 
 
 class Critic(nn.Module):
@@ -67,6 +67,8 @@ class Critic(nn.Module):
 
         # Todo: Either delete or funnel, no clamping
         # value_std = torch.clamp(stds, self.min_std, self.max_std)
+        stds = 0.5 * (self.max_std - self.min_std) * torch.tanh(stds * (1 / (0.5*(self.max_std + self.min_std)))) + \
+            0.5 * (self.max_std + self.min_std)
 
         # return value_mean, value_std, weights
         return value_mean, stds, weights

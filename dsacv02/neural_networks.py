@@ -122,8 +122,8 @@ class MLPGMM(nn.Module):
         if exp:
             means_logits = means_logits.exp()
             stds_logits = stds_logits.exp()
-        else:
-            stds_logits.abs_()
+        # else:
+        #     stds_logits.abs_()
 
         # kweights = torch.ones((x.shape[0], 1, 1)) / self._n_kernels
         kweights = None

@@ -10,15 +10,15 @@ from tools import smoothing, eval_agent
 
 def run_experient():
     ''' Environment constants '''
-    # LOAD_PATH = None
-    LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1783655536.002026"
+    LOAD_PATH = None
+    # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_III\mujoco2.3.3\Walker2d-v4_stretched_tanh_stdini-80_pol_scaled\event_1783988072.730692"
     gym_env = 'Walker2d-v4'
     # gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
     DISCRETE = False
 
     ''' Algo: distributional -> C-DSAC, else SAC'''
-    distributional = True
+    distributional = False
 
     ''' Agent constants '''
     ACTION_DIM = 6
@@ -33,7 +33,7 @@ def run_experient():
     CR_LR_FIN, ACT_LR_FIN, ALPHA_LR_FIN = 3e-4, 3e-4, 3e-4      # 6e-4, 6e-4, 6e-4
     # Standard deviations
     EXPONENTIATE = False
-    CR_MIN_STD, CR_MAX_STD = 0.01, 1000.0           # 0.01, 1000.0
+    CR_MIN_STD, CR_MAX_STD = 1.0, 150.0           # 0.01, 1000.0
     ACT_MIN_STD, ACT_MAX_STD = 1e-6, 1.0
     # Hidden Layers
     CR_HL = (256, 256)
@@ -138,9 +138,10 @@ def run_experient():
         observation, _ = env.reset()
         observation = np.expand_dims(observation, axis=0)
         done = False
+        truncate = False
         reward_episode = 0
         interval_reward = 0
-        while not done:
+        while not done and not truncate:
             action, prob_action = agent.choose_action(observation)
             if DISCRETE:
                 if ACTION_DIM == 1:
@@ -158,7 +159,7 @@ def run_experient():
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
             if episode_iter > MAX_EPISODE_ITER:
-                done = True
+                truncate = True
                 # pass
             if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
                 print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
@@ -213,7 +214,7 @@ def run_experient():
 
 
 if __name__ == '__main__':
-    RUNS = 2
+    RUNS = 3
     for _ in range(RUNS):
         run_experient()
 
