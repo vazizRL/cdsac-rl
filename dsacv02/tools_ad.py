@@ -20,7 +20,7 @@ def find_event_files(root_dir, pattern_prefix="events.out.tfevents"):
     return event_files
 
 
-def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr=1):
+def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr=1, alpha=1.0):
     """
     - Tool to graph TB logs
     :param logdir: path to log dir
@@ -28,6 +28,7 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
     :param std_thld: Threshold for determining outliers in the graph
     :param n_kernels_act: n kernels actor
     :param n_kernels_cr: n kernels critic
+    :param alpha: Transparency
 
     """
     # Create output directory if it doesn't exist
@@ -90,7 +91,7 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
         all_supps = list()
         curve_names = list()
         for event_acc_i, event_dir_i, iter_i in zip(event_accs, event_dirs, iter_list):
-            curve_name_event_i = event_dir_i.split('\\')[-1]
+            curve_name_event_i = event_dir_i.split('/')[-1]
             curve_names.append(curve_name_event_i)
             values_i = list()
             if graph_name not in event_acc_i.Tags()['scalars']:
@@ -133,7 +134,7 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
         for supps, smoothed_list, curve_name_i in zip(all_supps, all_smoothed_lists, curve_names):
             # plot
             color = cmap(c_idx / len_iterates)
-            plt.plot(supps, smoothed_list, label=curve_name_i, color=color)
+            plt.plot(supps, smoothed_list, label=curve_name_i, color=color, alpha=alpha)
             c_idx += 1
         # Ticks
         plt.xlim(0, max_iter)
@@ -167,12 +168,12 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
         plt.xlim(0, max_iter)
         if graph_name == 'Rewards/Reward_Eval' or graph_name == 'Rewards/Reward_Training':
             plt.ylim(-150, max_val + max_val * 0.1)
-        plt.xticks(np.linspace(0, max_iter, 10, dtype=int))
+        plt.xticks(np.linspace(0, max_iter, 11, dtype=int))
         c_idx = 0
         for supps, values_i, curve_name_i in zip(all_supps, all_values, curve_names):
             # plot
             color = cmap(c_idx / len_iterates)
-            plt.plot(supps, values_i, label=curve_name_i, color=color)
+            plt.plot(supps, values_i, label=curve_name_i, color=color, alpha=alpha)
             c_idx += 1
         plt.grid(visible=True, which='both', color='grey', linewidth=0.3)
         # Add labels and legend
@@ -219,7 +220,7 @@ def compute_avg_rewards(logdir, output_dir):
         min_len = float('inf')
         # Fix graphs for all events
         for event_acc_i, event_dir_i in zip(event_accs, event_dirs):
-            curve_name_event_i = event_dir_i.split('\\')[-1]
+            curve_name_event_i = event_dir_i.split('/')[-1]
             curve_names.append(curve_name_event_i)
             values_i = list()
             if graph_name not in event_acc_i.Tags()['scalars']:
@@ -290,14 +291,15 @@ def concatenate_tb_logs(ev_accs_path, output_dir, offset=0):
 if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
-    log_path = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_III\mujoco2.3.3\Walker2d-v4_SAC"
+    alpha = 0.7
+    log_path = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_III/ant-v4_stretched_tanh_stdini-80_ploss_detached_scaled_CrMin1.0/"
     output_path_lib = log_path + r'/' + 'graphs'
     output_path_lib_avg = log_path + r'/' + 'average_rewards'
     output_path_cons = log_path + r'/' + 'graphs_filtered'
     save_tb_graphs(logdir=log_path, output_dir=output_path_lib, n_kernels_act=1, n_kernels_cr=1,
-                   std_thld=std_threshold_lib)
+                   std_thld=std_threshold_lib, alpha=alpha)
     save_tb_graphs(logdir=log_path, output_dir=output_path_cons, n_kernels_act=1, n_kernels_cr=1,
-                   std_thld=std_threshold_cons)
+                   std_thld=std_threshold_cons, alpha=alpha)
     compute_avg_rewards(logdir=log_path, output_dir=output_path_lib_avg)
 
     # tb_events_path = [r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1783802260.177389",
