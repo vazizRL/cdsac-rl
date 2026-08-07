@@ -12,8 +12,8 @@ def run_experient():
     ''' Environment constants '''
     LOAD_PATH = None
     # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_III\mujoco2.3.3\Walker2d-v4_stretched_tanh_stdini-80_pol_scaled\event_1783988072.730692"
-    gym_env = 'Walker2d-v4'
-    # gym_env = 'Ant-v4'
+    # gym_env = 'Walker2d-v4'
+    gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
     DISCRETE = False
 
@@ -21,10 +21,10 @@ def run_experient():
     distributional = False
 
     ''' Agent constants '''
-    ACTION_DIM = 6
-    # ACTION_DIM = 8
-    OBSERVATION_DIM = 17
-    # OBSERVATION_DIM = 111
+    # ACTION_DIM = 6
+    ACTION_DIM = 8
+    # OBSERVATION_DIM = 17
+    OBSERVATION_DIM = 111
     N_KERNELS_ACT = 1
     N_KERNELS_CR = 1
     LEARNABLE_KWEIGHTS = False
@@ -99,10 +99,10 @@ def run_experient():
     os.mkdir(event_path)
     tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
-    # env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    env = gym.make(gym_env)
-    env_eval = gym.make(gym_env)
+    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env = gym.make(gym_env)
+    # env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
                   n_kernels_cr=N_KERNELS_CR, learnable_kweights=LEARNABLE_KWEIGHTS,
                   cr_lr_ini=CR_LR_INI, cr_lr_fin=CR_LR_FIN,
@@ -158,7 +158,7 @@ def run_experient():
             # observation_ = np.concatenate((observation_, np.asarray([int(done)], dtype=np.float64)))
             observation_ = observation_.reshape((1, OBSERVATION_DIM))
             # observation_ = np.expand_dims(observation_, axis=0)
-            if episode_iter > MAX_EPISODE_ITER:
+            if episode_iter > MAX_EPISODE_ITER - 1:
                 truncate = True
                 # pass
             if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
@@ -214,7 +214,7 @@ def run_experient():
 
 
 if __name__ == '__main__':
-    RUNS = 3
+    RUNS = 5
     for _ in range(RUNS):
         run_experient()
 

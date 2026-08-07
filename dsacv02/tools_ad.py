@@ -292,7 +292,7 @@ if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
     alpha = 0.7
-    log_path = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_III/ant-v4_stretched_tanh_stdini-80_ploss_detached_scaled_CrMin1.0/"
+    log_path = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_III/ant-v4_sac_mujoco2.10_LR0.001_truncated_fixed/"
     output_path_lib = log_path + r'/' + 'graphs'
     output_path_lib_avg = log_path + r'/' + 'average_rewards'
     output_path_cons = log_path + r'/' + 'graphs_filtered'
