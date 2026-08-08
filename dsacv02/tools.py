@@ -452,7 +452,7 @@ def get_supports(mb, means, sigmas):
     pass
 
 
-def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter: int):
+def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter: int, stoch_pol=False):
     """
     - Evaluation rollout for non-vectorized environment; 1 episode
     :param env: Environment instance
@@ -461,6 +461,7 @@ def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter:
     :param act_dim: Action space dimension
     :param obs_dim: Observation space dimension
     :param max_iter: Maximal allowed iterations per episode
+    :param stoch_pol: Eval of deterministic or stochastic policy
     """
     done = False
     observation, _ = env.reset()
@@ -468,7 +469,10 @@ def eval_agent(env, agent, discrete: bool, act_dim: int, obs_dim: int, max_iter:
     reward_episode = 0
     episode_iter = 0
     while not done:
-        action, prob_action = agent.choose_deterministic_action(observation)
+        if stoch_pol:
+            action, prob_action = agent.choose_action(observation)
+        else:
+            action, prob_action = agent.choose_deterministic_action(observation)
         if discrete:
             if act_dim == 1:
                 action = 0 if action <= 0 else 1

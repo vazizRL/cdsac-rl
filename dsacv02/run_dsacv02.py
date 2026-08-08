@@ -11,7 +11,7 @@ from tools import smoothing, eval_agent
 def run_experient():
     ''' Environment constants '''
     LOAD_PATH = None
-    # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\tests\DSAC_Runs_Optim_III\mujoco2.3.3\Walker2d-v4_stretched_tanh_stdini-80_pol_scaled\event_1783988072.730692"
+    # LOAD_PATH = r""
     # gym_env = 'Walker2d-v4'
     gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
@@ -99,8 +99,10 @@ def run_experient():
     os.mkdir(event_path)
     tb_writer = SummaryWriter(log_dir=event_path, comment='C-DSAC', flush_secs=20)
 
-    env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
-    env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    # env_eval = gym.make(gym_env, use_contact_forces=True, healthy_z_range=[0.27, 1.0])
+    env = gym.make(gym_env, use_contact_forces=True)
+    env_eval = gym.make(gym_env, use_contact_forces=True)
     # env = gym.make(gym_env)
     # env_eval = gym.make(gym_env)
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, n_kernels_act=N_KERNELS_ACT,
@@ -182,19 +184,22 @@ def run_experient():
             observation = observation_
 
             if N_TOT_STEPS % EVAL_INTERVAL == 0:
-                reward_rollout = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
-                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER)
-                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout, N_TOT_STEPS)
-                score_history_eval.append(reward_rollout)
-                # After 30k @0.85 no improvement, reset the model to last best
+                reward_rollout_deter = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER, stoch_pol=False)
+                reward_rollout_stoch = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
+                                        obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER, stoch_pol=True)
+                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout_deter, N_TOT_STEPS)
+                tb_writer.add_scalar('Rewards/Reward_Eval_Stoch', reward_rollout_stoch, N_TOT_STEPS)
+                score_history_eval.append(reward_rollout_deter)
+
                 sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
-                    smoothing(scalars=(reward_rollout,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
+                    smoothing(scalars=(reward_rollout_deter,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
                               last=smooth_reward_last_eval)
                 smoothed_total_eval.append(sm_eval)
 
         print(f'@Iter: {N_TOT_STEPS}')
         score_history_train.append(reward_episode)
-
+        # Saving as a function of training performance
         batch_sm, smooth_reward_iter_n, smooth_reward_last, _ = \
             smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
                       last=smooth_reward_last)

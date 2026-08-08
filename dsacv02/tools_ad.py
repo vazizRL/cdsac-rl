@@ -67,22 +67,22 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
                    'DSAC2_CrDistr/gmm_critic_std_std iter', 'DSAC2_Vals/gmm_actor_avg_action iter',
                    'DSAC2_Vals/gmm_critic_avg_value iter', 'Loss/Actor loss-RL iter', 'Loss/Critic loss-RL iter',
                    'DSAC2_Sensitivity/q1_act_sen', 'DSAC2_Sensitivity/q2_act_sen',
-                   'Rewards/Reward_Eval', 'Rewards/Reward_Training', 'Metric_Analysis/loss_raw_mean',
-                   'Metric_Analysis/loss_raw_std',  'Metric_Analysis/loss_raw_max', 'Metric_Analysis/loss_raw_min',
-                   'Metric_Analysis/dsq_supp_max_mean', 'Metric_Analysis/dsq_supp_min_mean',
-                   'Metric_Analysis/dsq_supp_max', 'Metric_Analysis/dsq_supp_min', 'Time/Algorithm time [ms]-RL iter',
-                   "dC:dQ/cramer_fac_mean", "dC:dQ/cramer_fac_max", "dC:dQ/cramer_fac_min", "dC:dQ/energy_fac_mean",
-                   "dC:dQ/energy_fac_max", "dC:dQ/energy_fac_min"
+                   'Rewards/Reward_Eval', 'Rewards/Reward_Eval_Stoch', 'Rewards/Reward_Training',
+                   'Metric_Analysis/loss_raw_mean', 'Metric_Analysis/loss_raw_std',  'Metric_Analysis/loss_raw_max',
+                   'Metric_Analysis/loss_raw_min', 'Metric_Analysis/dsq_supp_max_mean',
+                   'Metric_Analysis/dsq_supp_min_mean', 'Metric_Analysis/dsq_supp_max', 'Metric_Analysis/dsq_supp_min',
+                   'Time/Algorithm time [ms]-RL iter', "dC:dQ/cramer_fac_mean", "dC:dQ/cramer_fac_max",
+                   "dC:dQ/cramer_fac_min", "dC:dQ/energy_fac_mean", "dC:dQ/energy_fac_max", "dC:dQ/energy_fac_min"
                    ]
 
     file_save_names = ['Actor_Entropy.png', *kernel_names_act_output, 'Actor_Std.png', 'Alpha_Val.png',
                        *kernel_names_cr_output, 'Critic_Std.png', 'Critic_Std_Std.png', 'Actor_Val.png',
                        'Critic_Val.png', 'Actor_Loss.png', 'Critic_Loss.png', 'Q1_Action_Sensitivity.png',
-                       'Q2_Action_Sensitivity.png', 'Reward_Eval.png', 'Reward_Training.png', 'Loss_Raw_Mean.png',
-                       'Loss_Raw_Std.png',  'Loss_Raw_Max.png', 'Loss_Raw_Min.png', 'DSQ_Supp_Max_Mean.png',
-                       'DSQ_Supp_Min_Mean.png', 'DSQ_Supp_Max.png', 'DSQ_Supp_Min.png', 'Time_per_Iter.png',
-                       'dCdQ_Cr_Fac_Mean.png', 'dCdQ_Cr_Fac_Max.png', 'dCdQ_Cr_Fac_Min.png', 'dCdQ_En_Fac_Mean.png',
-                       'dCdQ_En_Fac_Max.png', 'dCdQ_En_Fac_Min.png']
+                       'Q2_Action_Sensitivity.png', 'Reward_Eval.png', 'Reward_Eval_Stoch.png',
+                       'Reward_Training.png', 'Loss_Raw_Mean.png', 'Loss_Raw_Std.png',  'Loss_Raw_Max.png',
+                       'Loss_Raw_Min.png', 'DSQ_Supp_Max_Mean.png', 'DSQ_Supp_Min_Mean.png', 'DSQ_Supp_Max.png',
+                       'DSQ_Supp_Min.png', 'Time_per_Iter.png', 'dCdQ_Cr_Fac_Mean.png', 'dCdQ_Cr_Fac_Max.png',
+                       'dCdQ_Cr_Fac_Min.png', 'dCdQ_En_Fac_Mean.png', 'dCdQ_En_Fac_Max.png', 'dCdQ_En_Fac_Min.png']
 
     for graph_name, file_save_name in zip(graph_names, file_save_names):
         # all values across events
@@ -208,8 +208,8 @@ def compute_avg_rewards(logdir, output_dir):
         # Append to events list
         event_accs.append(event_acc)
 
-    graph_names = ['Rewards/Reward_Eval', 'Rewards/Reward_Training']
-    file_save_names = ['Avg_Reward_Eval.png', 'Avg_Reward_Training.png']
+    graph_names = ['Rewards/Reward_Eval', 'Rewards/Reward_Eval_Stoch' ,'Rewards/Reward_Training']
+    file_save_names = ['Avg_Reward_Eval.png', 'Avg_Reward_Eval_Stoch.png' ,'Avg_Reward_Training.png']
 
     color_idx = 2
     # Each graph per n events
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
     alpha = 0.7
-    log_path = r"/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_III/ant-v4_sac_mujoco2.10_LR0.001_truncated_fixed/"
+    log_path = r"/home/zardasht/PycharmProjects/RL/dsacv02/eee/"
     output_path_lib = log_path + r'/' + 'graphs'
     output_path_lib_avg = log_path + r'/' + 'average_rewards'
     output_path_cons = log_path + r'/' + 'graphs_filtered'
