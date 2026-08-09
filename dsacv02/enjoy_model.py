@@ -31,14 +31,15 @@ Loading Parameters
 env_name = 'Ant-v2'
 event_name = '4Ws_A'
 curr_dir = os.getcwd()
-loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
+# loading_path = curr_dir + '/' + 'tests' + '/' + 'DSAC_Runs_Optim' + '/' + env_name + '/' + event_name + '/'
+loading_path = '/home/zardasht/PycharmProjects/RL/dsacv02/tests/DSAC_Runs_Optim_III/ant-v4_stretched_tanh_stdini-80_BetaNLL_CrMin0.01_truncated_fixed/event_1785699926.426594/'
 tar_name = 'best_performance.tar'
 meta_name = 'agent_meta.txt'
 replay_name = 'replay_buffer.pkl'
 
 
 if __name__ == '__main__':
-    render = True
+    render = False
     if render:
         mode = 'human'
     else:
@@ -49,15 +50,15 @@ if __name__ == '__main__':
     agent = Agent(obs_dim=OBSERVATION_DIM, action_dim=ACTION_DIM, device=DEVICE, n_kernels_cr=1, n_kernels_act=1,
                   learnable_kweights=LEARNABLE_KWEIGHTS)
     agent.load_checkpoint(path=loading_path, tar_name=tar_name, txt_name=meta_name, replay_npy_name=replay_name,
-                          load_experience=True)
+                          load_experience=False)
 
     best_score = env.reward_range[0]
     score_history = []
 
     # Reward smoothing variables
     smoothing_weight = 0.85
-    smooth_reward_last = 0
-    smooth_reward_iter_n = 0
+    smooth_reward_iter_n_eval = 0
+    smooth_reward_last_eval = 0
     smoothed_total = list()
 
     for i in range(N_GAMES):
@@ -101,13 +102,11 @@ if __name__ == '__main__':
         print(f'@Iter: {N_TOT_STEPS}')
         score_history.append(reward_episode)
 
-        batch_sm, smooth_reward_iter_n, smooth_reward_last = \
-            smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n,
-                      last=smooth_reward_last)
-        smoothed_total.append(batch_sm)
+        sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
+            smoothing(scalars=(reward_episode,), weight=smoothing_weight, iter=smooth_reward_iter_n_eval,
+                      last=smooth_reward_last_eval)
 
-        smoothed_last_epi = smoothed_total[-1][-1]
-        print(f'Last episode reward: {reward_episode}; Smoothed reward last episode: {smoothed_last_epi}')
+        print(f'Last episode reward: {reward_episode}; Smoothed reward last episode: {sm_eval}')
         print(f'Average reward: {sum(score_history) / len(score_history)}')
 
         if N_TOT_STEPS >= MAX_TOTAL_ITER:
