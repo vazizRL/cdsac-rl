@@ -10,8 +10,8 @@ from tools import smoothing, eval_agent
 
 def run_experient():
     ''' Environment constants '''
-    LOAD_PATH = None
-    # LOAD_PATH = r""
+    # LOAD_PATH = None
+    LOAD_PATH = r"/home/zardasht/PycharmProjects/RL/dsacv02/event_1786372926.111474/"
     # gym_env = 'Walker2d-v4'
     gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
@@ -90,7 +90,7 @@ def run_experient():
     curr_dir = os.getcwd() + '/'
     tar_name = 'best_performance.tar'
     meta_name = 'agent_meta.txt'
-    replay_name = 'replay_buffer.pkl'
+    replay_name = 'mem'
 
     # Instantiate tb
     dt = datetime.now()
@@ -120,9 +120,14 @@ def run_experient():
                   memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, distributional=distributional, device=DEVICE)
 
     if LOAD_PATH:
-        shutil.copy(LOAD_PATH + '/' + 'replay_buffer.pkl.npz', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'mem_state', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'mem_action', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'mem_reward', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'mem_state_next', event_path + '/')
+        shutil.copy(LOAD_PATH + '/' + 'mem_terminal', event_path + '/')
+
         N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
-                                            replay_npy_name='replay_buffer.pkl.npz', load_experience=True)
+                                            load_experience=True, distributional=distributional)
     best_score = env.reward_range[0]
     score_history_train = []
     score_history_eval = []
@@ -220,6 +225,9 @@ def run_experient():
 
 if __name__ == '__main__':
     RUNS = 5
-    for _ in range(RUNS):
+    wait_sec = [600]*RUNS
+    wait_sec[0] = 10
+    for idx, secs in zip((range(RUNS), wait_sec)):
+        print(f'Run {idx + 1} starting in {secs} seconds')
         run_experient()
 

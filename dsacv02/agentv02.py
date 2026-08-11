@@ -255,20 +255,20 @@ class Agent:
         if save_replay:
             self.memory.save_experiences(complete_npy_file, all=save_all)
 
-    def load_checkpoint(self, path, tar_name: str, txt_name: str, replay_npy_name: str, load_experience: bool):
+    def load_checkpoint(self, path, tar_name: str, txt_name: str, load_experience: bool, distributional: bool):
         """
         - Loads: Network, optimizers, agent meta-parameters and experiences in replay buffer
         :param path: Directory containing files
         :param tar_name: Checkpoint file name, saved as .tar
         :param txt_name: Agent meta-parameters file name, saved as .txt
-        :param replay_npy_name: Name for numpy file storing experiences
         :param load_experience: Whether experience from old replay buffer is used
+        :param distributional: Whether experience from old replay buffer is used
         :return:
         """
         # Load files
         complete_checkpoint = path + '/' + tar_name
         complete_meta_data = path + '/' + txt_name
-        complete_npy_file = path + '/' + replay_npy_name
+        # complete_npy_file = path + '/' + replay_npy_name
         checkpoint = torch.load(complete_checkpoint)
         labels = ('agent_params', 'actor_params', 'critic_params', 'learning_rates')
         data = dict()
@@ -307,7 +307,7 @@ class Agent:
                       batch_size=batch_size, t_max=t_max, tau=tau, static_alpha=static_alpha, reward_scale=reward_scale,
                       gamma=gamma, update_interval=update_interval,
                       auto_alpha=auto_alpha, log_alpha_ini=log_alpha_ini, double_q=double_q, memory_size=mem_size,
-                      n_supports=n_supports, ibf=ibf, device=device
+                      n_supports=n_supports, ibf=ibf, distributional=distributional, device=device
                       )
 
         # Load network, tensor params and learning rate schedule
@@ -331,7 +331,7 @@ class Agent:
         self.learning_algo.log_alpha = self.log_alpha
 
         if load_experience:
-            self.memory.load_experiences(replay_experiences_path=complete_npy_file)
+            self.memory.load_experiences(replay_experiences_path=path)
             self.memory.mem_cntr = checkpoint['mem_count']
 
         # return self, iter_n

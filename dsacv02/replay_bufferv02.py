@@ -1,7 +1,6 @@
 import numpy as np
-import pickle
 import sys
-
+import os
 
 class ReplayBuffer:
     def __init__(self, max_size, obs_shape, n_actions):
@@ -75,28 +74,39 @@ class ReplayBuffer:
 
         return states, actions, rewards, states_, dones
 
+    def get_mem_dict(self):
+        arrays = {'_state': self.state_memory,
+                  '_action': self.action_memory,
+                  '_reward': self.reward_memory,
+                  '_state_next': self.new_state_memory,
+                  '_terminal': self.terminal_memory,
+                  }
+        return arrays
+
     def save_experiences(self, path_name: str, all=False):
         """
-        Todo: Do not pickle, save arrays with numpy.savez() for less mem usage
         - Appends newly added experiences to the byte stream
         - Expand rewards and dones by one axis for homogeneity
         :param all: If True, it deactivates the append mode and writes all experiences
         :param path_name: Path + name of the .np file; Note: Must end with '.pkl'
         """
+        arrays = self.get_mem_dict()
 
         if all:
-            np.savez(path_name, state_mem=self.state_memory[0:self.mem_cntr],
-                    action_mem=self.action_memory[0:self.mem_cntr],
-                    reward_mem=self.reward_memory[0:self.mem_cntr],
-                    state_next_mem=self.new_state_memory[0:self.mem_cntr],
-                    terminal_mem=self.terminal_memory[0:self.mem_cntr])
+            for name, arr in arrays.items():
+                arr_name_i = path_name + name
+                with open(arr_name_i, "wb") as f:
+                    np.save(f, arr[0:self.mem_cntr])
+                    f.flush()
+                    os.fsync(f.fileno())
 
         else:
-            np.savez(path_name, state_mem=self.state_memory[self.new_exp:self.mem_cntr],
-                    action_mem=self.action_memory[self.new_exp:self.mem_cntr],
-                    reward_mem=self.reward_memory[self.new_exp:self.mem_cntr],
-                    state_next_mem=self.new_state_memory[self.new_exp:self.mem_cntr],
-                    terminal_mem=self.terminal_memory[self.new_exp:self.mem_cntr])
+            for name, arr in arrays.items():
+                arr_name_i = path_name + name
+                with open(arr_name_i, "wb") as f:
+                    np.save(f, arr[self.new_exp:self.mem_cntr])
+                    f.flush()
+                    os.fsync(f.fileno())
 
             self.new_exp = self.mem_cntr
 
@@ -109,16 +119,25 @@ class ReplayBuffer:
         - Loads chunks of experience streams and concatenates them
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
+        arrays =  self.get_mem_dict()
 
-        with np.load(replay_experiences_path) as data:
-            loaded_size = len(data['state_mem'])
-            self.state_memory[:loaded_size] = data['state_mem']
-            self.action_memory[:loaded_size] = data['action_mem']
-            self.reward_memory[:loaded_size] = data['reward_mem']
-            self.new_state_memory[:loaded_size] = data['state_next_mem']
-            self.terminal_memory[:loaded_size] = data['terminal_mem']
+        for name, arr in arrays.items():
+            npy_path = replay_experiences_path + 'mem' + name
+            loaded_i = np.load(npy_path)
+            loaded_size = len(loaded_i)
+            arrays[name][:loaded_size] = loaded_i
 
         self.mem_cntr = loaded_size
+
+        # with np.load(replay_experiences_path) as data:
+        #     loaded_size = len(data['state_mem'])
+        #     self.state_memory[:loaded_size] = data['state_mem']
+        #     self.action_memory[:loaded_size] = data['action_mem']
+        #     self.reward_memory[:loaded_size] = data['reward_mem']
+        #     self.new_state_memory[:loaded_size] = data['state_next_mem']
+        #     self.terminal_memory[:loaded_size] = data['terminal_mem']
+        #
+        # self.mem_cntr = loaded_size
 
         return 0
 
