@@ -10,8 +10,8 @@ from tools import smoothing, eval_agent
 
 def run_experient():
     ''' Environment constants '''
-    # LOAD_PATH = None
-    LOAD_PATH = r"/home/zardasht/PycharmProjects/RL/dsacv02/event_1786372926.111474/"
+    LOAD_PATH = None
+    # LOAD_PATH = r"/home/zardasht/PycharmProjects/RL/dsacv02/event_1786372926.111474/"
     # gym_env = 'Walker2d-v4'
     gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     RUNS = 5
     wait_sec = [600]*RUNS
     wait_sec[0] = 10
-    for idx, secs in zip((range(RUNS), wait_sec)):
+    for idx, secs in zip(range(RUNS), wait_sec):
         print(f'Run {idx + 1} starting in {secs} seconds')
         run_experient()
 
