@@ -6,6 +6,7 @@ from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from tools import smoothing, eval_agent
+from tools_ad import find_tb, extract_iteration
 
 
 def run_experient():
@@ -121,6 +122,10 @@ def run_experient():
                   memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, distributional=distributional, device=DEVICE)
 
     if LOAD_PATH:
+        # Copy old TB into curr. event
+        old_tb = find_tb(LOAD_PATH)
+        shutil.copy(old_tb, event_path)
+        # Copy replay data into new event
         shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'states_data', event_path + '/' + 'mem' + '/' + 'states_data')
         shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'actions_data', event_path + '/' + 'mem' + '/' + 'actions_data')
         shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'rewards_data', event_path + '/' + 'mem' + '/' + 'rewards_data')

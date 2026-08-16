@@ -289,6 +289,13 @@ def concatenate_tb_logs(ev_path, offset=0):
     return 0
 
 
+def find_tb(path):
+    for f in os.listdir(path):
+        if f.startswith('events'):
+            tb_log = path + '/' + f
+    return tb_log
+
+
 if __name__ == '__main__':
     std_threshold_lib = 1000
     std_threshold_cons = 1
