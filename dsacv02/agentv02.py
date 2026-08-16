@@ -195,7 +195,7 @@ class Agent:
         self.learning_algo.force_alpha_to_val(self.log_alpha)
 
     def save_checkpoint(self, iter_n: int, path: str, tar_name: str, txt_name: str, replay_txt_name: str,
-                        save_replay=True, save_all=True):
+                        save_replay=True):
         """
         - Saves: Networks, optimizers, agent meta-parameters and experiences in replay buffer
         :param iter_n: Global iteration number at which the saving is performed
@@ -253,7 +253,7 @@ class Agent:
 
         # Save Replay Experiences
         if save_replay:
-            self.memory.save_experiences(complete_npy_file, all=save_all)
+            self.memory.save_experiences(complete_npy_file, curr_iter=iter_n)
 
     def load_checkpoint(self, path, tar_name: str, txt_name: str, load_experience: bool, distributional: bool):
         """
@@ -331,7 +331,7 @@ class Agent:
         self.learning_algo.log_alpha = self.log_alpha
 
         if load_experience:
-            self.memory.load_experiences(replay_experiences_path=path)
+            self.memory.load_experiences(replay_experiences_path=path + '/' + 'mem')
             self.memory.mem_cntr = checkpoint['mem_count']
 
         # return self, iter_n

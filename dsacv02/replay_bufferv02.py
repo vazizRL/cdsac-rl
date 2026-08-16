@@ -2,6 +2,7 @@ import numpy as np
 import sys
 import os
 
+
 class ReplayBuffer:
     def __init__(self, max_size, obs_shape, n_actions):
         # n_actions: Number of components of continuous actions
@@ -74,70 +75,77 @@ class ReplayBuffer:
 
         return states, actions, rewards, states_, dones
 
-    def get_mem_dict(self):
-        arrays = {'_state': self.state_memory,
-                  '_action': self.action_memory,
-                  '_reward': self.reward_memory,
-                  '_state_next': self.new_state_memory,
-                  '_terminal': self.terminal_memory,
-                  }
-        return arrays
+    def get_array_dict(self):
+        array_dict = {'states': self.state_memory,
+                      'actions': self.action_memory,
+                      'rewards': self.reward_memory,
+                      'states_next': self.new_state_memory,
+                      'terminals': self.terminal_memory}
 
-    def save_experiences(self, path_name: str, all=False):
+        return array_dict
+
+    def create_save_folders(self, event_path):
+        dir_names = self.get_array_dirs()
+        dir_path_list = list()
+        # Create dirs if they don't already exist
+        for dir_name_i in dir_names:
+            dir_path = os.path.join(event_path, dir_name_i)
+            dir_path_list.append(dir_path)
+            os.makedirs(dir_path, exist_ok=True)
+
+        return dir_path_list
+
+    def get_array_dirs(self):
+        dir_names = ('states_data', 'actions_data', 'rewards_data', 'states_next_data', 'terminals_data')
+        return dir_names
+
+    def save_experiences(self, event_path: str, curr_iter: int):
         """
         - Appends newly added experiences to the byte stream
         - Expand rewards and dones by one axis for homogeneity
-        :param all: If True, it deactivates the append mode and writes all experiences
-        :param path_name: Path + name of the .np file; Note: Must end with '.pkl'
+        :param event_path: Path + name of the .np file; Note: Must end with '.pkl'
+        :param curr_iter: Current iteration
         """
-        arrays = self.get_mem_dict()
+        array_dict = self.get_array_dict()
+        dir_path_list = self.create_save_folders(event_path=event_path)
 
-        if all:
-            for name, arr in arrays.items():
-                arr_name_i = path_name + name
-                with open(arr_name_i, "wb") as f:
-                    np.save(f, arr[0:self.mem_cntr])
-                    f.flush()
-                    os.fsync(f.fileno())
+        for k, dir_path_i in zip(array_dict, dir_path_list):
+            name = k + f'_{curr_iter}'
+            arr_name_i = os.path.join(dir_path_i, name)
+            arr_name_i = arr_name_i + '.npy'
+            with open(arr_name_i, "wb") as f:
+                np.save(f, array_dict[k][self.new_exp:self.mem_cntr])
+                f.flush()
+                os.fsync(f.fileno())
 
-        else:
-            for name, arr in arrays.items():
-                arr_name_i = path_name + name
-                with open(arr_name_i, "wb") as f:
-                    np.save(f, arr[self.new_exp:self.mem_cntr])
-                    f.flush()
-                    os.fsync(f.fileno())
-
-            self.new_exp = self.mem_cntr
+        self.new_exp = self.mem_cntr
 
         return 0
 
+    def extract_int(self, arr):
+        splits = arr.split('_')
+        iter_int = splits[-1][:-4]
+        return eval(iter_int)
+
     def load_experiences(self, replay_experiences_path):
         """
-        Todo: Save method change, change load method
         - Load all (s,a,r,s',d)
         - Loads chunks of experience streams and concatenates them
         :param replay_experiences_path: All tuples accumulated in one .npy file. Provide name
         """
-        arrays =  self.get_mem_dict()
+        array_dict = self.get_array_dict()
+        for k in array_dict:
+            memory_dir_i = replay_experiences_path + '/' + k + '_data'
+            memory_names = os.listdir(memory_dir_i)
+            memory_names.sort(key=self.extract_int)
+            loaded_mems = 0
+            for chunk_name_i in memory_names:
+                chunk_i = np.load(memory_dir_i + '/' + chunk_name_i)
+                len_i = len(chunk_i)
+                array_dict[k][loaded_mems:loaded_mems+len_i] = chunk_i
+                loaded_mems += len_i
 
-        for name, arr in arrays.items():
-            npy_path = replay_experiences_path + 'mem' + name
-            loaded_i = np.load(npy_path)
-            loaded_size = len(loaded_i)
-            arrays[name][:loaded_size] = loaded_i
-
-        self.mem_cntr = loaded_size
-
-        # with np.load(replay_experiences_path) as data:
-        #     loaded_size = len(data['state_mem'])
-        #     self.state_memory[:loaded_size] = data['state_mem']
-        #     self.action_memory[:loaded_size] = data['action_mem']
-        #     self.reward_memory[:loaded_size] = data['reward_mem']
-        #     self.new_state_memory[:loaded_size] = data['state_next_mem']
-        #     self.terminal_memory[:loaded_size] = data['terminal_mem']
-        #
-        # self.mem_cntr = loaded_size
+        self.mem_cntr = loaded_mems
 
         return 0
 

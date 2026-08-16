@@ -10,8 +10,8 @@ from tools import smoothing, eval_agent
 
 def run_experient():
     ''' Environment constants '''
-    LOAD_PATH = None
-    # LOAD_PATH = r"/home/zardasht/PycharmProjects/RL/dsacv02/event_1786372926.111474/"
+    # LOAD_PATH = None
+    LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1786840032.891395"
     # gym_env = 'Walker2d-v4'
     gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
@@ -63,13 +63,14 @@ def run_experient():
     '''
     Training Parameters
     '''
-    N_TOT_STEPS = 0
-    MAX_TOTAL_ITER = 1000000
+    n_steps = 0
+    MAX_TOTAL_ITER = 1_000_000
     N_GAMES = 5500000000
     MAX_EPISODE_ITER = 1000
     CHK_PROGRESS_INTERVAL = 100
     EVAL_INTERVAL = 1000
     TB_SAVE_INTERVAL = 20
+    FORCE_CHECKPOINT_INTERVAL = 1000
     PAST_MODEL_SURPASS = 6000
     # WARNING: Below is Experimental
     RESET_ENTROPY_ITER = None
@@ -120,14 +121,16 @@ def run_experient():
                   memory_size=MEM_SIZE, n_supports=N_SUPPORTS, ibf=IBF, distributional=distributional, device=DEVICE)
 
     if LOAD_PATH:
-        shutil.copy(LOAD_PATH + '/' + 'mem_state', event_path + '/')
-        shutil.copy(LOAD_PATH + '/' + 'mem_action', event_path + '/')
-        shutil.copy(LOAD_PATH + '/' + 'mem_reward', event_path + '/')
-        shutil.copy(LOAD_PATH + '/' + 'mem_state_next', event_path + '/')
-        shutil.copy(LOAD_PATH + '/' + 'mem_terminal', event_path + '/')
+        shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'states_data', event_path + '/' + 'mem' + '/' + 'states_data')
+        shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'actions_data', event_path + '/' + 'mem' + '/' + 'actions_data')
+        shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'rewards_data', event_path + '/' + 'mem' + '/' + 'rewards_data')
+        shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'states_next_data', event_path + '/' + 'mem' + '/' +
+                        'states_next_data')
+        shutil.copytree(LOAD_PATH + '/' + 'mem' + '/' + 'terminals_data', event_path + '/' + 'mem' + '/' +
+                        'terminals_data')
 
-        N_TOT_STEPS = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
-                                            load_experience=True, distributional=distributional)
+        n_steps = agent.load_checkpoint(path=LOAD_PATH, tar_name='best_performance.tar', txt_name='agent_meta.txt',
+                                        load_experience=True, distributional=distributional)
     best_score = env.reward_range[0]
     score_history_train = []
     score_history_eval = []
@@ -137,6 +140,7 @@ def run_experient():
     smooth_reward_iter_n = 0
     smooth_reward_last_eval = 0
     smooth_reward_iter_n_eval = 0
+    force_save_cntr = 0
     smoothed_total = list()
     smoothed_total_eval = [0 for i in range(PAST_MODEL_SURPASS)]
 
@@ -168,7 +172,7 @@ def run_experient():
             if episode_iter > MAX_EPISODE_ITER - 1:
                 truncate = True
                 # pass
-            if N_TOT_STEPS % CHK_PROGRESS_INTERVAL == 0:
+            if n_steps % CHK_PROGRESS_INTERVAL == 0:
                 print(f'Reward for {CHK_PROGRESS_INTERVAL}-interval: {interval_reward}; with action: {action};' + \
                       f'stored transitions: {agent.memory.mem_cntr}')
                 interval_reward = 0
@@ -177,24 +181,25 @@ def run_experient():
             reward = np.asarray(reward)
             done = np.asarray(done)
             agent.save_experience_tupel(observation, action, reward, observation_, done)
-            N_TOT_STEPS += 1
+            n_steps += 1
+            force_save_cntr += 1
             episode_iter += 1
 
-            tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=N_TOT_STEPS, exp=EXPONENTIATE)
+            tb_info = agent.learn(n_learning_iter=N_TRAIN_INTERVAL, step_number=n_steps, exp=EXPONENTIATE)
 
-            if N_TOT_STEPS % TB_SAVE_INTERVAL == 0:
+            if n_steps % TB_SAVE_INTERVAL == 0:
                 for key, value in tb_info.items():
-                    tb_writer.add_scalar(key, value, N_TOT_STEPS)
-                tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, N_TOT_STEPS)
+                    tb_writer.add_scalar(key, value, n_steps)
+                tb_writer.add_scalar('Rewards/Reward_Training', reward_episode, n_steps)
             observation = observation_
 
-            if N_TOT_STEPS % EVAL_INTERVAL == 0:
+            if n_steps % EVAL_INTERVAL == 0:
                 reward_rollout_deter = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER, stoch_pol=False)
                 reward_rollout_stoch = eval_agent(env=env_eval, agent=agent, discrete=DISCRETE, act_dim=ACTION_DIM,
                                         obs_dim=OBSERVATION_DIM, max_iter=MAX_EPISODE_ITER, stoch_pol=True)
-                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout_deter, N_TOT_STEPS)
-                tb_writer.add_scalar('Rewards/Reward_Eval_Stoch', reward_rollout_stoch, N_TOT_STEPS)
+                tb_writer.add_scalar('Rewards/Reward_Eval', reward_rollout_deter, n_steps)
+                tb_writer.add_scalar('Rewards/Reward_Eval_Stoch', reward_rollout_stoch, n_steps)
                 score_history_eval.append(reward_rollout_deter)
 
                 sm_eval, smooth_reward_iter_n_eval, smooth_reward_last_eval, _ = \
@@ -202,7 +207,7 @@ def run_experient():
                               last=smooth_reward_last_eval)
                 smoothed_total_eval.append(sm_eval)
 
-        print(f'@Iter: {N_TOT_STEPS}')
+        print(f'@Iter: {n_steps}')
         score_history_train.append(reward_episode)
         # Saving as a function of training performance
         batch_sm, smooth_reward_iter_n, smooth_reward_last, _ = \
@@ -210,17 +215,19 @@ def run_experient():
                       last=smooth_reward_last)
         smoothed_total.append(batch_sm)
         smoothed_last_epi = smoothed_total[-1]
-        if smoothed_last_epi > best_score:
+
+        if smoothed_last_epi > best_score or force_save_cntr > FORCE_CHECKPOINT_INTERVAL:
             best_score = smoothed_last_epi
-            agent.save_checkpoint(iter_n=N_TOT_STEPS, path=event_path, tar_name=tar_name, txt_name=meta_name,
+            agent.save_checkpoint(iter_n=n_steps, path=event_path, tar_name=tar_name, txt_name=meta_name,
                                   replay_txt_name=replay_name)
-            smoothed_total_eval_chkpt = smoothed_total_eval
-            smooth_reward_iter_n_eval_chkpt = smooth_reward_iter_n_eval
+            force_save_cntr = 0
         print('episode', i, ', with episode reward %.1f' % reward_episode, ', smoothed total episode reward %.1f'
               % smoothed_last_epi)
 
-        if N_TOT_STEPS >= MAX_TOTAL_ITER:
+        if n_steps >= MAX_TOTAL_ITER:
             break
+
+    tb_writer.close()
 
 
 if __name__ == '__main__':

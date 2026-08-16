@@ -35,7 +35,7 @@ def save_tb_graphs(logdir, output_dir, std_thld=3, n_kernels_act=1, n_kernels_cr
     os.makedirs(output_dir)
 
     # Get event dirs
-    event_dirs = find_event_files(root_dir=logdir)
+    event_dirs = find_event_files(root_dir=logdir, pattern_prefix="events.out.tfevents")
 
     event_accs = list()
     iter_list = list()
@@ -196,7 +196,7 @@ def compute_avg_rewards(logdir, output_dir):
     os.makedirs(output_dir)
 
     # Get event dirs
-    event_dirs = find_event_files(root_dir=logdir)
+    event_dirs = find_event_files(root_dir=logdir, pattern_prefix="events.out.tfevents")
 
     event_accs = list()
     iter_list = list()
@@ -274,7 +274,7 @@ def compute_avg_rewards(logdir, output_dir):
 
 def concatenate_tb_logs(ev_path, offset=0):
     writer = SummaryWriter(ev_path, flush_secs=20)
-    ev_accs_path = find_event_files(ev_path)
+    ev_accs_path = find_event_files(ev_path, pattern_prefix="events.out.tfevents")
     for ev_acc_path_i in ev_accs_path:
         ev_acc_i = event_accumulator.EventAccumulator(ev_acc_path_i,
                                                      # size_guidance={'scalars': 0},
