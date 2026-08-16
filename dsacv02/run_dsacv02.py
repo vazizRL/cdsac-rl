@@ -1,3 +1,5 @@
+import time
+
 import gym
 import numpy as np
 import os
@@ -6,13 +8,13 @@ from dsacv02.agentv02 import Agent
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 from tools import smoothing, eval_agent
-from tools_ad import find_tb, extract_iteration
+from tools_ad import find_tb
 
 
 def run_experient():
     ''' Environment constants '''
-    # LOAD_PATH = None
-    LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1786840032.891395"
+    LOAD_PATH = None
+    # LOAD_PATH = r"C:\Users\vanya\OneDrive\Desktop\PhD_RL\RL_Framework\dsacv02\event_1786898680.806443"
     # gym_env = 'Walker2d-v4'
     gym_env = 'Ant-v4'
     DEVICE = 'cuda:0'
@@ -241,5 +243,6 @@ if __name__ == '__main__':
     wait_sec[0] = 10
     for idx, secs in zip(range(RUNS), wait_sec):
         print(f'Run {idx + 1} starting in {secs} seconds')
+        time.sleep(secs)
         run_experient()
 
