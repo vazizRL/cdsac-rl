@@ -333,6 +333,7 @@ class Agent:
         if load_experience:
             self.memory.load_experiences(replay_experiences_path=path + '/' + 'mem')
             self.memory.mem_cntr = checkpoint['mem_count']
+            self.memory.new_exp = checkpoint['mem_count']
 
         # return self, iter_n
         return iter_n
